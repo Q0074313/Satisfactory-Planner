@@ -1,0 +1,657 @@
+{
+ "$comment": "Automatisch erzeugt durch fetch-wiki-infobox.ts. Quelle: satisfactory.wiki.gg (CC BY-NC-SA 3.0), nur Faktenangaben.",
+ "retrievedAt": "2026-10-05T12:54:00.613Z",
+ "entries": {
+  "Desc_ConstructorMk1_C": {
+   "page": "Constructor",
+   "url": "https://satisfactory.wiki.gg/wiki/Constructor",
+   "className": "Desc_ConstructorMk1_C",
+   "beltInputs": 1,
+   "beltOutputs": 1,
+   "size": {
+    "width": "8",
+    "length": "10",
+    "height": "8.5"
+   }
+  },
+  "Desc_SmelterMk1_C": {
+   "page": "Smelter",
+   "url": "https://satisfactory.wiki.gg/wiki/Smelter",
+   "className": "Desc_SmelterMk1_C",
+   "beltInputs": 1,
+   "beltOutputs": 1,
+   "size": {
+    "width": "5",
+    "length": "10",
+    "height": "8.5"
+   }
+  },
+  "Desc_FoundryMk1_C": {
+   "page": "Foundry",
+   "url": "https://satisfactory.wiki.gg/wiki/Foundry",
+   "className": "Desc_FoundryMk1_C",
+   "beltInputs": 2,
+   "beltOutputs": 1,
+   "size": {
+    "width": "10",
+    "length": "10",
+    "height": "9"
+   }
+  },
+  "Desc_OilRefinery_C": {
+   "page": "Refinery",
+   "url": "https://satisfactory.wiki.gg/wiki/Refinery",
+   "className": "Desc_OilRefinery_C",
+   "beltInputs": 1,
+   "beltOutputs": 1,
+   "pipeInputs": 1,
+   "pipeOutputs": 1,
+   "size": {
+    "width": "10",
+    "length": "22",
+    "height": "30"
+   }
+  },
+  "Desc_Packager_C": {
+   "page": "Packager",
+   "url": "https://satisfactory.wiki.gg/wiki/Packager",
+   "className": "Desc_Packager_C",
+   "beltInputs": 1,
+   "beltOutputs": 1,
+   "pipeInputs": 1,
+   "pipeOutputs": 1,
+   "size": {
+    "width": "8",
+    "length": "8",
+    "height": "12"
+   }
+  },
+  "Desc_ManufacturerMk1_C": {
+   "page": "Manufacturer",
+   "url": "https://satisfactory.wiki.gg/wiki/Manufacturer",
+   "className": "Desc_ManufacturerMk1_C",
+   "beltInputs": 4,
+   "beltOutputs": 1,
+   "size": {
+    "width": "18",
+    "length": "20",
+    "height": "12"
+   }
+  },
+  "Desc_AssemblerMk1_C": {
+   "page": "Assembler",
+   "url": "https://satisfactory.wiki.gg/wiki/Assembler",
+   "className": "Desc_AssemblerMk1_C",
+   "beltInputs": 2,
+   "beltOutputs": 1,
+   "size": {
+    "width": "9",
+    "length": "16",
+    "height": "11"
+   }
+  },
+  "Desc_Blender_C": {
+   "page": "Blender",
+   "url": "https://satisfactory.wiki.gg/wiki/Blender",
+   "className": "Desc_Blender_C",
+   "beltInputs": 2,
+   "beltOutputs": 1,
+   "pipeInputs": 2,
+   "pipeOutputs": 1,
+   "size": {
+    "width": "18",
+    "length": "16",
+    "height": "15"
+   }
+  },
+  "Desc_HadronCollider_C": {
+   "page": "Particle Accelerator",
+   "url": "https://satisfactory.wiki.gg/wiki/Particle_Accelerator",
+   "className": "Desc_HadronCollider_C",
+   "beltInputs": 2,
+   "beltOutputs": 1,
+   "pipeInputs": 1,
+   "size": {
+    "width": "24",
+    "length": "38",
+    "height": "32"
+   }
+  },
+  "Desc_Converter_C": {
+   "page": "Converter",
+   "url": "https://satisfactory.wiki.gg/wiki/Converter",
+   "className": "Desc_Converter_C",
+   "beltInputs": 2,
+   "beltOutputs": 1,
+   "pipeOutputs": 1,
+   "size": {
+    "width": "16",
+    "length": "16",
+    "height": "18"
+   }
+  },
+  "Desc_QuantumEncoder_C": {
+   "page": "Quantum Encoder",
+   "url": "https://satisfactory.wiki.gg/wiki/Quantum_Encoder",
+   "className": "Desc_QuantumEncoder_C",
+   "beltInputs": 3,
+   "beltOutputs": 1,
+   "pipeInputs": 1,
+   "pipeOutputs": 1,
+   "size": {
+    "width": "22",
+    "length": "50",
+    "height": "18"
+   }
+  },
+  "Desc_MinerMk1_C": {
+   "page": "Miner",
+   "url": "https://satisfactory.wiki.gg/wiki/Miner",
+   "className": "Desc_MinerMk1_C",
+   "beltOutputs": 1,
+   "size": {
+    "width": "6",
+    "length": "14",
+    "height": "18"
+   }
+  },
+  "Desc_OilPump_C": {
+   "page": "Oil Extractor",
+   "url": "https://satisfactory.wiki.gg/wiki/Oil_Extractor",
+   "className": "Desc_OilPump_C",
+   "pipeOutputs": 1,
+   "size": {
+    "width": "8",
+    "length": "14",
+    "height": "20"
+   }
+  },
+  "Desc_MinerMk2_C": {
+   "page": "Miner",
+   "url": "https://satisfactory.wiki.gg/wiki/Miner",
+   "className": "Desc_MinerMk2_C",
+   "beltOutputs": 1,
+   "size": {
+    "width": "6",
+    "length": "14",
+    "height": "18"
+   }
+  },
+  "Desc_MinerMk3_C": {
+   "page": "Miner",
+   "url": "https://satisfactory.wiki.gg/wiki/Miner",
+   "className": "Desc_MinerMk3_C",
+   "beltOutputs": 1,
+   "size": {
+    "width": "6",
+    "length": "14",
+    "height": "18"
+   }
+  },
+  "Desc_WaterPump_C": {
+   "page": "Water Extractor",
+   "url": "https://satisfactory.wiki.gg/wiki/Water_Extractor",
+   "className": "Desc_WaterPump_C",
+   "pipeOutputs": 1,
+   "size": {
+    "width": "20",
+    "length": "19.5",
+    "height": "26"
+   }
+  },
+  "Desc_FrackingExtractor_C": {
+   "page": "Resource Well Pressurizer",
+   "url": "https://satisfactory.wiki.gg/wiki/Resource_Well_Pressurizer",
+   "className": "Desc_FrackingExtractor_C",
+   "pipeOutputs": 1,
+   "size": {
+    "width": "4",
+    "length": "4",
+    "height": "5"
+   }
+  },
+  "Desc_FrackingSmasher_C": {
+   "page": "Resource Well Pressurizer",
+   "url": "https://satisfactory.wiki.gg/wiki/Resource_Well_Pressurizer",
+   "className": "Desc_FrackingSmasher_C",
+   "size": {
+    "width": "20",
+    "length": "20",
+    "height": "23"
+   }
+  },
+  "Desc_GeneratorBiomass_Automated_C": {
+   "page": "Biomass Burner",
+   "url": "https://satisfactory.wiki.gg/wiki/Biomass_Burner",
+   "className": "Desc_GeneratorBiomass_Automated_C",
+   "beltInputs": 1,
+   "size": {
+    "width": "8",
+    "length": "8",
+    "height": "10"
+   }
+  },
+  "Desc_GeneratorCoal_C": {
+   "page": "Coal-Powered Generator",
+   "url": "https://satisfactory.wiki.gg/wiki/Coal-Powered_Generator",
+   "className": "Desc_GeneratorCoal_C",
+   "beltInputs": 1,
+   "pipeInputs": 1,
+   "size": {
+    "width": "10",
+    "length": "26",
+    "height": "36"
+   }
+  },
+  "Desc_GeneratorFuel_C": {
+   "page": "Fuel-Powered Generator",
+   "url": "https://satisfactory.wiki.gg/wiki/Fuel-Powered_Generator",
+   "className": "Desc_GeneratorFuel_C",
+   "size": {
+    "width": "20",
+    "length": "20",
+    "height": "27"
+   }
+  },
+  "Desc_GeneratorNuclear_C": {
+   "page": "Nuclear Power Plant",
+   "url": "https://satisfactory.wiki.gg/wiki/Nuclear_Power_Plant",
+   "className": "Desc_GeneratorNuclear_C",
+   "beltInputs": 1,
+   "beltOutputs": 1,
+   "pipeInputs": 1,
+   "size": {
+    "width": "36",
+    "length": "43",
+    "height": "39"
+   }
+  },
+  "Desc_GeneratorGeoThermal_C": {
+   "page": "Geothermal Generator",
+   "url": "https://satisfactory.wiki.gg/wiki/Geothermal_Generator",
+   "className": "Desc_GeneratorGeoThermal_C",
+   "size": {
+    "width": "19",
+    "length": "20",
+    "height": "34"
+   }
+  },
+  "Desc_PowerStorageMk1_C": {
+   "page": "Power Storage",
+   "url": "https://satisfactory.wiki.gg/wiki/Power_Storage",
+   "className": "Desc_PowerStorageMk1_C",
+   "size": {
+    "width": "6",
+    "length": "6",
+    "height": "12"
+   }
+  },
+  "Desc_ConveyorAttachmentSplitter_C": {
+   "page": "Conveyor Splitter",
+   "url": "https://satisfactory.wiki.gg/wiki/Conveyor_Splitter",
+   "className": "Desc_ConveyorAttachmentSplitter_C",
+   "beltInputs": 1,
+   "beltOutputs": 3,
+   "size": {
+    "width": "4",
+    "length": "4",
+    "height": "2n+1"
+   }
+  },
+  "Desc_ConveyorAttachmentMerger_C": {
+   "page": "Conveyor Merger",
+   "url": "https://satisfactory.wiki.gg/wiki/Conveyor_Merger",
+   "className": "Desc_ConveyorAttachmentMerger_C",
+   "beltInputs": 3,
+   "beltOutputs": 1,
+   "size": {
+    "width": "4",
+    "length": "4",
+    "height": "2n+1"
+   }
+  },
+  "Desc_ConveyorAttachmentSplitterProgrammable_C": {
+   "page": "Programmable Splitter",
+   "url": "https://satisfactory.wiki.gg/wiki/Programmable_Splitter",
+   "className": "Desc_ConveyorAttachmentSplitterProgrammable_C",
+   "beltInputs": 1,
+   "beltOutputs": 3,
+   "size": {
+    "width": "4",
+    "length": "4",
+    "height": "2n+1"
+   }
+  },
+  "Desc_ConveyorAttachmentSplitterSmart_C": {
+   "page": "Smart Splitter",
+   "url": "https://satisfactory.wiki.gg/wiki/Smart_Splitter",
+   "className": "Desc_ConveyorAttachmentSplitterSmart_C",
+   "beltInputs": 1,
+   "beltOutputs": 3,
+   "size": {
+    "width": "4",
+    "length": "4",
+    "height": "2n+1"
+   }
+  },
+  "Desc_ConveyorAttachmentMergerPriority_C": {
+   "page": "Priority Merger",
+   "url": "https://satisfactory.wiki.gg/wiki/Priority_Merger",
+   "className": "Desc_ConveyorAttachmentMergerPriority_C",
+   "size": {}
+  },
+  "Desc_PipelineJunction_Cross_C": {
+   "page": "Pipeline Junction",
+   "url": "https://satisfactory.wiki.gg/wiki/Pipeline_Junction",
+   "className": "Desc_PipelineJunction_Cross_C",
+   "pipeAny": 4,
+   "size": {
+    "width": "4",
+    "length": "4",
+    "height": "2"
+   }
+  },
+  "Desc_PipelineJunction_T_C": {
+   "page": "Pipeline Junction",
+   "url": "https://satisfactory.wiki.gg/wiki/Pipeline_Junction",
+   "className": "Desc_PipelineJunction_T_C",
+   "pipeAny": 3,
+   "size": {
+    "width": "3",
+    "length": "4",
+    "height": "2"
+   }
+  },
+  "Desc_Valve_C": {
+   "page": "Valve",
+   "url": "https://satisfactory.wiki.gg/wiki/Valve",
+   "className": "Desc_Valve_C",
+   "size": {
+    "width": "2",
+    "length": "2",
+    "height": "2"
+   }
+  },
+  "Desc_PipelinePump_C": {
+   "page": "Pipeline Pump",
+   "url": "https://satisfactory.wiki.gg/wiki/Pipeline_Pump",
+   "className": "Desc_PipelinePump_C",
+   "pipeInputs": 1,
+   "pipeOutputs": 1,
+   "size": {
+    "width": "2",
+    "length": "4",
+    "height": "2"
+   }
+  },
+  "Desc_PipelinePumpMk2_C": {
+   "page": "Pipeline Pump",
+   "url": "https://satisfactory.wiki.gg/wiki/Pipeline_Pump",
+   "className": "Desc_PipelinePumpMk2_C",
+   "pipeInputs": 1,
+   "pipeOutputs": 1,
+   "size": {
+    "width": "2",
+    "length": "5",
+    "height": "2"
+   }
+  },
+  "Desc_StorageContainerMk1_C": {
+   "page": "Storage Container",
+   "url": "https://satisfactory.wiki.gg/wiki/Storage_Container",
+   "className": "Desc_StorageContainerMk1_C",
+   "beltInputs": 1,
+   "beltOutputs": 1,
+   "size": {
+    "width": "5",
+    "length": "11",
+    "height": "4"
+   }
+  },
+  "Desc_StorageMedkit_C": {
+   "page": "Personal Storage Box",
+   "url": "https://satisfactory.wiki.gg/wiki/Personal_Storage_Box",
+   "className": "Desc_StorageMedkit_C",
+   "size": {
+    "width": "2",
+    "length": "1",
+    "height": "1"
+   }
+  },
+  "Desc_StorageHazard_C": {
+   "page": "Personal Storage Box",
+   "url": "https://satisfactory.wiki.gg/wiki/Personal_Storage_Box",
+   "className": "Desc_StorageHazard_C",
+   "size": {
+    "width": "2",
+    "length": "1",
+    "height": "1"
+   }
+  },
+  "Desc_StorageContainerMk2_C": {
+   "page": "Storage Container",
+   "url": "https://satisfactory.wiki.gg/wiki/Storage_Container",
+   "className": "Desc_StorageContainerMk2_C",
+   "beltInputs": 2,
+   "beltOutputs": 2,
+   "size": {
+    "width": "5",
+    "length": "11",
+    "height": "8"
+   }
+  },
+  "Desc_StoragePlayer_C": {
+   "page": "Personal Storage Box",
+   "url": "https://satisfactory.wiki.gg/wiki/Personal_Storage_Box",
+   "className": "Desc_StoragePlayer_C",
+   "size": {
+    "width": "2",
+    "length": "1",
+    "height": "1"
+   }
+  },
+  "Desc_PipeStorageTank_C": {
+   "page": "Fluid Buffer",
+   "url": "https://satisfactory.wiki.gg/wiki/Fluid_Buffer",
+   "className": "Desc_PipeStorageTank_C",
+   "pipeInputs": 1,
+   "pipeOutputs": 1,
+   "size": {
+    "width": "6",
+    "length": "6",
+    "height": "8"
+   }
+  },
+  "Desc_IndustrialTank_C": {
+   "page": "Fluid Buffer",
+   "url": "https://satisfactory.wiki.gg/wiki/Fluid_Buffer",
+   "className": "Desc_IndustrialTank_C",
+   "pipeInputs": 1,
+   "pipeOutputs": 1,
+   "size": {
+    "width": "14",
+    "length": "14",
+    "height": "12"
+   }
+  },
+  "Desc_CentralStorage_C": {
+   "page": "Dimensional Depot Uploader",
+   "url": "https://satisfactory.wiki.gg/wiki/Dimensional_Depot_Uploader",
+   "className": "Desc_CentralStorage_C",
+   "beltInputs": 1,
+   "size": {
+    "width": "5",
+    "length": "10",
+    "height": "4.25"
+   }
+  },
+  "Desc_RailroadTrack_C": {
+   "page": "Railway",
+   "url": "https://satisfactory.wiki.gg/wiki/Railway",
+   "className": "Desc_RailroadTrack_C",
+   "size": {
+    "width": "6",
+    "length": "12–100",
+    "height": "Visual: 1.3 m<br/>Hitbox: 0.5"
+   }
+  },
+  "Desc_TrainStation_C": {
+   "page": "Train Station",
+   "url": "https://satisfactory.wiki.gg/wiki/Train_Station",
+   "className": "Desc_TrainStation_C",
+   "size": {
+    "width": "34",
+    "length": "16",
+    "height": "20"
+   }
+  },
+  "Desc_TrainDockingStation_C": {
+   "page": "Freight Platform",
+   "url": "https://satisfactory.wiki.gg/wiki/Freight_Platform",
+   "className": "Desc_TrainDockingStation_C",
+   "beltInputs": 2,
+   "beltOutputs": 2,
+   "size": {
+    "width": "34",
+    "length": "16",
+    "height": "20"
+   }
+  },
+  "Desc_TrainDockingStationLiquid_C": {
+   "page": "Freight Platform",
+   "url": "https://satisfactory.wiki.gg/wiki/Freight_Platform",
+   "className": "Desc_TrainDockingStationLiquid_C",
+   "pipeInputs": 2,
+   "pipeOutputs": 2,
+   "size": {
+    "width": "34",
+    "length": "16",
+    "height": "20"
+   }
+  },
+  "Desc_TrainPlatformEmpty_C": {
+   "page": "Empty Platform",
+   "url": "https://satisfactory.wiki.gg/wiki/Empty_Platform",
+   "className": "Desc_TrainPlatformEmpty_C",
+   "size": {
+    "width": "34",
+    "length": "16",
+    "height": "1"
+   }
+  },
+  "Desc_TrainPlatformEmpty_02_C": {
+   "page": "Empty Platform",
+   "url": "https://satisfactory.wiki.gg/wiki/Empty_Platform",
+   "className": "Desc_TrainPlatformEmpty_02_C",
+   "size": {
+    "width": "34",
+    "length": "16",
+    "height": "1"
+   }
+  },
+  "Desc_RailroadPathSignal_C": {
+   "page": "Train Signals",
+   "url": "https://satisfactory.wiki.gg/wiki/Train_Signals",
+   "className": "Desc_RailroadPathSignal_C",
+   "size": {}
+  },
+  "Desc_RailroadBlockSignal_C": {
+   "page": "Train Signals",
+   "url": "https://satisfactory.wiki.gg/wiki/Train_Signals",
+   "className": "Desc_RailroadBlockSignal_C",
+   "size": {}
+  },
+  "Desc_ResourceSink_C": {
+   "page": "AWESOME Sink",
+   "url": "https://satisfactory.wiki.gg/wiki/AWESOME_Sink",
+   "className": "Desc_ResourceSink_C",
+   "beltInputs": 1,
+   "size": {
+    "width": "16",
+    "length": "13",
+    "height": "24"
+   }
+  },
+  "Desc_SpaceElevator_C": {
+   "page": "Space Elevator",
+   "url": "https://satisfactory.wiki.gg/wiki/Space_Elevator",
+   "className": "Desc_SpaceElevator_C",
+   "beltInputs": 6,
+   "size": {
+    "width": "48",
+    "length": "54",
+    "height": "118"
+   }
+  },
+  "Desc_RadarTower_C": {
+   "page": "Radar Tower",
+   "url": "https://satisfactory.wiki.gg/wiki/Radar_Tower",
+   "className": "Desc_RadarTower_C",
+   "size": {
+    "width": "10",
+    "length": "10",
+    "height": "118"
+   }
+  },
+  "Desc_DroneStation_C": {
+   "page": "Drone Port",
+   "url": "https://satisfactory.wiki.gg/wiki/Drone_Port",
+   "className": "Desc_DroneStation_C",
+   "beltInputs": 2,
+   "beltOutputs": 1,
+   "size": {
+    "width": "24",
+    "length": "24",
+    "height": "15"
+   }
+  },
+  "Desc_FluidTruckStation_C": {
+   "page": "Truck Station",
+   "url": "https://satisfactory.wiki.gg/wiki/Truck_Station",
+   "className": "Desc_FluidTruckStation_C",
+   "beltInputs": 1,
+   "pipeInputs": 2,
+   "pipeOutputs": 2,
+   "size": {
+    "width": "16",
+    "length": "22",
+    "height": "12"
+   }
+  },
+  "Desc_TruckStation_C": {
+   "page": "Truck Station",
+   "url": "https://satisfactory.wiki.gg/wiki/Truck_Station",
+   "className": "Desc_TruckStation_C",
+   "beltInputs": 3,
+   "beltOutputs": 2,
+   "size": {
+    "width": "16",
+    "length": "22",
+    "height": "12"
+   }
+  },
+  "Desc_BlueprintDesigner_MK2_C": {
+   "page": "Blueprint Designer",
+   "url": "https://satisfactory.wiki.gg/wiki/Blueprint_Designer",
+   "className": "Desc_BlueprintDesigner_MK2_C",
+   "size": {
+    "width": "48",
+    "length": "48",
+    "height": "42 (cannot be placed beneath anything)"
+   }
+  },
+  "Desc_BlueprintDesigner_C": {
+   "page": "Blueprint Designer",
+   "url": "https://satisfactory.wiki.gg/wiki/Blueprint_Designer",
+   "className": "Desc_BlueprintDesigner_C",
+   "size": {
+    "width": "40",
+    "length": "40",
+    "height": "34 (cannot be placed beneath anything)"
+   }
+  }
+ },
+ "missing": [
+  "Build_BlueprintDesigner_Mk3_C (Blueprint Designer Mk.3)"
+ ]
+}

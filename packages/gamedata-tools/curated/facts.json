@@ -1,0 +1,111 @@
+{
+  "$comment": "Kuratierte Einzelwerte, die nicht (vollständig) in den Docs-Dateien des Spiels stehen. Jeder Wert nennt Quelle und Verlässlichkeit. Wiki-Abruf: 2026-10-05, Stand Spielversion 1.2.",
+  "facts": {
+    "rail.freightCar.lengthM": {
+      "value": 16, "unit": "m",
+      "description": "Länge eines Güterwagens (entspricht einem Bahnsteig).",
+      "sourceRef": { "source": "wiki", "detail": "Freight_Car (Infobox size_length)", "confidence": "documented" }
+    },
+    "rail.locomotive.lengthM": {
+      "value": 16, "unit": "m",
+      "description": "Länge einer Elektrolokomotive.",
+      "sourceRef": { "source": "wiki", "detail": "Electric_Locomotive (Infobox size_length)", "confidence": "documented" }
+    },
+    "rail.freightCar.slots": {
+      "value": 32, "unit": "Stapel",
+      "description": "Inventarplätze eines Güterwagens (Feststoffe).",
+      "sourceRef": { "source": "wiki", "detail": "Freight_Car", "confidence": "documented" }
+    },
+    "rail.freightCar.fluidM3": {
+      "value": 2400, "unit": "m³",
+      "description": "Flüssigkeitskapazität eines Güterwagens. Laut Wiki in 1.2 von 1600 auf 2400 m³ erhöht (Quelle dort: Reddit-Beobachtung).",
+      "sourceRef": { "source": "wiki", "detail": "Freight_Car", "confidence": "documented" }
+    },
+    "rail.locomotive.maxSpeedKmh": {
+      "value": 120, "unit": "km/h",
+      "description": "Höchstgeschwindigkeit aus eigener Kraft auf ebener Strecke.",
+      "sourceRef": { "source": "wiki", "detail": "Electric_Locomotive (Infobox maxSpeed)", "confidence": "documented" }
+    },
+    "rail.docking.durationS": {
+      "value": 27.08, "unit": "s",
+      "description": "Dauer des Lade-/Entladevorgangs an Güterbahnsteigen (Docs: mTimeToCompleteLoad = 27 s).",
+      "sourceRef": { "source": "wiki", "detail": "Freight_Platform#Loading_and_unloading", "confidence": "documented" }
+    },
+    "rail.station.passThroughPenaltyM": {
+      "value": 100, "unit": "m",
+      "description": "Wegkostenaufschlag der Zug-Wegfindung für Bahnhöfe, die ohne Halt durchfahren werden.",
+      "sourceRef": { "source": "wiki", "detail": "Train_Station#Automation", "confidence": "documented" }
+    },
+    "rail.track.minSegmentLengthM": {
+      "value": 12, "unit": "m",
+      "description": "Minimale Länge eines Schienensegments.",
+      "sourceRef": { "source": "wiki", "detail": "Railway#Building_Limitations", "confidence": "documented" }
+    },
+    "rail.track.maxSegmentLengthM": {
+      "value": 100, "unit": "m",
+      "description": "Maximale Länge eines Schienensegments.",
+      "sourceRef": { "source": "wiki", "detail": "Railway#Building_Limitations", "confidence": "documented" }
+    },
+    "rail.track.minTurnRadiusM": {
+      "value": 17, "unit": "m",
+      "description": "Kleinster Kurvenradius (90°-Kurve, gemessen an der Gleismitte). Laut Wiki meldet das Spiel beim Verbinden zweier vorhandener Gleise teils auch bei größeren Radien 'zu eng'.",
+      "sourceRef": { "source": "wiki", "detail": "Railway#Building_Limitations", "confidence": "documented" }
+    },
+    "rail.signal.minDistanceFromSegmentEndM": {
+      "value": 12, "unit": "m",
+      "description": "Frei auf einem Segment platzierte Signale müssen mindestens diesen Abstand zum Segmentende haben.",
+      "sourceRef": { "source": "wiki", "detail": "Block_Signal#Construction", "confidence": "documented" }
+    },
+    "rail.signal.maxPerJoint": {
+      "value": 2, "unit": "Signale",
+      "description": "Höchstens zwei Signale je Gleisverbindung, in entgegengesetzte Richtungen.",
+      "sourceRef": { "source": "wiki", "detail": "Block_Signal#Construction", "confidence": "documented" }
+    },
+    "rail.signal.brakingDistanceM": {
+      "value": 250, "unit": "m",
+      "description": "Ungefähre Entfernung, ab der Züge vor roten Signalen bremsen (Wiki: 'about 250 m').",
+      "sourceRef": { "source": "wiki", "detail": "Block_Signal#Tips", "confidence": "documented" }
+    },
+    "rail.track.collisionWidthM": {
+      "value": 6, "unit": "m",
+      "description": "Breite der Gleis-Kollisionsbox vor 1.2. Laut Wiki wurde die Hitbox in 1.2 verkleinert; der neue Wert ist nicht dokumentiert.",
+      "sourceRef": { "source": "wiki", "detail": "Railway#Building_Limitations, Block_Signal#History (Patch 1.2.0.0)", "confidence": "unverified" }
+    },
+    "production.powerShard.maxSlots": {
+      "value": 3, "unit": "Splitter",
+      "description": "Maximal drei Energiesplitter je Gebäude (bis 250 % Takt).",
+      "sourceRef": { "source": "wiki", "detail": "Power_Shard#Overclocking", "confidence": "documented" }
+    },
+    "production.clock.maxWithShards": {
+      "value": 2.5, "unit": "Faktor",
+      "description": "Maximaler Takt mit drei Energiesplittern.",
+      "sourceRef": { "source": "wiki", "detail": "Clock_speed", "confidence": "documented" }
+    },
+    "extraction.purity.impure": {
+      "value": 0.5, "unit": "Faktor",
+      "description": "Förderfaktor unreiner Vorkommen.",
+      "sourceRef": { "source": "wiki", "detail": "Resource_node#Purity", "confidence": "documented" }
+    },
+    "extraction.purity.normal": {
+      "value": 1, "unit": "Faktor",
+      "description": "Förderfaktor normaler Vorkommen.",
+      "sourceRef": { "source": "wiki", "detail": "Resource_node#Purity", "confidence": "documented" }
+    },
+    "extraction.purity.pure": {
+      "value": 2, "unit": "Faktor",
+      "description": "Förderfaktor reiner Vorkommen.",
+      "sourceRef": { "source": "wiki", "detail": "Resource_node#Purity", "confidence": "documented" }
+    },
+    "resource.worldMaxPerMin.Desc_OreIron_C": { "value": 92100, "unit": "/min", "description": "Weltweites Maximum Eisenerz (alle Vorkommen, Miner Mk.3 bei 250 %).", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } },
+    "resource.worldMaxPerMin.Desc_OreGold_C": { "value": 15000, "unit": "/min", "description": "Weltweites Maximum Cateriumerz.", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } },
+    "resource.worldMaxPerMin.Desc_OreCopper_C": { "value": 36900, "unit": "/min", "description": "Weltweites Maximum Kupfererz.", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } },
+    "resource.worldMaxPerMin.Desc_Stone_C": { "value": 69300, "unit": "/min", "description": "Weltweites Maximum Kalkstein.", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } },
+    "resource.worldMaxPerMin.Desc_Coal_C": { "value": 42300, "unit": "/min", "description": "Weltweites Maximum Kohle.", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } },
+    "resource.worldMaxPerMin.Desc_RawQuartz_C": { "value": 13500, "unit": "/min", "description": "Weltweites Maximum Rohquarz.", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } },
+    "resource.worldMaxPerMin.Desc_Sulfur_C": { "value": 10800, "unit": "/min", "description": "Weltweites Maximum Schwefel.", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } },
+    "resource.worldMaxPerMin.Desc_OreUranium_C": { "value": 2100, "unit": "/min", "description": "Weltweites Maximum Uran.", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } },
+    "resource.worldMaxPerMin.Desc_OreBauxite_C": { "value": 12300, "unit": "/min", "description": "Weltweites Maximum Bauxit.", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } },
+    "resource.worldMaxPerMin.Desc_SAM_C": { "value": 10200, "unit": "/min", "description": "Weltweites Maximum SAM.", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } },
+    "resource.worldMaxPerMin.Desc_LiquidOil_C": { "value": 12600, "unit": "m³/min", "description": "Weltweites Maximum Rohöl (Vorkommen + Quellen).", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } }
+  }
+}

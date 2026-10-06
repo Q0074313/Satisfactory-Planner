@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+coverage/
+.vite/
+test-results/
+playwright-report/
+.data
+# Laufzeitdaten des Servers (Projekte) und Sicherungen – nie einchecken
+/storage/
+/backups/

@@ -1,0 +1,17 @@
+{
+  "$comment": "Anschlusszahlen für Gebäude, deren Wiki-Infobox keine Angaben enthält. Vorrang vor wiki-infobox.json.",
+  "overrides": {
+    "Build_ConveyorAttachmentMergerPriority_C": {
+      "ports": { "beltIn": 3, "beltOut": 1 },
+      "sourceRef": { "source": "wiki", "detail": "Priority_Merger (Fließtext: 'each of its three inputs', 'its output')", "confidence": "documented" }
+    },
+    "Build_Valve_C": {
+      "ports": { "pipeIn": 1, "pipeOut": 1 },
+      "sourceRef": { "source": "wiki", "detail": "Valve (Fließtext: Durchfluss nur in eine Richtung, Eingangs- und Ausgangsseite)", "confidence": "documented" }
+    },
+    "Build_GeneratorFuel_C": {
+      "ports": { "pipeIn": 1 },
+      "sourceRef": { "source": "manual", "detail": "Ein Rohreingang für Brennstoff – Spielkenntnis, nicht aus einer Quelle geprüft", "confidence": "unverified" }
+    }
+  }
+}

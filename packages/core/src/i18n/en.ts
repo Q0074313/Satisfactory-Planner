@@ -1,0 +1,559 @@
+/** Englische Übersetzungen der Texte aus `@satis/core` (Prüfmeldungen, Regeln, Fehlermeldungen). */
+import { registerTranslations } from './index.ts';
+
+export const CORE_EN: Record<string, string> = {
+  // --- Fabrik: Befunde ---
+  'Unbekannter Gebäudetyp {type}': 'Unknown building type {type}',
+  'Der Typ fehlt im Spieldatensatz des Projekts. Maße, Anschlüsse und Rezepte sind unbekannt.':
+    "The type is missing from the project's game data set. Dimensions, ports and recipes are unknown.",
+  'Gebäude löschen oder durch einen vorhandenen Typ ersetzen.': 'Delete the building or replace it with an existing type.',
+  '{a} und {b} überschneiden sich': '{a} and {b} overlap',
+  'Weiche Zonen von {a} und {b} überschneiden sich': 'Soft zones of {a} and {b} overlap',
+  'Die festen Kollisionsboxen beider Gebäude überschneiden sich im Grundriss und in der Höhe. Das Spiel lässt so nicht bauen.':
+    'The solid collision boxes of both buildings overlap in plan and height. The game does not allow building like this.',
+  'Mindestens eine der beteiligten Boxen ist eine weiche Freihaltezone. Ob das Spiel diese Überschneidung erlaubt, ist nicht verifiziert.':
+    'At least one of the boxes involved is a soft clearance zone. Whether the game allows this overlap is not verified.',
+  'Eines der Gebäude verschieben oder drehen, bis sich die Umrisse nicht mehr überschneiden.': 'Move or rotate one of the buildings until the outlines no longer overlap.',
+  '{name} liegt außerhalb der Baufläche': '{name} is outside the build area',
+  'Auf „{floor}“ ist eine Baufläche festgelegt. Das Gebäude liegt ganz oder teilweise außerhalb davon.':
+    'A build area is defined on “{floor}”. The building lies completely or partly outside of it.',
+  'Gebäude in die Baufläche verschieben oder die Baufläche erweitern.': 'Move the building into the build area or extend the build area.',
+  '{name} ragt in einen Planungsabstand': '{name} extends into a clearance zone',
+  'Das Gebäude überschneidet einen selbst festgelegten Freihaltebereich, z. B. einen Wartungs- oder Laufweg.':
+    'The building overlaps a user-defined clearance zone, e.g. a maintenance path or walkway.',
+  'Gebäude verschieben oder den Planungsabstand anpassen.': 'Move the building or adjust the clearance zone.',
+  '{name} ({h} m) ist höher als „{floor}“ ({fh} m)': '{name} ({h} m) is taller than “{floor}” ({fh} m)',
+  'Das Gebäude ragt in das darüberliegende Stockwerk.': 'The building extends into the floor above.',
+  'Stockwerkshöhe erhöhen oder die Decke an dieser Stelle aussparen.': 'Increase the floor height or leave a gap in the ceiling here.',
+  '{n} geplante Maschine(n) noch nicht aufgestellt': '{n} planned machine(s) not placed yet',
+  'Diese Maschinen sind angelegt und zählen in der Bilanz als „geplant“, stehen aber noch nicht im Grundriss.':
+    'These machines exist and count as “planned” in the balance, but are not placed in the floor plan yet.',
+  'In der Liste „Nicht platziert“ auswählen und im Grundriss absetzen.': 'Select them in the “Not placed” list and drop them into the floor plan.',
+  '{name} ohne Rezept': '{name} without recipe',
+  'Ohne Rezept trägt die Maschine nichts zur Produktionsbilanz bei.': 'Without a recipe the machine does not contribute to the production balance.',
+  'In den Eigenschaften ein Rezept wählen.': 'Choose a recipe in the properties.',
+  'Anschlusslagen sind schematisch dargestellt': 'Port positions are shown schematically',
+  'Anschlussseiten im Spiel kontrollieren, bevor Bandverläufe endgültig festgelegt werden.': 'Check port sides in the game before finalising belt routes.',
+  'Baubarkeit der Förderbänder und Rohre nicht geprüft': 'Buildability of belts and pipes not checked',
+  'Leitungsverläufe im Spiel prüfen. Der Planer prüft nur Anschlussart, Richtung und Durchsatz.':
+    'Check routes in the game. The planner only checks port type, direction and throughput.',
+  '{tier}: benötigt {need}, Kapazität {cap}': '{tier}: needs {need}, capacity {cap}',
+  'Ohne Kapazitätsgrenze müsste die Verbindung {need} tragen ({items}). Die gezeichnete Stufe schafft {cap}. Die angeschlossenen Maschinen laufen dadurch langsamer.':
+    'Without a capacity limit the connection would have to carry {need} ({items}). The drawn tier handles {cap}. The connected machines therefore run slower.',
+  'Höhere Stufe wählen oder den Strom auf zwei Leitungen aufteilen.': 'Choose a higher tier or split the flow over two lines.',
+  '{item} kommt an {target} an, wird dort aber nicht verarbeitet': '{item} arrives at {target} but is not processed there',
+  'Über diese Verbindung kann {item} ankommen. Das Zielgebäude nimmt diesen Gegenstand nicht an; im Spiel staut sich die Leitung.':
+    '{item} can arrive via this connection. The target building does not accept this item; in the game the line backs up.',
+  'Verbindung an ein passendes Gebäude führen, vorher aussortieren (Splitter) oder das Rezept anpassen.':
+    'Route the connection to a suitable building, sort the item out beforehand (splitter) or change the recipe.',
+  '{name}: {item} wird nicht abgeführt': '{name}: {item} is not carried away',
+  'Der Ausgang für {item} ist nicht verbunden, oder hinter der Verbindung nimmt niemand {item} ab. Sobald der Ausgangspuffer voll ist, hält die Maschine an.':
+    'The output for {item} is not connected, or nothing downstream accepts {item}. As soon as the output buffer is full, the machine stops.',
+  'Für {item} hat das Gebäude keinen passenden Ausgang. Sobald der Ausgangspuffer voll ist, hält die Maschine an.':
+    'The building has no suitable output for {item}. As soon as the output buffer is full, the machine stops.',
+  'Ausgang mit einem Abnehmer verbinden (Maschine, Lager, Frachtplattform oder AWESOME-Schredder).':
+    'Connect the output to a consumer (machine, storage, freight platform or AWESOME Sink).',
+  '{item}: keine Zuleitung, über die es ankommen kann': '{item}: no input line through which it can arrive',
+  'Vorprodukte reichen nur für {pct} % (Zulieferung zu gering)': 'Inputs only suffice for {pct} % (supply too low)',
+  'Mit den gezeichneten Leitungsstufen nur {pct} % statt {pct2} %': 'With the drawn line tiers only {pct} % instead of {pct2} %',
+  '{name} läuft mit {pct} % seines Takts': '{name} runs at {pct} % of its clock speed',
+  'Fehlende Zutaten zuführen (Band oder Rohr vom Erzeuger, Lager oder einer Frachtplattform).':
+    'Supply the missing ingredients (belt or pipe from a producer, storage or a freight platform).',
+  'Mehr Vorprodukte bereitstellen oder Leitungsstufen erhöhen.': 'Provide more inputs or increase line tiers.',
+  'Durchsatz nach vereinfachtem Modell berechnet': 'Throughput calculated with a simplified model',
+  'Engpässe im Spiel mit Durchsatzmessern kontrollieren.': 'Verify bottlenecks in the game with throughput monitors.',
+  '{kind} durchquert {floors}': '{kind} passes through {floors}',
+  Förderlift: 'Conveyor lift',
+  'Senkrechtes Rohr': 'Vertical pipe',
+  'Der senkrechte Abschnitt bei x {x} m, y {y} m führt durch den Boden. Dort ist eine Aussparung nötig.':
+    'The vertical section at x {x} m, y {y} m passes through the floor. An opening is needed there.',
+  'Aussparung im Fundament vorsehen oder den Lift an den Rand verlegen.': 'Plan an opening in the foundation or move the lift to the edge.',
+  'Höhenwechsel um {dz} m ohne senkrechten Abschnitt': 'Height change of {dz} m without a vertical section',
+  'Beim Zeichnen das Stockwerk wechseln (Bild↑/Bild↓), damit ein Lift entsteht, oder die Steigung im Spiel prüfen.':
+    'Switch floors while drawing (PgUp/PgDn) to create a lift, or check the slope in the game.',
+  'Rohr steigt um {h} m': 'Pipe rises by {h} m',
+  'Förderhöhe im Spiel prüfen und bei Bedarf eine Pipeline-Pumpe einplanen.': 'Check the head lift in the game and add a pipeline pump if needed.',
+
+  // --- Fabrik: Durchsatzmodell ---
+  'Splitter und Zusammenführungen verteilen bestmöglich (im Spiel: gleichmäßig, Überlauf auf freie Ausgänge).':
+    'Splitters and mergers distribute optimally (in the game: evenly, overflow to free outputs).',
+  'Filter intelligenter und programmierbarer Splitter werden nicht berücksichtigt.': 'Filters of smart and programmable splitters are not considered.',
+  'Rohre fließen in Zeichenrichtung; Förderhöhe, Pumpen und Druck werden nicht berechnet.':
+    'Pipes flow in drawing direction; head lift, pumps and pressure are not calculated.',
+  'Kraftwerke nehmen Brennstoff ab, ihr Verbrauch ist nicht modelliert.': 'Power plants accept fuel; their consumption is not modelled.',
+  'Produkte werden den Ausgängen in Rezeptreihenfolge zugeordnet (Anschlusslage schematisch).':
+    'Products are assigned to outputs in recipe order (port positions schematic).',
+  'Durchsatzmodell nicht lösbar ({status}).': 'Throughput model not solvable ({status}).',
+
+  // --- Anschlüsse ---
+  'Förderband und Rohrleitung können nicht verbunden werden.': 'A conveyor belt and a pipeline cannot be connected.',
+  'Der Startanschluss ist ein Eingang.': 'The start port is an input.',
+  'Der Zielanschluss ist ein Ausgang.': 'The target port is an output.',
+  'Zwei Eingänge können nicht verbunden werden.': 'Two inputs cannot be connected.',
+  'Zwei Ausgänge können nicht verbunden werden.': 'Two outputs cannot be connected.',
+
+  // --- Produktion ---
+  'Plan „{plan}“: {msg}': 'Plan “{plan}”: {msg}',
+  'Ziele, Versorgung und Grenzen des Plans prüfen.': 'Check the targets, supply and limits of the plan.',
+  'Plan „{plan}“: {item} – es fehlen {n}/min': 'Plan “{plan}”: {item} – {n}/min missing',
+  'Alternativrezepte freischalten, Rohstoffgrenzen erhöhen, Zulieferung (Import) ergänzen oder Ziel verringern.':
+    'Enable alternate recipes, raise resource limits, add a supply (import) or lower the target.',
+  'Grenze anheben oder alternative Rezepte zulassen.': 'Raise the limit or allow alternate recipes.',
+  'Plan „{plan}“: {n} Rezept(e) mit zu wenigen Maschinen in der Fabrik': 'Plan “{plan}”: {n} recipe(s) with too few machines in the factory',
+  '{recipe}: Soll {soll}, angelegt {ist}': '{recipe}: target {soll}, created {ist}',
+  'In der Produktionsansicht „Maschinen anlegen“ verwenden und sie anschließend im Grundriss platzieren.':
+    'Use “Create machines” in the production view and then place them in the floor plan.',
+  'fehlt {n}': 'missing {n}',
+  'Überschuss {n}': 'surplus {n}',
+  'Maschinen laufen mit 100 % Takt; Teilmengen werden über den Takt verteilt (gleichmäßiger Takt).':
+    'Machines run at 100 % clock; fractions are distributed via the clock speed (even clock).',
+  'Rohstoffkosten gewichtet mit 1000 / weltweites Maximum laut Wiki; Wasser kostenlos.': 'Resource cost weighted by 1000 / world maximum according to the wiki; water is free.',
+  'Variable Leistung (Teilchenbeschleuniger u. a.) als Mittelwert.': 'Variable power (particle accelerator etc.) as average.',
+  'Somersloops nur bei „vorhandene Maschinen“ berücksichtigt.': 'Somersloops only considered with “existing machines”.',
+  'Wasser gilt als unbegrenzt verfügbar, sofern keine Obergrenze angegeben ist.': 'Water counts as unlimited unless an upper limit is given.',
+  'Für „Maximieren“ mindestens ein Zielprodukt mit Verhältnis > 0 angeben.': 'For “Maximise” specify at least one target product with a ratio > 0.',
+  'Keine Ziele angegeben.': 'No targets specified.',
+  'Das Problem ist unlösbar (Widerspruch in den Vorgaben).': 'The problem is infeasible (contradicting inputs).',
+  'Die Maximierung ist unbeschränkt: Mindestens ein benötigter Rohstoff hat keine Obergrenze.': 'The maximisation is unbounded: at least one required resource has no upper limit.',
+  'Solver-Status: {status}': 'Solver status: {status}',
+  '{item}: kein zulässiges Rezept und keine Zulieferung.': '{item}: no allowed recipe and no supply.',
+  '{item}: Versorgung voll ausgeschöpft ({max}/min).': '{item}: supply fully used ({max}/min).',
+  '{recipe}: Maschinengrenze erreicht ({cap}).': '{recipe}: machine limit reached ({cap}).',
+  'Maximale Skalierung: {scale} × Zielverhältnis.': 'Maximum scale: {scale} × target ratio.',
+  'Ziele nicht vollständig erreichbar: {list}.': 'Targets not fully reachable: {list}.',
+  '{item} fehlt {n}/min': '{item} missing {n}/min',
+  'Alle Ziele erreichbar.': 'All targets reachable.',
+
+  // --- Projekt ---
+  'Fabrik {n}': 'Factory {n}',
+  Erdgeschoss: 'Ground floor',
+  '{n} Gebäudetyp(en) fehlen im Zieldatensatz; betroffene Gebäude bleiben erhalten und werden als Befund gemeldet.':
+    '{n} building type(s) are missing in the target data set; affected buildings are kept and reported as findings.',
+  '{n} Rezept(e) fehlen; Maschinen verlieren ihr Rezept, Pläne die Auswahl.': '{n} recipe(s) are missing; machines lose their recipe, plans the selection.',
+  '{n} Gegenstand/Gegenstände fehlen; Ziele, Versorgungen und Aufträge damit werden entfernt.': '{n} item(s) are missing; targets, supplies and orders using them are removed.',
+  '{n} ID(s) werden umbenannt.': '{n} ID(s) are renamed.',
+  'Alle verwendeten IDs sind im Zieldatensatz vorhanden.': 'All IDs in use exist in the target data set.',
+  'Gebäude {id}: Rezept {recipe} entfernt.': 'Building {id}: recipe {recipe} removed.',
+  'Gebäude {id}: Rohstoff {item} entfernt.': 'Building {id}: resource {item} removed.',
+  'Plan „{plan}“: Ziele/Versorgungen mit unbekannten Gegenständen entfernt.': 'Plan “{plan}”: targets/supplies with unknown items removed.',
+  'Transportauftrag „{name}“ entfernt (Gegenstand fehlt).': 'Transport order “{name}” removed (item missing).',
+  'Spieldatensatz auf {ds} umgestellt.': 'Game data set switched to {ds}.',
+  'Projektdaten fehlen.': 'Project data missing.',
+  'Die Formatversion des Projekts fehlt.': 'The format version of the project is missing.',
+  'Das Projekt wurde mit einer neueren Version gespeichert (Format {version}, unterstützt bis {target}). Bitte die Anwendung aktualisieren.':
+    'The project was saved with a newer version (format {version}, supported up to {target}). Please update the application.',
+  'Keine Migration von Format {from} auf {to} vorhanden.': 'No migration from format {from} to {to} available.',
+  'Verlegemodus für Leitungen, Gewinnung und Frachtplattformen ergänzt; Haltedauer durch Umschlagzeit ersetzt':
+    'Added routing mode for lines, extraction and freight platforms; stop duration replaced by docking time',
+  'Die Datei ist kein gültiges JSON.': 'The file is not valid JSON.',
+  'Die Datei enthält kein Projekt.': 'The file does not contain a project.',
+  'Unbekannter Dateityp „{kind}“.': 'Unknown file type “{kind}”.',
+  'Das Projekt entspricht nicht dem erwarteten Format.': 'The project does not match the expected format.',
+  'Fabrik {name}: ungültige Stockwerksverweise entfernt.': 'Factory {name}: invalid floor references removed.',
+  'Stockwerk {name} ohne Fabrik entfernt.': 'Floor {name} without factory removed.',
+  'Stockwerk {name} der Fabrik zugeordnet.': 'Floor {name} assigned to the factory.',
+  'Fläche {name} ohne Fabrik/Stockwerk entfernt.': 'Area {name} without factory/floor removed.',
+  'Gebäude {id} ohne Fabrik entfernt.': 'Building {id} without factory removed.',
+  'Gebäude {id}: Stockwerk fehlt, Platzierung aufgehoben.': 'Building {id}: floor missing, placement removed.',
+  'Verbindung {id} mit fehlendem Gebäude entfernt.': 'Connection {id} with missing building removed.',
+  'Produktionsplan {name} ohne Fabrik entfernt.': 'Production plan {name} without factory removed.',
+  'Gleisknoten {id} ohne Netz entfernt.': 'Track node {id} without network removed.',
+  'Gleissegment {id} mit fehlendem Knoten entfernt.': 'Track segment {id} with missing node removed.',
+  'Signal {id} ohne Knoten entfernt.': 'Signal {id} without node removed.',
+  'Bahnhof {name} ohne Gleis entfernt.': 'Station {name} without track removed.',
+  'Bahnhof {name}: Fabrikzuordnung entfernt (Fabrik fehlt).': 'Station {name}: factory assignment removed (factory missing).',
+  'Fahrplan {name}: Halte mit fehlendem Bahnhof entfernt.': 'Timetable {name}: stops with missing station removed.',
+  'Zug {name}: fehlender Fahrplan entfernt.': 'Train {name}: missing timetable removed.',
+  'Transportauftrag {name} mit fehlender Fabrik entfernt.': 'Transport order {name} with missing factory removed.',
+
+  // --- Operationen (Fehlermeldungen) ---
+  '{what} nicht gefunden.': '{what} not found.',
+  Fabrik: 'Factory',
+  'Ebene {n}': 'Level {n}',
+  Stockwerk: 'Floor',
+  'Die Stockwerkshöhe muss größer als 0 sein.': 'The floor height must be greater than 0.',
+  'Eine Fabrik benötigt mindestens ein Stockwerk.': 'A factory needs at least one floor.',
+  'Das Stockwerk gehört nicht zu dieser Fabrik.': 'The floor does not belong to this factory.',
+  'Eine Fläche benötigt mindestens drei Eckpunkte.': 'An area needs at least three corners.',
+  Baufläche: 'Build area',
+  Fundament: 'Foundation',
+  Planungsabstand: 'Clearance zone',
+  Fläche: 'Area',
+  'Gebäudetyp {type} ist im Spieldatensatz nicht vorhanden.': 'Building type {type} does not exist in the game data set.',
+  'Rezept {id} ist nicht vorhanden.': 'Recipe {id} does not exist.',
+  '{recipe} kann nicht in {building} hergestellt werden.': '{recipe} cannot be produced in {building}.',
+  'Der Takt dieses Gebäudes kann nicht verändert werden.': 'The clock speed of this building cannot be changed.',
+  'Takt muss zwischen {min} % und {max} % liegen.': 'Clock speed must be between {min} % and {max} %.',
+  'Dieses Gebäude hat keine Somersloop-Plätze.': 'This building has no Somersloop slots.',
+  'Höchstens {n} Somersloops möglich.': 'At most {n} Somersloops possible.',
+  'Nur Gewinnungsgebäude fördern Rohstoffe.': 'Only extraction buildings extract resources.',
+  '{building} kann {item} nicht fördern.': '{building} cannot extract {item}.',
+  'Be- und Entladen ist nur an Frachtplattformen möglich.': 'Loading and unloading is only possible at freight platforms.',
+  Bahnhof: 'Station',
+  Gebäude: 'Building',
+  'Gebäudetyp {type} unbekannt.': 'Building type {type} unknown.',
+  'Das Stockwerk gehört nicht zur Fabrik des Gebäudes.': "The floor does not belong to the building's factory.",
+  'Kopieren in eine andere Fabrik ist nicht möglich.': 'Copying into another factory is not possible.',
+  Startgebäude: 'Start building',
+  Zielgebäude: 'Target building',
+  'Ein Gebäude kann nicht mit sich selbst verbunden werden.': 'A building cannot be connected to itself.',
+  'Verbindungen zwischen Fabriken laufen über Transportaufträge.': 'Connections between factories use transport orders.',
+  'Beide Gebäude müssen im Grundriss platziert sein.': 'Both buildings must be placed in the floor plan.',
+  Gebäudetyp: 'Building type',
+  'Anschluss nicht gefunden.': 'Port not found.',
+  'Verbindungsart passt nicht zum Anschluss.': 'Connection type does not match the port.',
+  'Die gewählte Stufe passt nicht zur Verbindungsart.': 'The chosen tier does not match the connection type.',
+  'Der Startanschluss ist bereits verbunden.': 'The start port is already connected.',
+  'Der Zielanschluss ist bereits verbunden.': 'The target port is already connected.',
+  Verbindung: 'Connection',
+  'Nur Verbindungen zwischen richtungsfreien Anschlüssen lassen sich umkehren.': 'Only connections between direction-free ports can be reversed.',
+  'Für eine Gruppe muss mindestens ein platziertes Gebäude gewählt sein.': 'At least one placed building must be selected for a group.',
+  Gruppe: 'Group',
+  'Gebäudetyp {type} der Gruppe ist im Spieldatensatz nicht vorhanden.': 'Building type {type} of the group does not exist in the game data set.',
+  'Die Instanz enthält keine platzierten Gebäude.': 'The instance contains no placed buildings.',
+  Produktionsplan: 'Production plan',
+  'Gegenstand {id} unbekannt.': 'Item {id} unknown.',
+  'Zielmengen dürfen nicht negativ sein.': 'Target amounts must not be negative.',
+  'Versorgungsmengen dürfen nicht negativ sein.': 'Supply amounts must not be negative.',
+  'Rezept {id} unbekannt.': 'Recipe {id} unknown.',
+  Schienennetz: 'Rail network',
+  Zielnetz: 'Target network',
+  Quellnetz: 'Source network',
+  'Ein Netz kann nicht mit sich selbst zusammengeführt werden.': 'A network cannot be merged with itself.',
+  Knoten: 'Node',
+  'Beide Knoten müssen im selben Schienennetz liegen.': 'Both nodes must be in the same rail network.',
+  'Ein Segment braucht zwei verschiedene Knoten.': 'A segment needs two different nodes.',
+  'Diese Gleisverbindung existiert bereits.': 'This track connection already exists.',
+  'Start- und Endpunkt liegen zu nah beieinander.': 'Start and end point are too close together.',
+  'Der Startknoten gehört zu einem anderen Schienennetz.': 'The start node belongs to another rail network.',
+  'Der Endknoten gehört zu einem anderen Schienennetz.': 'The end node belongs to another rail network.',
+  Gleissegment: 'Track segment',
+  'Bahnhofsgleise können nicht geteilt werden.': 'Station tracks cannot be split.',
+  'Zu nah am Segmentende – stattdessen den Knoten verwenden.': 'Too close to the segment end – use the node instead.',
+  Segmentgeometrie: 'Segment geometry',
+  'Die Achse von Bahnhofsknoten folgt dem Bahnhof. Bitte den Bahnhof drehen.': 'The axis of station nodes follows the station. Please rotate the station.',
+  'Bahnhofsgleise werden mit dem Bahnhof gelöscht.': 'Station tracks are deleted together with the station.',
+  'Bahnhofsknoten werden mit dem Bahnhof gelöscht.': 'Station nodes are deleted together with the station.',
+  'Alle Segmente müssen im selben Netz liegen.': 'All segments must be in the same network.',
+  'In dieser Richtung steht bereits ein Signal.': 'There is already a signal in this direction.',
+  'Höchstens zwei Signale je Gleisverbindung.': 'At most two signals per track connection.',
+  Signal: 'Signal',
+  'Der Knoten gehört zu einem anderen Netz.': 'The node belongs to another network.',
+  'An diesem Knoten sind bereits beide Seiten belegt.': 'Both sides of this node are already in use.',
+  'Fabrik nicht gefunden.': 'Factory not found.',
+  Zug: 'Train',
+  'Ein Zug braucht mindestens ein Fahrzeug.': 'A train needs at least one vehicle.',
+  'Ein Zug braucht mindestens eine Lokomotive.': 'A train needs at least one locomotive.',
+  Fahrplan: 'Timetable',
+  'Der Fahrplan gehört zu einem anderen Netz.': 'The timetable belongs to another network.',
+  'Bahnhof „{name}“ liegt in einem anderen Netz.': 'Station “{name}” is in another network.',
+  'Die Menge darf nicht negativ sein.': 'The amount must not be negative.',
+  'Absender und Empfänger müssen verschiedene Fabriken sein.': 'Sender and recipient must be different factories.',
+  'Lade- und Entladebahnhof müssen verschieden sein.': 'Loading and unloading station must be different.',
+  'Die Umlaufzeit muss größer als 0 sein.': 'The round-trip time must be greater than 0.',
+  Transportauftrag: 'Transport order',
+
+  // --- Schiene: Befunde ---
+  '(unbekannt)': '(unknown)',
+  Pfadsignal: 'Path signal',
+  Blocksignal: 'Block signal',
+  '{n} Signale an einer Gleisverbindung in gleicher Richtung': '{n} signals at one track connection in the same direction',
+  '{n} Signale an einer Gleisverbindung': '{n} signals at one track connection',
+  'An einer Gleisverbindung sind höchstens zwei Signale möglich, und zwar in entgegengesetzte Richtungen.':
+    'At most two signals are possible at a track connection, facing opposite directions.',
+  'Überzählige Signale entfernen oder ein Signal umdrehen.': 'Remove surplus signals or turn one signal around.',
+  '{kind} am Gleisende': '{kind} at the end of the track',
+  'Auf der Einfahrseite des Signals liegt kein Gleis. Das Spiel meldet „Signal has missing connections“.':
+    'There is no track on the entry side of the signal. The game reports “Signal has missing connections”.',
+  'Auf der Rückseite des Signals liegt kein Gleis. Das Spiel meldet „Signal has missing connections“.':
+    'There is no track behind the signal. The game reports “Signal has missing connections”.',
+  'Signal an eine Verbindung zwischen zwei Gleisen setzen oder das Gleis fortführen.': 'Place the signal at a connection between two tracks or extend the track.',
+  '{kind} teilt den Block nicht': '{kind} does not split the block',
+  'Vor und hinter dem Signal liegt derselbe Block. Er ist über einen anderen Weg ohne Signal verbunden, z. B. über eine Schleife oder eine Kreuzung auf gleicher Höhe.':
+    'The same block lies before and behind the signal. It is connected via another route without a signal, e.g. a loop or a crossing at the same height.',
+  'Auf dem anderen Weg (Schleife, Abzweig oder Kreuzung) ebenfalls ein Signal setzen oder die Kreuzung höhenversetzt planen.':
+    'Also place a signal on the other route (loop, branch or crossing) or plan the crossing at a different height.',
+  'Block ohne Ausfahrsignal': 'Block without exit signal',
+  'In diesen Block führt mindestens ein Signal hinein, aber keines heraus. Das Spiel meldet „Block has no exit signal“ und zeigt die Einfahrsignale als Fehler.':
+    'At least one signal leads into this block, but none leads out. The game reports “Block has no exit signal” and shows the entry signals as errors.',
+  'An jedem Ausgang des Blocks ein Signal in Fahrtrichtung setzen. Bei einem Kopfbahnhof für Zweirichtungsbetrieb ein Gegensignal an der Blockgrenze setzen.':
+    'Place a signal in the direction of travel at every exit of the block. For a terminal station with bidirectional traffic, place an opposing signal at the block boundary.',
+  'Block- und Pfadsignale als Einfahrt in denselben Block': 'Block and path signals as entry into the same block',
+  'Alle Einfahrsignale eines Blocks müssen denselben Typ haben. Das Spiel meldet sonst „Block has conflicting entry signal types“.':
+    'All entry signals of a block must have the same type. Otherwise the game reports “Block has conflicting entry signal types”.',
+  'Alle Einfahrsignale dieses Blocks auf Pfadsignal (Kreuzungen, Zusammenführungen) oder auf Blocksignal (Strecke, Bahnhof) stellen.':
+    'Set all entry signals of this block to path signal (crossings, merges) or to block signal (line, station).',
+  'Bahnhof {stations} liegt in einem Pfadblock': 'Station {stations} lies in a path block',
+  'Ein Pfadblock darf keinen Bahnhof enthalten (Spielmeldung „Path block cannot contain stations“).': 'A path block must not contain a station (game message “Path block cannot contain stations”).',
+  'Vor dem Bahnhof Blocksignale als Einfahrt verwenden oder den Bahnhof durch zusätzliche Signale vom Pfadblock trennen.':
+    'Use block signals as entry before the station or separate the station from the path block with additional signals.',
+  '{n} Blocksignale führen in denselben Block': '{n} block signals lead into the same block',
+  'Die Einfahrsignale dieses Blocks durch Pfadsignale ersetzen.': 'Replace the entry signals of this block with path signals.',
+  'Pfadblock mit {h} m Höhenunterschied': 'Path block with {h} m height difference',
+  'Kreuzungsbereich eben planen und Steigungen außerhalb des Pfadblocks anordnen.': 'Keep the crossing area level and place slopes outside the path block.',
+  'Block hinter dem Pfadblock ist {len} m lang, längster Zug {train} m': 'Block behind the path block is {len} m long, longest train {train} m',
+  'Das nächste Signal hinter der Ausfahrt so setzen, dass der Block mindestens {train} m lang ist.': 'Place the next signal after the exit so that the block is at least {train} m long.',
+  'Kreuzung ohne Gleisverbindung auf gleicher Höhe': 'Crossing without track connection at the same height',
+  'Die beiden Gleise sind nicht verbunden, kreuzen sich aber auf gleicher Höhe (Unterschied unter 1 m). Im Spiel gehören sie deshalb zum selben Block. Höhenversetzt (Brücke) würden sie sich nicht beeinflussen.':
+    'The two tracks are not connected but cross at the same height (difference below 1 m). In the game they therefore belong to the same block. At different heights (bridge) they would not affect each other.',
+  'Kreuzung mit Pfadsignalen an allen Zufahrten absichern oder ein Gleis höher bzw. tiefer legen.': 'Protect the crossing with path signals at all approaches or raise or lower one track.',
+  'Gleissegment {len} m lang': 'Track segment {len} m long',
+  'Ein einzelnes Gleissegment ist im Spiel {min} bis {max} m lang.': 'A single track segment is {min} to {max} m long in the game.',
+  'Knoten weiter auseinander legen oder Segmente zusammenfassen.': 'Move nodes further apart or merge segments.',
+  'Zwischenknoten einfügen (Segment teilen).': 'Insert an intermediate node (split segment).',
+  'Kurvenradius {r} m (Minimum {min} m)': 'Curve radius {r} m (minimum {min} m)',
+  'Kurve weiter ziehen (Knoten verschieben) oder in zwei flachere Bögen aufteilen.': 'Widen the curve (move nodes) or split it into two flatter arcs.',
+  'Bahnhof {station} endet ohne Weiterfahrt': 'Station {station} ends without continuation',
+  'Hinter dem Bahnhof eine Wendeschleife anschließen oder Zweirichtungszüge (Lok am Zugende rückwärts) einsetzen.':
+    'Connect a turnaround loop behind the station or use bidirectional trains (locomotive at the end, reversed).',
+  '{n} Züge im Netz „{net}“, aber keine Signale': '{n} trains in network “{net}”, but no signals',
+  'Strecke mit Block- und Pfadsignalen in Blöcke aufteilen.': 'Divide the line into blocks with block and path signals.',
+  'Mindestens ein Bahnhof liegt in einem anderen Schienennetz als der Zug.': 'At least one station is in a different rail network than the train.',
+  'Ohne Signale gäbe es einen Weg. Der Zug müsste aber an der Rückseite eines Signals vorbeifahren (Einrichtungssignal ohne Gegensignal).':
+    'Without signals there would be a route. But the train would have to pass the back of a signal (one-way signal without an opposing signal).',
+  'Der Zug erreicht {station} nur aus der falschen Richtung. Bahnhöfe nehmen Züge nur in ihrer Fahrtrichtung auf.':
+    'The train only reaches {station} from the wrong direction. Stations only accept trains in their direction.',
+  'Der Weg erfordert ein Wenden. Der Zug hat aber keine rückwärts gerichtete Lok.': 'The route requires turning around. But the train has no reversed locomotive.',
+  'Es gibt keine durchgehende Gleisverbindung in Fahrtrichtung. Prüfe Weichen (Knotenseiten) und Lücken.':
+    'There is no continuous track connection in the direction of travel. Check switches (node sides) and gaps.',
+  '{train}: {to} von {from} aus nicht erreichbar': '{train}: {to} not reachable from {from}',
+  'Signalrichtungen, Bahnhofsrichtung und Weichenanschlüsse auf dem gewünschten Weg prüfen. Für Kopfbahnhöfe eine Wendeschleife oder eine rückwärts gerichtete Lok vorsehen.':
+    'Check signal directions, station direction and switch connections on the intended route. For terminal stations provide a turnaround loop or a reversed locomotive.',
+  '{train} ({len} m) ist länger als {station} ({slen} m)': '{train} ({len} m) is longer than {station} ({slen} m)',
+  'Mindestens {n} Bahnsteige vorsehen (ggf. leere Bahnsteige als Platzhalter).': 'Provide at least {n} platforms (empty platforms as placeholders if needed).',
+  '{train} an {station}: {n} Wagen ohne passenden Bahnsteig': '{train} at {station}: {n} wagon(s) without a matching platform',
+  'Bahnsteige an die Zugzusammenstellung anpassen oder die Wagenreihenfolge ändern.': 'Adapt the platforms to the train consist or change the wagon order.',
+  '{train}: Zweirichtungszug in einem Netz mit Wendemöglichkeit': '{train}: bidirectional train in a network where it can turn around',
+  'Für Zweirichtungszüge Netze ohne Wendeschleifen planen oder Einrichtungszüge mit Schleifen verwenden.':
+    'Plan networks without turnaround loops for bidirectional trains, or use one-way trains with loops.',
+  'Netz „{net}“: Deadlocks sind statisch nicht ausgeschlossen': 'Network “{net}”: deadlocks are not excluded statically',
+  'Kritische Abschnitte (eingleisige Strecken, Kreuzungen mit kurzen Folgeblöcken) in der Simulation prüfen (Schienennetz → Simulation).':
+    'Check critical sections (single-track lines, crossings with short following blocks) in the simulation (Rail network → Simulation).',
+  'Fahrzeug {n} (Wagen) steht am Bahnhofsgebäude.': 'Vehicle {n} (wagon) stands at the station building.',
+  'Wagen an Position {n} steht hinter dem letzten Bahnsteig.': 'Wagon at position {n} stands behind the last platform.',
+  'Wagen an Position {n} steht an einem leeren Bahnsteig.': 'Wagon at position {n} stands at an empty platform.',
+  'Wagen an Position {n} (Feststoff) steht an einem Flüssigkeitsbahnsteig.': 'Wagon at position {n} (solid) stands at a fluid platform.',
+  'Wagen an Position {n} (Flüssigkeit) steht an einem Güterbahnsteig.': 'Wagon at position {n} (fluid) stands at a freight platform.',
+  'Netze „{a}“ und „{b}“ kreuzen sich auf gleicher Höhe': 'Networks “{a}” and “{b}” cross at the same height',
+  'Im Planer sind es getrennte Netze. Im Spiel bilden kreuzende Gleise auf gleicher Höhe aber einen gemeinsamen Block, und die Netze beeinflussen sich gegenseitig.':
+    'In the planner they are separate networks. In the game, crossing tracks at the same height form a shared block, and the networks affect each other.',
+  'Ein Netz höhenversetzt führen oder beide Netze zusammenführen und die Kreuzung mit Signalen absichern.':
+    'Run one network at a different height, or merge both networks and protect the crossing with signals.',
+
+  // --- Simulation ---
+  'Konstante Durchschnittsgeschwindigkeit {v} km/h (inkl. Anfahren und Bremsen); keine Beschleunigung, Steigung oder Bremswege.':
+    'Constant average speed {v} km/h (incl. starting and braking); no acceleration, gradients or braking distances.',
+  'Umschlag je Halt {s} s plus Wartezeit laut Fahrplan; Ladebedingungen („vollständig beladen/entladen“) werden nicht simuliert.':
+    'Docking {s} s per stop plus wait time from the timetable; load conditions (“fully loaded/unloaded”) are not simulated.',
+  'Kürzester Weg mit {m} m Aufschlag je durchfahrenem Bahnhof; keine Umleitung bei Belegung.': 'Shortest route with {m} m penalty per station passed through; no rerouting when occupied.',
+  'Pfadsignale reservieren den Weg bis zum nächsten gewöhnlichen Block; dieser muss frei sein („path in, block out“).':
+    'Path signals reserve the route up to the next normal block; that block must be free (“path in, block out”).',
+  'Jeder Zug beginnt an seinem ersten freien Halt; Zuglänge {l} m je Fahrzeug.': 'Each train starts at its first free stop; train length {l} m per vehicle.',
+  'Ein Durchlauf ohne Deadlock beweist nicht, dass keiner auftreten kann.': 'A run without deadlock does not prove that none can occur.',
+  '{train}: alle Halte des Fahrplans sind beim Start belegt.': '{train}: all stops of the timetable are occupied at the start.',
+  '{train}: kein Weg zu „{station}“.': '{train}: no route to “{station}”.',
+  '{train} fährt rückwärts ab nach „{station}“.': '{train} departs in reverse to “{station}”.',
+  '{train} fährt ab nach „{station}“.': '{train} departs to “{station}”.',
+  '{train} wartet an einem {kind}.': '{train} waits at a {kind}.',
+  '{train} hält in „{station}“.': '{train} stops at “{station}”.',
+  '{a} und {b} belegen gleichzeitig dasselbe Gleis (Kollision im Spiel möglich).': '{a} and {b} occupy the same track at the same time (collision possible in the game).',
+  'Deadlock: {trains} warten gegenseitig aufeinander.': 'Deadlock: {trains} are waiting for each other.',
+
+  // --- Transport ---
+  '{order}: kein Zug zugeordnet': '{order}: no train assigned',
+  'Im Transportauftrag einen Zug auswählen, dessen Fahrplan Lade- und Entladebahnhof enthält.':
+    'Select a train in the transport order whose timetable contains the loading and unloading station.',
+  '{order}: Ladebahnhof „{station}“ gehört zu einer anderen Fabrik': '{order}: loading station “{station}” belongs to another factory',
+  '{order}: Entladebahnhof „{station}“ gehört zu einer anderen Fabrik': '{order}: unloading station “{station}” belongs to another factory',
+  'Bahnhof der richtigen Fabrik zuordnen oder einen anderen Bahnhof wählen.': 'Assign the station to the correct factory or choose another station.',
+  '{train}: kein Flüssigkeitswagen für {item}': '{train}: no fluid wagon for {item}',
+  '{train}: kein Güterwagen für {item}': '{train}: no freight wagon for {item}',
+  'Passende Wagen an den Zug hängen oder einen anderen Zug zuordnen.': 'Attach suitable wagons to the train or assign another train.',
+  '{train} hält weder am Lade- noch am Entladebahnhof': '{train} stops neither at the loading nor at the unloading station',
+  '{train} hält nicht am Ladebahnhof': '{train} does not stop at the loading station',
+  '{train} hält nicht am Entladebahnhof': '{train} does not stop at the unloading station',
+  'Bahnhof in den Fahrplan des Zuges aufnehmen oder im Auftrag den richtigen Bahnhof wählen.': "Add the station to the train's timetable or choose the correct station in the order.",
+  '{order}: geschätzt {have} statt {need}': '{order}: estimated {have} instead of {need}',
+  '{train}: {cap} je Umlauf × Anteil {share} % / {cycle}': '{train}: {cap} per round trip × share {share} % / {cycle}',
+  Stück: 'items',
+  'Umlauf nicht befahrbar': 'round trip not passable',
+  'Weitere Wagen oder Züge einsetzen, Wartezeiten verkürzen oder die Strecke verkürzen.': 'Add more wagons or trains, shorten wait times or shorten the route.',
+  '{factory}: keine beladende Frachtplattform im Grundriss': '{factory}: no loading freight platform in the floor plan',
+  '{factory}: keine entladende Frachtplattform im Grundriss': '{factory}: no unloading freight platform in the floor plan',
+  'Frachtplattform im Grundriss platzieren und in den Eigenschaften Be- bzw. Entladen wählen.': 'Place a freight platform in the floor plan and choose loading or unloading in its properties.',
+  '{factory}: Import {item} – Bedarf {need}, Aufträge {have}': '{factory}: import {item} – demand {need}, orders {have}',
+  'Transportauftrag aus einer liefernden Fabrik anlegen oder die Versorgung im Produktionsplan auf „lokal“ umstellen.':
+    'Create a transport order from a supplying factory or switch the supply in the production plan to “local”.',
+  '{factory}: liefert {out} {item}, Überschuss nur {have}': '{factory}: delivers {out} {item}, surplus only {have}',
+  'Mehr Maschinen für diesen Gegenstand anlegen (Produktionsplan) oder die Auftragsmenge senken.': 'Create more machines for this item (production plan) or lower the order amount.',
+  'Zugdurchsatz beruht auf Schätzungen': 'Train throughput is based on estimates',
+  'Annahmen in der Ansicht „Transport“ anpassen oder Umlaufzeiten mit der Simulation messen.': 'Adjust assumptions in the “Transport” view or measure round-trip times with the simulation.',
+  'Durchschnittsgeschwindigkeit {v} km/h (inkl. Anfahren und Bremsen).': 'Average speed {v} km/h (incl. starting and braking).',
+  'Umschlag {s} s je Halt plus Wartezeit laut Fahrplan (Wiki: 27,08 s).': 'Docking {s} s per stop plus wait time from the timetable (wiki: 27.08 s).',
+  'Wagen werden vollständig beladen: {slots} Stapel × Stapelgröße bzw. {m3} m³.': 'Wagons are fully loaded: {slots} stacks × stack size or {m3} m³.',
+  'Keine Wartezeiten an Signalen; mehrere Aufträge teilen sich einen Zug im Verhältnis ihrer Mengen.':
+    'No waiting at signals; several orders share a train in proportion to their amounts.',
+
+  // --- Regeltitel, Beschreibungen, Quellen ---
+  'Kollisionsboxen überschneiden sich': 'Collision boxes overlap',
+  'Gebäude besitzen laut Spieldaten feste Kollisionsboxen (mClearanceData). Überschneiden sich zwei feste Boxen in Grundriss und Höhe, lässt das Spiel das zweite Gebäude nicht bauen.':
+    'According to the game data, buildings have solid collision boxes (mClearanceData). If two solid boxes overlap in plan and height, the game does not allow the second building to be built.',
+  'Satisfactory Docs (CommunityResources), Feld mClearanceData': 'Satisfactory Docs (CommunityResources), field mClearanceData',
+  'Weiche Freihaltezone überschneidet sich': 'Soft clearance zone overlaps',
+  'Einige Kollisionsboxen sind in den Spieldaten als weich (CT_Soft) markiert, z. B. bei Splittern und Rohrkreuzungen. Ob sich weiche Zonen im Spiel überschneiden dürfen, ist nicht verifiziert. Der Planer meldet die Überschneidung deshalb nur als Warnung.':
+    'Some collision boxes are marked as soft (CT_Soft) in the game data, e.g. for splitters and pipeline junctions. Whether soft zones may overlap in the game is not verified, so the planner reports the overlap only as a warning.',
+  'Gebäude außerhalb der Baufläche': 'Building outside the build area',
+  'Auf dem Stockwerk ist eine Baufläche festgelegt, das Gebäude liegt aber ganz oder teilweise außerhalb.': 'A build area is defined on the floor, but the building lies completely or partly outside.',
+  'Eigene Planungsvorgabe': 'Own planning rule',
+  'Gebäude im Planungsabstand': 'Building in clearance zone',
+  'Das Gebäude ragt in einen selbst festgelegten Planungsabstand, z. B. einen Wartungs- oder Laufweg.': 'The building extends into a user-defined clearance zone, e.g. a maintenance path or walkway.',
+  'Anschlusslagen sind schematisch': 'Port positions are schematic',
+  'Die Anzahl der Anschlüsse stammt aus Wiki-Angaben bzw. ist aus Rezepten abgeleitet. Die genaue Lage der Anschlüsse am Gebäude steht nicht in den Spieldaten. Eingänge werden schematisch hinten, Ausgänge vorn dargestellt. Ob ein Anschluss im Spiel tatsächlich auf dieser Seite liegt, ist nicht geprüft.':
+    'The number of ports comes from wiki data or is derived from recipes. The exact position of ports on the building is not in the game data. Inputs are shown schematically at the back, outputs at the front. Whether a port really is on this side in the game is not checked.',
+  'Satisfactory Wiki, Infobox-Felder beltInputs/pipeInputs': 'Satisfactory Wiki, infobox fields beltInputs/pipeInputs',
+  'Baubarkeit von Leitungen nicht geprüft': 'Buildability of lines not checked',
+  'Für Förderbänder und Rohre werden Kurvenradien, Mindestlängen, Steigungen, Kollisionen mit anderen Objekten und Pumpenförderhöhen nicht geprüft. Eine im Editor gezeichnete Verbindung ist daher nicht automatisch im Spiel baubar.':
+    'For belts and pipes, curve radii, minimum lengths, slopes, collisions with other objects and pump head lift are not checked. A connection drawn in the editor is therefore not automatically buildable in the game.',
+  'Bekannte Einschränkung des Planers': 'Known limitation of the planner',
+  'Gebäude höher als das Stockwerk': 'Building taller than the floor',
+  'Die Höhe der Kollisionsbox übersteigt die lichte Höhe des Stockwerks. Das darüberliegende Stockwerk muss an dieser Stelle ausgespart werden.':
+    'The height of the collision box exceeds the clear height of the floor. The floor above must have an opening at this position.',
+  'Geplante Maschinen ohne Platz im Grundriss': 'Planned machines without a place in the floor plan',
+  'Die Maschinen sind im Produktionsplan angelegt, stehen aber noch nicht im Grundriss.': 'The machines were created from the production plan but are not in the floor plan yet.',
+  Planungsstand: 'Planning status',
+  'Produktionsgebäude ohne Rezept': 'Production building without recipe',
+  'Ein Produktionsgebäude ohne Rezept trägt nichts zur Bilanz bei.': 'A production building without a recipe does not contribute to the balance.',
+  'Gebäudetyp nicht im Spieldatensatz': 'Building type not in the game data set',
+  'Der Gebäudetyp ist im Spieldatensatz des Projekts nicht vorhanden, etwa nach einem Wechsel der Spielversion. Maße und Anschlüsse sind dann unbekannt.':
+    "The building type does not exist in the project's game data set, e.g. after changing the game version. Dimensions and ports are then unknown.",
+  'Spieldatensatz des Projekts': "Project's game data set",
+  'Leitung zu klein für den benötigten Durchsatz': 'Line too small for the required throughput',
+  'Ohne Kapazitätsgrenzen müsste die Verbindung mehr tragen, als die gezeichnete Band- bzw. Rohrstufe schafft (Förderband = mSpeed / 2 pro Minute, Rohr = mFlowLimit · 60 m³/min). Die angeschlossenen Maschinen laufen dann langsamer.':
+    'Without capacity limits the connection would have to carry more than the drawn belt or pipe tier can handle (belt = mSpeed / 2 per minute, pipe = mFlowLimit · 60 m³/min). The connected machines then run slower.',
+  'Satisfactory Docs: mSpeed der Förderbänder bzw. mFlowLimit der Rohre': 'Satisfactory Docs: mSpeed of conveyor belts and mFlowLimit of pipes',
+  'Durchsatzmodell des Planers (lineares Programm über die eingezeichneten Verbindungen)': "Planner's throughput model (linear program over the drawn connections)",
+  'Maschine wird nicht vollständig versorgt': 'Machine is not fully supplied',
+  'Eine Maschine verarbeitet Zutaten in festem Verhältnis. Kommt eine Zutat nicht oder zu wenig an, läuft sie entsprechend langsamer oder steht. Grundlage ist das Durchsatzmodell der eingezeichneten Verbindungen.':
+    'A machine processes ingredients in a fixed ratio. If an ingredient does not arrive or arrives too slowly, it runs correspondingly slower or stops. Based on the throughput model of the drawn connections.',
+  'Rezepte aus den Satisfactory-Docs': 'Recipes from the Satisfactory Docs',
+  'Produkt wird nicht abgeführt': 'Product is not carried away',
+  'Eine Maschine hält an, sobald ein Ausgang voll ist – auch bei Nebenprodukten. Der Ausgang ist nicht verbunden, oder hinter der Verbindung nimmt niemand diesen Gegenstand ab.':
+    'A machine stops as soon as an output is full – also for byproducts. The output is not connected, or nothing downstream accepts this item.',
+  'Spielverhalten: Maschinen pausieren bei vollem Ausgangspuffer (nicht aus den Docs belegt)': 'Game behaviour: machines pause when the output buffer is full (not documented in the Docs)',
+  'Gegenstand wird am Ziel nicht verarbeitet': 'Item is not processed at the target',
+  'Über die Verbindung kann ein Gegenstand ankommen, den das Zielgebäude nicht annimmt (kein Rezeptbestandteil bzw. Flüssigkeit am AWESOME-Schredder). Im Spiel staut sich das Band bzw. Rohr.':
+    'An item can arrive via the connection that the target building does not accept (not an ingredient, or a fluid at the AWESOME Sink). In the game the belt or pipe backs up.',
+  'Durchsatzmodell vereinfacht': 'Simplified throughput model',
+  'Das Durchsatzmodell rechnet mit bestmöglicher Verteilung an Splittern, ohne Filter intelligenter Splitter, mit Rohrfluss in Zeichenrichtung und ohne Förderhöhe. Kraftwerke nehmen Brennstoff ohne modellierten Verbrauch ab. Pufferfüllstände und Anlaufzeiten werden nicht simuliert.':
+    'The throughput model assumes optimal distribution at splitters, no smart splitter filters, pipe flow in drawing direction and no head lift. Power plants accept fuel without modelled consumption. Buffer levels and start-up times are not simulated.',
+  'Förderhöhe von Rohren nicht geprüft': 'Pipe head lift not checked',
+  'Ein Rohr steigt an. Wie hoch Flüssigkeiten ohne Pumpe steigen, hängt vom einspeisenden Gebäude ab und steht nicht in den Spieldaten. Pumpen schaffen laut Docs 20 m (Mk.1) bzw. 50 m (Mk.2) Förderhöhe (mDesignPressure).':
+    'A pipe rises. How high fluids rise without a pump depends on the feeding building and is not in the game data. According to the Docs, pumps provide 20 m (Mk.1) or 50 m (Mk.2) head lift (mDesignPressure).',
+  'Satisfactory Docs: mDesignPressure der Pipeline-Pumpen': 'Satisfactory Docs: mDesignPressure of pipeline pumps',
+  'Senkrechte Leitung durchquert ein Stockwerk': 'Vertical line passes through a floor',
+  'Ein Förderlift oder senkrechtes Rohr führt durch die Ebene eines Stockwerks. Dort ist eine Aussparung im Boden nötig.':
+    'A conveyor lift or vertical pipe passes through the level of a floor. An opening in the floor is needed there.',
+  'Höhenwechsel ohne senkrechten Abschnitt': 'Height change without vertical section',
+  'Die Verbindung überwindet mehr als 1 m Höhe ohne senkrechten Abschnitt (Förderlift bzw. senkrechtes Rohr). Die zulässige Steigung von Bändern steht nicht in den Spieldaten und wird nicht geprüft.':
+    'The connection climbs more than 1 m without a vertical section (conveyor lift or vertical pipe). The permitted slope of belts is not in the game data and is not checked.',
+  'Produktionsziel nicht erreichbar': 'Production target not reachable',
+  'Mit den zugelassenen Rezepten, Rohstoffen und Maschinengrenzen lässt sich die Zielmenge nicht herstellen.':
+    'The target amount cannot be produced with the allowed recipes, resources and machine limits.',
+  'Rezepte aus den Satisfactory-Docs (Spieldaten)': 'Recipes from the Satisfactory Docs (game data)',
+  'Engpass: Versorgung oder Maschinen ausgeschöpft': 'Bottleneck: supply or machines exhausted',
+  'Eine Rohstoff- oder Maschinengrenze begrenzt das Ergebnis.': 'A resource or machine limit constrains the result.',
+  'Fabrik hat weniger Maschinen als der Plan': 'Factory has fewer machines than the plan',
+  'Für ein Rezept sind in der Fabrik weniger Maschinenäquivalente (Summe der Takte) angelegt, als der Produktionsplan benötigt.':
+    'For a recipe the factory has fewer machine equivalents (sum of clock speeds) than the production plan needs.',
+  'Abgleich Produktionsplan ↔ Fabrik': 'Comparison production plan ↔ factory',
+  'Produktionsplan nicht lösbar': 'Production plan not solvable',
+  'Die Vorgaben des Plans widersprechen sich oder sind unvollständig (z. B. unbeschränkte Maximierung).': 'The inputs of the plan contradict each other or are incomplete (e.g. unbounded maximisation).',
+  'Signal ohne Gleis auf einer Seite': 'Signal without track on one side',
+  'Ein Signal am Ende eines Gleises, das ins Leere führt, zeigt im Spiel den Fehler „Signal has missing connections“ und wirkt wie ein rotes Signal.':
+    'A signal at the end of a track leading nowhere shows the error “Signal has missing connections” in the game and acts like a red signal.',
+  'Satisfactory Wiki – Train Signals': 'Satisfactory Wiki – Train Signals',
+  'Jeder Block braucht mindestens ein Einfahr- und mindestens ein Ausfahrsignal. Ein Block mit Einfahrsignal, aber ohne Ausfahrsignal, führt im Spiel zum Fehler „Block has no exit signal“.':
+    'Every block needs at least one entry and at least one exit signal. A block with an entry signal but no exit signal causes the error “Block has no exit signal” in the game.',
+  'Widersprüchliche Einfahrsignaltypen': 'Conflicting entry signal types',
+  'Alle Einfahrsignale eines Blocks müssen vom selben Typ sein (nur Block- oder nur Pfadsignale). Für Ausfahrsignale gilt das nicht. Sonst meldet das Spiel „Block has conflicting entry signal types“.':
+    'All entry signals of a block must be of the same type (only block or only path signals). This does not apply to exit signals. Otherwise the game reports “Block has conflicting entry signal types”.',
+  'Bahnhof in einem Pfadblock': 'Station in a path block',
+  'Ein Pfadblock darf keinen Bahnhof enthalten. Das Spiel meldet sonst „Path block cannot contain stations“.': 'A path block must not contain a station. Otherwise the game reports “Path block cannot contain stations”.',
+  'Signal teilt den Block nicht': 'Signal does not split the block',
+  'Vor und hinter dem Signal liegt derselbe Block. Das Signal kann ihn deshalb nicht aufteilen („Signal loops into itself“). Ursache ist z. B. eine Schleife ohne weiteres Signal oder eine Gleiskreuzung, die beide Seiten verbindet.':
+    'The same block lies before and behind the signal, so the signal cannot split it (“Signal loops into itself”). The cause is e.g. a loop without another signal or a track crossing that connects both sides.',
+  'Zu viele oder gleichgerichtete Signale an einer Verbindung': 'Too many or same-direction signals at a connection',
+  'An einer Gleisverbindung sind höchstens zwei Signale in entgegengesetzte Richtungen möglich.': 'At most two signals facing opposite directions are possible at a track connection.',
+  'Fahrziel nicht erreichbar': 'Destination not reachable',
+  'Der Zug findet keinen Weg zum nächsten Halt. Züge fahren nicht an der Rückseite eines Signals vorbei, halten nur in Bahnhofsrichtung und fahren nur mit einer rückwärts gerichteten Lok rückwärts. Weichen führen nur von einer Knotenseite zur anderen.':
+    'The train finds no route to the next stop. Trains do not pass the back of a signal, only stop in station direction and only drive backwards with a reversed locomotive. Switches only lead from one node side to the other.',
+  'Satisfactory Wiki – Train Station': 'Satisfactory Wiki – Train Station',
+  'Keine Weiterfahrt hinter dem Bahnhof': 'No continuation behind the station',
+  'Güterbahnsteige arbeiten laut Wiki nur, wenn der Zug in Vorwärtsrichtung einen gültigen Weg hat. Vor dem Bahnhof endet das Gleis, und kein Zug, der hier hält, kann rückwärts fahren.':
+    'According to the wiki, freight platforms only work if the train has a valid route in forward direction. The track ends in front of the station, and no train stopping here can drive backwards.',
+  'Satisfactory Wiki – Freight Platform': 'Satisfactory Wiki – Freight Platform',
+  'Kreuzende Gleise bilden einen gemeinsamen Block': 'Crossing tracks form a shared block',
+  'Gleise, die sich ohne Verbindung auf gleicher Höhe kreuzen, gehören im Spiel zum selben Block. Als gleiche Höhe gilt hier ein Abstand unter 1 m (Annahme auf Basis der Gleis-Kollisionsbox vor 1.2). Eine solche Kreuzung braucht eine Absicherung durch Signale.':
+    'Tracks that cross at the same height without a connection belong to the same block in the game. Same height here means a difference below 1 m (assumption based on the track collision box before 1.2). Such a crossing must be protected by signals.',
+  'Satisfactory Wiki – Railway': 'Satisfactory Wiki – Railway',
+  'Mehrere Blocksignale führen in einen Block': 'Several block signals lead into one block',
+  'Laut Wiki können nach einem Spielfehler mehrere Einfahr-Blocksignale gleichzeitig grün werden, wenn der Block frei wird. Kreuzen sich die Wege, kollidieren die Züge. Empfehlung: an Zusammenführungen und eingleisigen Zweirichtungsabschnitten Pfadsignale verwenden („path in, block out“).':
+    'According to the wiki, due to a game bug several entry block signals can turn green at the same time when the block becomes free. If the routes cross, the trains collide. Recommendation: use path signals at merges and single-track bidirectional sections (“path in, block out”).',
+  'Pfadblock nicht eben': 'Path block not level',
+  'Laut Wiki teilen Pfadsignale Blöcke nach einem Spielfehler nicht richtig auf, wenn die Gleise darin nicht eben sind. Züge mit sich kreuzenden Wegen könnten dann gleichzeitig einfahren.':
+    'According to the wiki, due to a game bug path signals do not split blocks correctly if the tracks inside are not level. Trains with crossing routes could then enter at the same time.',
+  'Kurvenradius unter 17 m': 'Curve radius below 17 m',
+  'Laut Wiki beträgt der kleinste Kurvenradius 17 m (gemessen an der Gleismitte einer 90°-Kurve). Engere Kurven sind im Spiel nicht baubar. Der Planer misst den Radius an der Bezierkurve; das ist eine Näherung.':
+    'According to the wiki the smallest curve radius is 17 m (measured at the track centre of a 90° curve). Tighter curves cannot be built in the game. The planner measures the radius on the Bézier curve; this is an approximation.',
+  'Segmentlänge außerhalb 12–100 m': 'Segment length outside 12–100 m',
+  'Ein einzelnes Gleissegment ist im Spiel 12 bis 100 m lang. Längere Strecken bestehen aus mehreren Segmenten.': 'A single track segment is 12 to 100 m long in the game. Longer lines consist of several segments.',
+  'Mehrere Züge ohne Signale': 'Several trains without signals',
+  'Laut Wiki sind Signale nötig, damit zwei oder mehr Züge dieselben Gleise ohne Zusammenstöße nutzen können.': 'According to the wiki, signals are needed so that two or more trains can use the same tracks without collisions.',
+  'Block hinter einem Pfadblock ist kürzer als der Zug': 'Block behind a path block is shorter than the train',
+  'Ein Pfadsignal lässt einen Zug nur einfahren, wenn der Block hinter der Ausfahrt frei ist. Ist dieser Block kürzer als der Zug und muss der Zug dort halten, ragt sein Ende in die Kreuzung zurück und blockiert andere Wege. Ob das eintritt, hängt von Fahrplan und Belegung ab.':
+    'A path signal only lets a train enter if the block after the exit is free. If this block is shorter than the train and the train has to stop there, its end sticks back into the crossing and blocks other routes. Whether this happens depends on the timetable and occupancy.',
+  'Zug länger als der Bahnhof': 'Train longer than the station',
+  'Der Zug ist länger als Bahnhof und Bahnsteige zusammen. Wagen hinter dem letzten Bahnsteig werden nicht be- oder entladen, und das Zugende kann beim Halt den vorherigen Block oder eine Weiche belegen.':
+    'The train is longer than the station and platforms combined. Wagons behind the last platform are not loaded or unloaded, and the end of the train can occupy the previous block or a switch while stopping.',
+  'Wagen ohne passenden Bahnsteig': 'Wagon without matching platform',
+  'Jeder Wagen steht beim Halt an der Position des entsprechenden Bahnsteigs (Lok am Bahnhofsgebäude, Wagen dahinter). Ein Wagen an einem leeren Bahnsteig, an einem Bahnsteig der falschen Art oder hinter dem letzten Bahnsteig wird hier nicht umgeschlagen.':
+    'When stopping, each wagon stands at the position of the corresponding platform (locomotive at the station building, wagons behind). A wagon at an empty platform, at a platform of the wrong kind or behind the last platform is not handled here.',
+  'Zweirichtungszug in einem Netz mit Wendemöglichkeit': 'Bidirectional train in a network where it can turn around',
+  'Laut Wiki kann ein Zweirichtungszug seine Fahrtrichtung über eine Schleife umkehren. Dann stehen die Wagen an den Bahnhöfen in umgekehrter Reihenfolge und falsche Waren werden umgeschlagen.':
+    'According to the wiki a bidirectional train can reverse its direction via a loop. The wagons then stand in reverse order at the stations and the wrong goods are handled.',
+  'Deadlocks statisch nicht ausschließbar': 'Deadlocks cannot be excluded statically',
+  'Die statische Prüfung erkennt Fehler in Signalaufbau und Erreichbarkeit. Ob sich Züge gegenseitig blockieren, hängt von Zuglängen, Abfahrtszeiten, Wartebedingungen und Belegung ab. Die Prüfung schließt Deadlocks deshalb nicht aus.':
+    'The static check detects errors in signal layout and reachability. Whether trains block each other depends on train lengths, departure times, wait conditions and occupancy. The check therefore does not exclude deadlocks.',
+  'Grenze der statischen Prüfung': 'Limit of the static check',
+  'Transportauftrag ohne Zug': 'Transport order without train',
+  'Dem Auftrag ist kein Zug zugeordnet. Die Menge wird im Plan erwartet, aber von niemandem befördert.': 'No train is assigned to the order. The amount is expected in the plan but transported by nobody.',
+  'Konsistenz der Transportplanung': 'Consistency of transport planning',
+  'Zug hält nicht am Lade- oder Entladebahnhof': 'Train does not stop at the loading or unloading station',
+  'Der Fahrplan des zugeordneten Zuges enthält den Lade- bzw. Entladebahnhof des Auftrags nicht.': "The assigned train's timetable does not contain the order's loading or unloading station.",
+  'Geschätzte Zugkapazität reicht nicht': 'Estimated train capacity is insufficient',
+  'Kapazität je Umlauf (Wagen × 32 Stapel × Stapelgröße bzw. 2400 m³) geteilt durch die geschätzte Umlaufzeit ergibt weniger als die Auftragsmenge. Die Umlaufzeit ist eine Schätzung aus Streckenlänge, angenommener Durchschnittsgeschwindigkeit, Umschlagzeit und Wartezeiten.':
+    'Capacity per round trip (wagons × 32 stacks × stack size or 2400 m³) divided by the estimated round-trip time is less than the order amount. The round-trip time is an estimate from route length, assumed average speed, docking time and wait times.',
+  'Satisfactory Wiki – Freight Car (32 Stapel, 2400 m³)': 'Satisfactory Wiki – Freight Car (32 stacks, 2400 m³)',
+  'Satisfactory Wiki – Freight Platform (Umschlag 27,08 s)': 'Satisfactory Wiki – Freight Platform (docking 27.08 s)',
+  'Bahnhof gehört nicht zur Fabrik des Auftrags': "Station does not belong to the order's factory",
+  'Der Lade- bzw. Entladebahnhof ist einer anderen Fabrik zugeordnet als der Absender bzw. Empfänger des Auftrags.':
+    'The loading or unloading station is assigned to a different factory than the sender or recipient of the order.',
+  'Importbedarf ohne ausreichenden Transportauftrag': 'Import demand without sufficient transport order',
+  'Ein Produktionsplan bezieht einen Gegenstand als Import. Die Transportaufträge an diese Fabrik decken die benötigte Menge nicht.':
+    'A production plan receives an item as import. The transport orders to this factory do not cover the required amount.',
+  'Lieferfabrik erzeugt zu wenig': 'Supplying factory produces too little',
+  'Die Fabrik soll mehr liefern, als ihre angelegten Maschinen netto erzeugen (Erzeugung − eigener Verbrauch + eigene Importe). Maßgeblich sind die angelegten Maschinen mit Takt.':
+    'The factory is supposed to deliver more than its machines produce net (production − own consumption + own imports). The created machines with their clock speeds count.',
+  'Kein passender Wagen für den Gegenstand': 'No suitable wagon for the item',
+  'Feststoffe fahren in Güterwagen, Flüssigkeiten und Gase in Flüssigkeitswagen. Der zugeordnete Zug hat keinen passenden Wagen.':
+    'Solids travel in freight wagons, fluids and gases in fluid wagons. The assigned train has no suitable wagon.',
+  'Zugdurchsatz ist eine Schätzung': 'Train throughput is an estimate',
+  'Umlaufzeiten beruhen auf Annahmen: konstante Durchschnittsgeschwindigkeit, Umschlag 27,08 s je Halt, Wartezeiten laut Fahrplan, keine Wartezeiten an Signalen, volle Beladung. Ladebedingungen, Beschleunigung, Steigungen und Belegung durch andere Züge sind nicht berücksichtigt. Die Simulation im Schienennetz kann gemessene Umlaufzeiten liefern.':
+    'Round-trip times are based on assumptions: constant average speed, docking 27.08 s per stop, wait times from the timetable, no waiting at signals, full loading. Load conditions, acceleration, gradients and occupancy by other trains are not considered. The simulation in the rail network can provide measured round-trip times.',
+  'Annahmen des Planers (Einstellungen → Transport)': "Planner's assumptions (Transport view)",
+  'Keine passende Frachtplattform im Grundriss': 'No matching freight platform in the floor plan',
+  'Für den Auftrag gibt es in der Fabrik keine Frachtplattform im passenden Modus (Beladen beim Absender, Entladen beim Empfänger). Im Durchsatzmodell der Fabrik fehlt damit die Schnittstelle zum Zug.':
+    "For the order there is no freight platform in the matching mode in the factory (loading at the sender, unloading at the recipient). The factory's throughput model is therefore missing the interface to the train.",
+};
+
+registerTranslations('en', CORE_EN);

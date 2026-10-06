@@ -1,0 +1,27 @@
+{
+  "name": "@satis/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Server f\u00fcr Konten, serverseitige Projekte und Freigabelinks (Fastify, PostgreSQL, Drizzle).",
+  "scripts": {
+    "dev": "node --watch --import tsx src/main.ts",
+    "start": "node --import tsx src/main.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --import tsx src/migrate.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/static": "^10.1.5",
+    "@satis/core": "*",
+    "drizzle-orm": "^0.45.3",
+    "fastify": "^5.12.5",
+    "pg": "^8.23.1",
+    "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11"
+  }
+}

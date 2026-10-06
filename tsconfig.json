@@ -1,0 +1,17 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/gamedata-tools"
+    },
+    {
+      "path": "apps/web"
+    },
+    {
+      "path": "apps/server"
+    }
+  ]
+}

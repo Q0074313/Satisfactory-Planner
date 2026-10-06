@@ -1,0 +1,36 @@
+{
+  "name": "satis-planner",
+  "private": true,
+  "version": "0.2.0",
+  "description": "Planungswerkzeug für Satisfactory: Produktion, Fabrikgrundriss und Schienennetze in einem Projektmodell.",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "npm run dev -w @satis/web",
+    "build": "npm run build -w @satis/web",
+    "preview": "npm run preview -w @satis/web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -b",
+    "gamedata:extract": "npm run extract -w @satis/gamedata-tools --",
+    "gamedata:wiki": "npm run wiki -w @satis/gamedata-tools --",
+    "test:e2e": "playwright test",
+    "dev:server": "node --env-file-if-exists=.env --import tsx apps/server/src/main.ts",
+    "start": "node --env-file-if-exists=.env --import tsx apps/server/src/main.ts",
+    "db:migrate": "node --env-file-if-exists=.env --import tsx apps/server/src/migrate.ts",
+    "db:generate": "npm run db:generate -w @satis/server"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}
