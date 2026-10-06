@@ -135,7 +135,8 @@ export async function buildServer(opts: ServerOptions): Promise<FastifyInstance>
     return project;
   };
 
-  app.get('/api/health', async (_req, reply) => {
+  // Leise: der Docker-Healthcheck fragt alle 30 s
+  app.get('/api/health', { logLevel: 'warn' }, async (_req, reply) => {
     const storage = await store.writable();
     return reply.status(storage ? 200 : 503).send({ ok: storage, version: APP_VERSION, storage: storage ? 'ok' : 'nicht beschreibbar' });
   });
