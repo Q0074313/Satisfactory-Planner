@@ -16,6 +16,11 @@ export interface HistoryEntry {
 
 const MAX_HISTORY = 300;
 
+export interface RemoteRef {
+  /** ID im Link /f/<id>. */
+  id: string;
+}
+
 interface ProjectState {
   project: Project | null;
   gd: GameDataIndex | null;
@@ -23,11 +28,9 @@ interface ProjectState {
   future: HistoryEntry[];
   /** Zähler, der bei jeder Änderung steigt (Autosave). */
   revision: number;
-  /** Schreibgeschützte Ansicht (z. B. über einen Freigabelink geöffnet). */
-  readOnly: boolean;
-  /** Verknüpfung mit dem Serverkonto (Revision für optimistische Sperre). */
-  remote: { revision: number } | null;
-  open(project: Project, gd: GameDataIndex, opts?: { readOnly?: boolean; remote?: { revision: number } | null }): void;
+  /** Auf dem Server gespeichertes Projekt (null = lokal im Browser). */
+  remote: RemoteRef | null;
+  open(project: Project, gd: GameDataIndex, opts?: { remote?: RemoteRef | null }): void;
   close(): void;
   /**
    * Führt eine Operation aus. Fehler (OpError) werden als Meldung angezeigt
@@ -50,21 +53,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   past: [],
   future: [],
   revision: 0,
-  readOnly: false,
   remote: null,
   open(project, gd, opts = {}) {
-    set({ project, gd, past: [], future: [], revision: 0, readOnly: !!opts.readOnly, remote: opts.remote ?? null });
+    set({ project, gd, past: [], future: [], revision: 0, remote: opts.remote ?? null });
   },
   close() {
-    set({ project: null, gd: null, past: [], future: [], revision: 0, readOnly: false, remote: null });
+    set({ project: null, gd: null, past: [], future: [], revision: 0, remote: null });
   },
   apply(label, fn) {
-    const { project, gd, readOnly } = get();
+    const { project, gd } = get();
     if (!project || !gd) return undefined;
-    if (readOnly) {
-      notify(tr('Schreibgeschützte Ansicht – zum Bearbeiten „Als Kopie übernehmen“ wählen.'), 'error');
-      return undefined;
-    }
     let result: ReturnType<typeof fn> | undefined;
     try {
       const [next, patches, inverse] = produceWithPatches(project, (draft) => {

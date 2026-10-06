@@ -21,10 +21,8 @@
     "gamedata:extract": "npm run extract -w @satis/gamedata-tools --",
     "gamedata:wiki": "npm run wiki -w @satis/gamedata-tools --",
     "test:e2e": "playwright test",
-    "dev:server": "node --env-file-if-exists=.env --import tsx apps/server/src/main.ts",
-    "start": "node --env-file-if-exists=.env --import tsx apps/server/src/main.ts",
-    "db:migrate": "node --env-file-if-exists=.env --import tsx apps/server/src/migrate.ts",
-    "db:generate": "npm run db:generate -w @satis/server"
+    "dev:server": "node --env-file-if-exists=.env --watch --import tsx apps/server/src/main.ts",
+    "start": "node --env-file-if-exists=.env --import tsx apps/server/src/main.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

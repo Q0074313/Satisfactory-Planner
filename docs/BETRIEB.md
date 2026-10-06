@@ -34,9 +34,9 @@ Das Ergebnis ist eine **statische Webanwendung**. Die Spieldaten werden als eige
 
 ## Betriebsarten
 
-### A) Nur statisch (ohne Konten)
+### A) Nur statisch (ohne Server)
 
-Inhalt von `apps/web/dist` auf einem beliebigen statischen Webserver ausliefern (nginx, Caddy, GitHub Pages …). Alle Daten bleiben im Browser (IndexedDB). Die Kontofunktionen blenden sich aus, wenn kein Server antwortet.
+Inhalt von `apps/web/dist` auf einem beliebigen statischen Webserver ausliefern (nginx, Caddy, GitHub Pages …). Alle Daten bleiben im Browser (IndexedDB). Antwortet kein Server unter `/api/health`, arbeitet die App in diesem Modus.
 
 ```nginx
 server {
@@ -47,50 +47,49 @@ server {
 }
 ```
 
-### B) Mit Server (Konten, Projekte im Konto, Freigabelinks)
+### B) Mit Server (Projekt-Links)
 
-Ein Node-Prozess (`apps/server`, Fastify) liefert API und die gebaute App aus.
+Ein Node-Prozess (`apps/server`, Fastify) liefert API und die gebaute App aus. Projekte liegen als JSON-Dateien in `STORAGE_DIR/projects/<id>.json`; die ID ist der geheime Link `/f/<id>`. Einrichtung auf dem Heimserver, Update, Backup: siehe [README](../README.md#betrieb-auf-dem-server).
 
-**Konfiguration ausschließlich über Umgebungsvariablen** (Vorlage `.env.example`; `.env` ist in `.gitignore` ausgeschlossen, Zugangsdaten stehen nie im Code):
+**Konfiguration** über Umgebungsvariablen, alle optional (Vorlage `.env.example`; `.env` ist in `.gitignore`):
 
-| Variable | Bedeutung |
-|---|---|
-| `DATABASE_URL` | `postgres://…` für PostgreSQL; `pglite:<Ordner>` bzw. `pglite:memory` für eine eingebettete Datenbank (Entwicklung, Tests) |
-| `SESSION_SECRET` | Schlüssel für die Sitzungs-HMAC, mindestens 32 Zeichen, zufällig |
-| `PUBLIC_BASE_URL` | Öffentliche Adresse, z. B. `https://planer.example.org` (Freigabelinks; bei `https` werden Cookies als „Secure“ gesetzt) |
-| `PORT`, `HOST` | Optional, Standard 8080 / 0.0.0.0 |
-| `STATIC_DIR` | Optional, Standard `apps/web/dist` |
+| Variable | Standard | Bedeutung |
+|---|---|---|
+| `PORT`, `HOST` | 8080 / 0.0.0.0 | Adresse des Servers (Docker: `PORT` ist der Port auf dem Host, nur 127.0.0.1) |
+| `STORAGE_DIR` | `./storage` (Container: `/app/storage`) | Projektablage |
+| `STATIC_DIR` | `apps/web/dist` | gebaute Web-App |
+| `MAX_PROJECT_BYTES` | 5 MiB | Größenlimit je Projekt (größere Anfragen → 413) |
+| `MAX_PROJECTS` | 5000 | Gesamtzahl Projekte (danach → 507) |
+| `RATE_CREATE_PER_HOUR` | 10 | neue Projekte je IP und Stunde |
+| `RATE_SAVE_PER_MINUTE` / `RATE_LOAD_PER_MINUTE` | 120 / 300 | Speichern/Laden je IP und Minute |
+| `TRUST_PROXY` | aus (Container: `loopback,uniquelocal`) | Absender, deren `X-Forwarded-For` geglaubt wird (für die echte Client-IP hinter tailscaled) |
 
-Lokal starten (eingebettete Datenbank im Ordner `.data`):
+Lokal starten (ohne Docker):
 
 ```bash
-cp .env.example .env            # SESSION_SECRET eintragen
 npm run build                   # Web-App bauen
-npm start                       # Server mit App auf http://localhost:8080
+npm start                       # Server mit App auf http://localhost:8080, Projekte in ./storage
 ```
 
 Entwicklung mit Hot-Reload: `npm run dev:server` (Port 8080) und parallel `npm run dev` – der Vite-Server leitet `/api` an `http://localhost:8080` weiter (abweichend: Umgebungsvariable `SATIS_API`).
 
-**Datenbankmigrationen** liegen versioniert in `apps/server/drizzle/` und werden beim Start automatisch angewendet. Manuell: `npm run db:migrate`. Nach Schemaänderungen in `apps/server/src/schema.ts`: `npm run db:generate` erzeugt eine neue Migration (einchecken).
+**Docker:** `docker compose up -d --build` (bzw. `./update.sh`). Ein Container, läuft als Benutzer `node` (UID 1000) mit schreibgeschütztem Dateisystem, ohne Zusatzrechte; nur `./storage` ist beschreibbar eingebunden. Der Port ist nur auf `127.0.0.1` freigegeben; öffentlich erreichbar macht ihn `tailscale funnel --bg 8080` (TLS übernimmt Tailscale). Health-Check: `GET /api/health` (prüft auch, ob der Speicherordner beschreibbar ist).
 
-**Docker** (ein Image für App und Server, PostgreSQL separat):
-
-```bash
-cp .env.example .env            # POSTGRES_PASSWORD, SESSION_SECRET, PUBLIC_BASE_URL setzen
-docker compose up -d --build
-```
-
-Hinter einem Reverse-Proxy (TLS) betreiben. Health-Check: `GET /api/health`.
-
-**Sicherheit:** Passwörter mit scrypt und Salz; Sitzungstoken nur als HMAC in der Datenbank; Cookie httpOnly, SameSite=Lax; schreibende Anfragen verlangen den Kopf `X-Requested-With: satis-planner`; Anmeldeversuche begrenzt; Projekte werden serverseitig migriert und gegen das Schema geprüft; Freigabelinks sind schreibgeschützt und widerrufbar.
+**Sicherheit:**
+- IDs mit 128 Bit Zufall; das Format wird vor jedem Dateizugriff geprüft (kein Path Traversal).
+- Projekte werden atomar geschrieben (temporäre Datei, fsync, rename) und serverseitig migriert und gegen das Schema geprüft. Ungültiges JSON wird mit 400 abgewiesen.
+- Größenlimit, Obergrenze für die Gesamtzahl und Rate-Limit pro IP.
+- Schreibende Anfragen verlangen den Kopf `X-Requested-With: satis-planner`.
+- `Referrer-Policy: no-referrer` (der Link ist das Geheimnis), `X-Robots-Tag: noindex` und Content-Security-Policy.
+- Projekt-IDs erscheinen in den Logs nur gekürzt.
 
 **Lizenzhinweis:** Für einen öffentlichen Betrieb ist zu klären, ob die aus den Docs-Dateien des Spiels extrahierten Daten weitergegeben werden dürfen (siehe [SPIELDATEN.md](SPIELDATEN.md)).
 
 ## Tests
 
 ```bash
-npm test                        # Unit- und API-Tests (Vitest; API gegen PGlite)
-npm run test:e2e                # Browser-Tests; startet Vite und den Server (PGlite im Speicher) selbst
+npm test                        # Unit- und API-Tests (Vitest; API mit Temp-Ordner)
+npm run test:e2e                # Browser-Tests; startet Vite und den Server (Temp-Ordner) selbst
 ```
 
 ## Spieldaten aktualisieren

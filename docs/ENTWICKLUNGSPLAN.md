@@ -121,3 +121,21 @@ Rückmeldung zu Etappe 1–4, umgesetzt vor Etappe 5:
 - Keine E-Mail-Bestätigung und kein Zurücksetzen vergessener Passwörter; Anmeldebegrenzung nur im Speicher eines Prozesses.
 - Projekte im Konto werden manuell gespeichert („Im Konto speichern“), nicht automatisch synchronisiert; bei gleichzeitigen Änderungen meldet der Server einen Konflikt.
 - Es ist nur ein Spieldatensatz (1.2.4.0) enthalten; der Datensatzwechsel ist daher nur mit Testdaten geprüft.
+
+## Etappe 8 – Betrieb auf dem Heimserver ✅
+
+Ersetzt Konten, PostgreSQL und Freigabelinks aus Etappe 7 durch Projekt-Links ohne Login (Stand vorher: Git-Commit „Stand vor dem Umbau“).
+
+**Abnahmekriterien**
+- [x] Jedes Projekt bekommt beim Anlegen eine zufällige ID (128 Bit, base64url) und ist unter `/f/<id>` erreichbar; keine Übersicht aller Projekte. *(API- und E2E-Tests)*
+- [x] API `POST /api/factory`, `GET`/`PUT /api/factory/:id`, `/api/health`; Server liefert `dist/` mit SPA-Fallback. *(API-Tests)*
+- [x] Eine JSON-Datei pro Projekt, atomar geschrieben (tmp + fsync + rename), Sperre je ID; Konflikterkennung zwischen Geräten über Revisionen (409 + Rückfrage). *(API-Test mit 20 parallelen Speichervorgängen; E2E mit zwei Browser-Kontexten)*
+- [x] Größenlimit, Gesamtzahl, Rate-Limit pro IP (Anlegen 10/h), ID-Prüfung gegen Path Traversal, JSON-Prüfung, Sicherheitsköpfe. *(API-Tests)*
+- [x] `formatVersion` und Migration beim Laden vom Server; v1-Fixture wird als v2 geladen und so gespeichert. *(API-Test, E2E: lokales v1-Projekt hochladen)*
+- [x] Lokale IndexedDB-Projekte werden zum Hochladen angeboten; Projekt-Link mit „Kopieren“ und Lesezeichen-Hinweis sichtbar. *(E2E)*
+- [x] Docker Compose (nicht root, read-only, Port nur auf 127.0.0.1), `update.sh` mit Sicherung, Health-Check; README und CLAUDE.md.
+
+**Vereinfachungen / bekannte Grenzen**
+- Wer den Link hat, kann das Projekt bearbeiten; es gibt keinen schreibgeschützten Link und kein Löschen über die Oberfläche (Datei auf dem Server löschen).
+- Rate-Limit nur im Speicher des Prozesses (nach Neustart zurückgesetzt).
+- Keine Live-Synchronisation: Ein anderes Gerät sieht Änderungen nach dem Neuladen; gleichzeitige Änderungen führen zu einer Rückfrage.

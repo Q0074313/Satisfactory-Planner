@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
@@ -11,10 +13,10 @@ export default defineConfig({
   },
   webServer: [
     {
-      // Server mit eingebetteter Datenbank (nur für Tests; Schlüssel ist ein Testwert)
+      // Server mit Projektablage in einem temporären Ordner (nur für Tests)
       command: 'node --import tsx apps/server/src/main.ts',
       url: 'http://localhost:8099/api/health',
-      env: { DATABASE_URL: 'pglite:memory', SESSION_SECRET: 'e2e-test-secret-e2e-test-secret-0123456789', PUBLIC_BASE_URL: 'http://localhost:5199', PORT: '8099' },
+      env: { STORAGE_DIR: join(tmpdir(), `satis-e2e-${process.pid}`), PORT: '8099', RATE_CREATE_PER_HOUR: '10000' },
       reuseExistingServer: true,
     },
     {

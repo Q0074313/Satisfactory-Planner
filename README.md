@@ -2,15 +2,125 @@
 
 Planungswerkzeug für **Satisfactory 1.2**. Es verbindet Produktionsberechnung, maßstabsgetreue Fabrikplanung und Schienennetze in **einem** Projektmodell. Inoffizielles Fan-Projekt, nicht mit Coffee Stain Studios verbunden.
 
+Oberfläche auf Deutsch oder Englisch, hell oder dunkel, mit frei belegbaren Tastenkürzeln (⚙) und geführten Touren (? bzw. F1).
+
+**Projekte und Links:** Es gibt kein Login. Jedes Projekt (alle Fabriken, Schienennetz, Züge, Transporte) bekommt beim Anlegen eine zufällige ID mit 128 Bit und ist unter `https://<server>/f/<id>` erreichbar. Wer den Link hat, kann das Projekt öffnen und bearbeiten; eine Übersicht aller Projekte gibt es nicht. Der Link steht in der Leiste unter der Kopfzeile (mit „Kopieren“) – als Lesezeichen speichern!
+
+## Lokale Entwicklung
+
+Voraussetzung: Node.js ≥ 22 (siehe [docs/BETRIEB.md](docs/BETRIEB.md#voraussetzungen)). Docker wird lokal **nicht** gebraucht.
+
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm test           # Unit-Tests (Vitest)
-npm run test:e2e   # Ende-zu-Ende-Tests (Playwright; einmalig: npx playwright install chromium)
-npm run build && npm start   # mit Server: Konten, Projekte im Konto, Freigabelinks (vorher .env anlegen, siehe docs/BETRIEB.md)
+npm run dev          # nur Web-App: http://localhost:5173 – Projekte lokal im Browser (IndexedDB)
+npm test             # Unit- und API-Tests (Vitest)
+npm run typecheck    # TypeScript
+npm run test:e2e     # Browser-Tests (Playwright; einmalig: npx playwright install chromium)
 ```
 
-Oberfläche auf Deutsch oder Englisch, hell oder dunkel, mit frei belegbaren Tastenkürzeln (⚙) und geführten Touren (? bzw. F1).
+Mit Server (Projekt-Links wie in Produktion):
+
+```bash
+npm run dev:server   # Terminal 1: API auf http://localhost:8080, Projekte in ./storage
+npm run dev          # Terminal 2: http://localhost:5173 – leitet /api an den Server weiter
+```
+
+Ohne laufenden Server arbeitet die App wie bisher rein lokal; erreicht sie einen Server, speichert sie dort.
+
+Produktionsnah ohne Docker: `npm run build && npm start` → http://localhost:8080 (liefert die gebaute App und die API aus).
+
+## Betrieb auf dem Server
+
+Läuft auf **Server1** (`homeserver@192.168.178.39`, Debian 13) als Docker-Container. Öffentlich erreichbar über **Tailscale Funnel**; der Container-Port ist nur auf `127.0.0.1:8080` gebunden.
+
+```
+Internet ──HTTPS──▶ Tailscale Funnel (*.ts.net) ──▶ tailscaled ──▶ 127.0.0.1:8080 ──▶ Container (Node, Benutzer node)
+                                                                                        └─ ./storage  (eine JSON-Datei pro Projekt)
+```
+
+### Ersteinrichtung (einmalig)
+
+Auf dem Server (einmal mit sudo; danach nicht mehr nötig):
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh     # Docker + Compose
+sudo apt install -y git
+sudo usermod -aG docker homeserver              # danach neu anmelden
+sudo tailscale set --operator=homeserver        # tailscale serve/funnel ohne sudo
+```
+
+Git: Das zentrale Repository liegt als Bare-Repo auf dem Server (`~/git/satis-planner.git`).
+
+```bash
+# Server: Bare-Repo anlegen
+ssh homeserver@192.168.178.39 'git init --bare -b main ~/git/satis-planner.git'
+# Laptop: Remote eintragen und hochladen
+git remote add server homeserver@192.168.178.39:git/satis-planner.git
+git push -u server main
+# Server: Arbeitskopie klonen und starten
+ssh homeserver@192.168.178.39
+git clone ~/git/satis-planner.git ~/satis-planner
+cd ~/satis-planner
+./update.sh                                     # legt storage/ und backups/ an, baut und startet
+tailscale funnel --bg 8080                      # öffentlich freischalten (HTTPS, *.ts.net)
+tailscale funnel status                         # zeigt die öffentliche Adresse
+```
+
+Der Container startet nach einem Neustart des Servers automatisch (`restart: unless-stopped`), der Funnel ebenso (`--bg`). Abschalten: `tailscale funnel --https=443 off` bzw. `docker compose down`.
+
+Optionale Einstellungen (Port, Limits) in `~/satis-planner/.env`, Vorlage: [.env.example](.env.example).
+
+### Update
+
+Am Laptop entwickeln, committen, `git push server main`. Dann auf dem Server:
+
+```bash
+cd ~/satis-planner && ./update.sh
+```
+
+`update.sh` sichert zuerst `storage/` nach `backups/storage_<Datum>.tar.gz` (die letzten 10 bleiben, `BACKUP_KEEP` in `.env`), macht `git pull --ff-only`, baut und startet den Container neu (`docker compose up -d --build`) und prüft danach bis zu 90 s lang `http://127.0.0.1:8080/api/health`. Bei einem Fehler bricht es mit einer klaren Meldung ab und zeigt die Logs.
+
+Nützlich: `docker compose logs -f app`, `docker compose ps`, `curl -s localhost:8080/api/health`.
+
+### Backup und Wiederherstellung
+
+- **Daten:** `~/satis-planner/storage/projects/<id>.json` – eine Datei pro Projekt, Dateiname = ID im Link. `storage/` und `backups/` sind nicht im Git.
+- **Sicherung von Hand:** `tar -czf backups/storage_$(date +%F_%H%M%S).tar.gz storage` (macht `update.sh` automatisch). Für eine Sicherung außerhalb des Servers `backups/` regelmäßig auf einen anderen Rechner kopieren, z. B. `scp homeserver@192.168.178.39:satis-planner/backups/*.tar.gz ~/satis-backups/`.
+- **Alles zurückspielen:**
+  ```bash
+  cd ~/satis-planner
+  docker compose stop app
+  mv storage storage.kaputt-$(date +%F)          # aktuellen Stand aufheben
+  tar -xzf backups/storage_<Datum>.tar.gz        # erzeugt storage/
+  docker compose start app
+  ```
+- **Ein einzelnes Projekt zurückspielen:** `tar -xzf backups/storage_<Datum>.tar.gz storage/projects/<id>.json` (überschreibt nur diese Datei; der Container kann dabei laufen).
+- Ältere Formate in Sicherungen sind kein Problem: Sie werden beim Laden automatisch migriert (siehe unten).
+
+## Datenformat und Migrationen
+
+Jedes gespeicherte Projekt trägt auf oberster Ebene das Feld **`formatVersion`** (derzeit **2**; definiert als `PROJECT_FORMAT_VERSION` in [packages/core/src/model/schema.ts](packages/core/src/model/schema.ts)). Beim Laden – vom Server, aus IndexedDB oder per JSON-Import – führt die zentrale Funktion `migrateProject()` in [packages/core/src/project/migrations.ts](packages/core/src/project/migrations.ts) ältere Stände Schritt für Schritt ins aktuelle Format über (1→2→3 …) und prüft danach das Schema. Gespeichert wird immer im aktuellen Format; auf der Platte bleibt eine alte Datei bis zum nächsten Speichern unverändert.
+
+**Neue Migration hinzufügen** (bei jeder Formatänderung, die alte Daten unlesbar oder falsch machen würde – neue Pflichtfelder, Umbenennungen, geänderte Bedeutung):
+
+1. Schema in `packages/core/src/model/schema.ts` ändern und `PROJECT_FORMAT_VERSION` um 1 erhöhen (z. B. 2 → 3).
+2. In `MIGRATIONS` (`packages/core/src/project/migrations.ts`) einen Schritt anhängen:
+   ```ts
+   {
+     from: 2,
+     description: 'Kurze Beschreibung der Änderung',   // wird übersetzt → Eintrag in packages/core/src/i18n/en.ts
+     migrate(p) {
+       // p ist das rohe, untypisierte Projekt im Format 2
+       for (const b of Object.values(table(p, 'buildings'))) b.neuesFeld ??= null;
+       return p;
+     },
+   },
+   ```
+   Schritte arbeiten auf Rohdaten (`Record<string, unknown>`), nie auf dem aktuellen Typ, und setzen `formatVersion` nicht selbst.
+3. Testdatei im alten Format ablegen (z. B. `apps/server/test/fixtures/project-v2.json`) und einen Test ergänzen, der sie lädt und die neuen Felder prüft; bestehende Fixtures bleiben (v1 muss weiter über alle Schritte laufen).
+4. `npm test` und `npm run test:e2e`; der Export-Test in `e2e/editor.spec.ts` prüft die aktuelle Versionsnummer.
+
+Ein Projekt mit einer **neueren** Version als der Server kennt, wird abgelehnt statt beschädigt („Bitte die Anwendung aktualisieren“).
 
 ## Stand
 
@@ -23,7 +133,8 @@ Oberfläche auf Deutsch oder Englisch, hell oder dunkel, mit frei belegbaren Tas
 | – | Verbesserungen: Tutorial, Tastenbelegung, Hell/Dunkel, Sprache, Befunde je Reiter, Bandverlegung, Diagramm, Signale auf Gleis, animierte Züge | ✅ |
 | 5 | Fabrikplanung: Durchsatzmodell, Kapazität, Gewinnung, Seitenansicht, Lifte, Gruppen bearbeiten | ✅ |
 | 6 | Transportplanung zwischen Fabriken: Aufträge, Zugkapazität, Schätzung, Lücken | ✅ |
-| 7 | Zugsimulation, Konten, Freigabelinks, Server, Migrationen, Docker, Spieldatenwechsel | ✅ |
+| 7 | Zugsimulation, Server, Migrationen, Docker, Spieldatenwechsel | ✅ |
+| 8 | Betrieb auf dem Heimserver: Projekte unter geheimen Links (/f/&lt;id&gt;), Dateiablage, Tailscale Funnel, update.sh | ✅ |
 
 Details und Abnahmekriterien: [docs/ENTWICKLUNGSPLAN.md](docs/ENTWICKLUNGSPLAN.md).
 
@@ -33,7 +144,8 @@ Details und Abnahmekriterien: [docs/ENTWICKLUNGSPLAN.md](docs/ENTWICKLUNGSPLAN.m
 - [Datenmodell](docs/DATENMODELL.md)
 - [Spielregeln und Prüfregeln](docs/SPIELREGELN.md), mit Quellen
 - [Spieldaten](docs/SPIELDATEN.md): Version, Quellen, Lizenzen, Aktualisierung
-- [Entwicklung, Build, Betrieb](docs/BETRIEB.md)
+- [Entwicklung, Build, Betrieb](docs/BETRIEB.md) (Details zu Konfiguration und Sicherheit)
+- [CLAUDE.md](CLAUDE.md): Kurzüberblick und Konventionen für die Weiterentwicklung
 
 ## Tastenkürzel
 

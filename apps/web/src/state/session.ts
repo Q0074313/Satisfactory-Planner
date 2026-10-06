@@ -1,78 +1,102 @@
 /**
  * Projekt öffnen, anlegen, importieren und automatisch speichern.
+ *
+ * Zwei Betriebsarten, beim Start erkannt:
+ * - mit Server: Projekte liegen auf dem Server unter geheimen Links /f/<id>
+ * - ohne Server (z. B. nur `npm run dev`): Projekte liegen lokal in IndexedDB
  */
 import { useEffect, useRef, useState } from 'react';
-import { createProject, ImportError, importProject, newId, type Project } from '@satis/core';
+import { createProject, ImportError, importProject, type Project } from '@satis/core';
 import { t } from '../i18n';
-import { serverApi } from './server';
+import { ApiError, idFromLocation, serverApi, useServer } from './server';
 import { deleteProject, lastProjectId, loadProject, rememberLastProject, saveProject } from '../persistence/db';
 import { pickFile } from '../persistence/files';
+import { markUploaded, recentProjects, rememberRecent } from '../persistence/recent';
 import { DEFAULT_DATASET, loadGameData } from './gamedata';
-import { useProjectStore } from './projectStore';
+import { useProjectStore, type RemoteRef } from './projectStore';
 import { useUiStore } from './uiStore';
 
-async function activate(project: Project, opts: { readOnly?: boolean; remote?: { revision: number } | null } = {}): Promise<void> {
+const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** Zuletzt bekannte Revision je Server-Projekt (optimistische Sperre beim Speichern). */
+const revisions = new Map<string, string>();
+
+async function activate(project: Project, opts: { remote?: RemoteRef | null } = {}): Promise<void> {
   const gd = await loadGameData(project.gameData.datasetId);
   useProjectStore.getState().open(project, gd, opts);
   const factory = Object.values(project.factories)[0];
   useUiStore.getState().setFactory(factory?.id ?? null, factory?.floorIds[0] ?? null);
-  if (!opts.readOnly) rememberLastProject(project.id);
+  if (!opts.remote) rememberLastProject(project.id);
 }
 
-/** Öffnet ein über einen Freigabelink geteiltes Projekt schreibgeschützt. */
-export async function openShared(token: string): Promise<boolean> {
-  const ui = useUiStore.getState();
-  try {
-    const r = await serverApi.loadShare(token);
-    const { project } = importProject(r.project);
-    await activate(project, { readOnly: true });
-    return true;
-  } catch (e) {
-    ui.toast(e instanceof Error ? e.message : String(e), 'error');
-    return false;
-  }
+/** Setzt die Adresse auf /f/<id>, ohne die Seite neu zu laden. */
+function showInAddressBar(id: string, replace = false) {
+  const path = `/f/${id}`;
+  if (location.pathname === path) return;
+  if (replace) history.replaceState(null, '', path);
+  else history.pushState(null, '', path);
 }
 
-/** Übernimmt das geöffnete (z. B. geteilte) Projekt als lokale Kopie mit neuer ID. */
-export async function copyAsLocal(): Promise<void> {
-  const cur = useProjectStore.getState().project;
-  if (!cur) return;
-  const copy: Project = { ...cur, id: newId('project'), name: t('{name} (Kopie)', { name: cur.name }), updatedAt: new Date().toISOString() };
-  await saveProject(copy);
-  history.replaceState(null, '', location.pathname);
-  await activate(copy);
-  useUiStore.getState().toast(t('Lokale Kopie angelegt.'));
-}
-
-/** Speichert das aktuelle Projekt im Serverkonto (optimistische Sperre über die Revision). */
-export async function saveToAccount(force = false): Promise<void> {
-  const st = useProjectStore.getState();
-  if (!st.project) return;
-  const r = await serverApi.saveProject(st.project, force ? null : (st.remote?.revision ?? null));
-  useProjectStore.setState({ remote: { revision: r.revision } });
-}
-
-export async function openFromAccount(id: string): Promise<boolean> {
+/** Öffnet ein Projekt vom Server. */
+export async function openRemote(id: string, opts: { replace?: boolean; push?: boolean } = {}): Promise<boolean> {
   const ui = useUiStore.getState();
   try {
     const r = await serverApi.loadProject(id);
-    const { project, migrations } = importProject(r.project);
-    await saveProject(project);
-    await activate(project, { remote: { revision: r.revision } });
-    for (const m of migrations) ui.toast(t('Migriert: {m}', { m }));
+    const { project } = importProject(r.project);
+    revisions.set(id, r.revision);
+    await activate(project, { remote: { id } });
+    if (opts.push !== false) showInAddressBar(id, opts.replace);
+    rememberRecent(id, project.name);
+    for (const m of r.migrations) ui.toast(t('Migriert: {m}', { m }));
     return true;
   } catch (e) {
-    ui.toast(e instanceof Error ? e.message : String(e), 'error');
+    ui.toast(errorText(e), 'error');
     return false;
   }
 }
 
-export async function createNew(name: string): Promise<void> {
+/** Legt ein Projekt auf dem Server an und öffnet es unter seinem neuen Link. */
+async function createRemote(project: Project): Promise<string> {
+  const r = await serverApi.createProject(project);
+  revisions.set(r.id, r.revision);
+  await activate(project, { remote: { id: r.id } });
+  showInAddressBar(r.id);
+  rememberRecent(r.id, project.name);
+  useUiStore.getState().toast(t('Projekt auf dem Server angelegt. Speichere den Link als Lesezeichen!'));
+  return r.id;
+}
+
+/** Lädt ein lokal (IndexedDB) gespeichertes Projekt als neues Server-Projekt hoch. */
+export async function uploadLocal(localId: string): Promise<boolean> {
+  const ui = useUiStore.getState();
+  try {
+    const result = await loadProject(localId);
+    if (!result) throw new Error(t('Projekt nicht gefunden.'));
+    const remoteId = await createRemote(result.project);
+    markUploaded(localId, remoteId);
+    return true;
+  } catch (e) {
+    ui.toast(t('Hochladen fehlgeschlagen: {msg}', { msg: errorText(e) }), 'error');
+    return false;
+  }
+}
+
+export async function createNew(name: string): Promise<boolean> {
   const ds = DEFAULT_DATASET;
   if (!ds) throw new Error(t('Kein Spieldatensatz verfügbar.'));
   const p = createProject({ name, datasetId: ds.datasetId, gameVersion: ds.gameVersion });
+  if (useServer.getState().available) {
+    try {
+      await createRemote(p);
+      return true;
+    } catch (e) {
+      useUiStore.getState().toast(errorText(e), 'error');
+      return false;
+    }
+  }
   await saveProject(p);
   await activate(p);
+  return true;
 }
 
 export async function openById(id: string): Promise<boolean> {
@@ -85,72 +109,132 @@ export async function openById(id: string): Promise<boolean> {
     if (result.repairs.length) ui.toast(t('{n} ungültige Verweise bereinigt.', { n: result.repairs.length }));
     return true;
   } catch (e) {
-    ui.toast(e instanceof Error ? e.message : String(e), 'error');
+    ui.toast(errorText(e), 'error');
     return false;
   }
 }
 
-/** Start: Freigabelink in der Adresse (#/share/<token>) oder zuletzt geöffnetes Projekt. */
-export async function reopenLast(): Promise<boolean> {
-  const share = /^#\/share\/([\w-]+)$/.exec(location.hash);
-  if (share) return openShared(share[1]!);
+/**
+ * Start: Projekt-Link in der Adresse (/f/<id>), sonst das zuletzt geöffnete
+ * Projekt (Server bzw. lokal). Liefert true, wenn ein Projekt geöffnet wurde.
+ */
+let booting: Promise<boolean> | null = null;
+export function boot(): Promise<boolean> {
+  // Nur einmal ausführen (React StrictMode ruft Effekte im Entwicklungsmodus doppelt auf)
+  booting ??= bootOnce();
+  return booting;
+}
+
+async function bootOnce(): Promise<boolean> {
+  const server = await useServer.getState().check();
+  const fromUrl = idFromLocation();
+  if (fromUrl !== null) {
+    const ui = useUiStore.getState();
+    if (!server) ui.toast(t('Kein Server erreichbar – Projekt-Links funktionieren nur mit Server.'), 'error');
+    else if (fromUrl === '') ui.toast(t('Ungültiger Projekt-Link.'), 'error');
+    else if (await openRemote(fromUrl)) return true;
+    history.replaceState(null, '', '/');
+    return false;
+  }
+  if (server) {
+    const last = recentProjects()[0];
+    return last ? openRemote(last.id, { replace: true }) : false;
+  }
   const id = lastProjectId();
   return id ? openById(id) : false;
 }
 
-export async function importFromFile(): Promise<void> {
+export async function importFromFile(): Promise<boolean> {
   const ui = useUiStore.getState();
   const text = await pickFile();
-  if (text === null) return;
+  if (text === null) return false;
   try {
     const result = importProject(text);
-    await saveProject(result.project);
-    await activate(result.project);
+    if (useServer.getState().available) await createRemote(result.project);
+    else {
+      await saveProject(result.project);
+      await activate(result.project);
+    }
     ui.toast(t('Projekt „{name}“ importiert.', { name: result.project.name }));
     for (const m of result.migrations) ui.toast(t('Migriert: {m}', { m }));
     for (const r of result.repairs) ui.toast(r);
+    return true;
   } catch (e) {
     if (e instanceof ImportError) ui.toast(`${e.message}${e.details.length ? ` – ${e.details.slice(0, 3).join('; ')}` : ''}`, 'error');
-    else ui.toast(e instanceof Error ? e.message : String(e), 'error');
+    else ui.toast(errorText(e), 'error');
+    return false;
   }
 }
 
 export async function removeProject(id: string): Promise<void> {
   await deleteProject(id);
-  if (useProjectStore.getState().project?.id === id) {
-    useProjectStore.getState().close();
+  const st = useProjectStore.getState();
+  if (!st.remote && st.project?.id === id) {
+    st.close();
     rememberLastProject(null);
+  }
+}
+
+/**
+ * Speichert einen Projektstand – lokal oder auf dem Server. Hat ein anderes
+ * Gerät inzwischen gespeichert, wird gefragt, welcher Stand gelten soll.
+ */
+async function persist(p: Project, remoteId: string | null): Promise<void> {
+  if (!remoteId) return saveProject(p);
+  try {
+    const r = await serverApi.saveProject(remoteId, p, revisions.get(remoteId) ?? null);
+    revisions.set(remoteId, r.revision);
+    rememberRecent(remoteId, p.name);
+  } catch (e) {
+    if (!(e instanceof ApiError && e.code === 'conflict')) throw e;
+    const overwrite = window.confirm(
+      t('Dieses Projekt wurde inzwischen auf einem anderen Gerät gespeichert. OK: den Stand dieses Geräts speichern und den anderen überschreiben. Abbrechen: den Stand vom Server laden; Änderungen dieses Geräts seit dem letzten Speichern gehen verloren.'),
+    );
+    if (overwrite) {
+      const r = await serverApi.saveProject(remoteId, p, null);
+      revisions.set(remoteId, r.revision);
+    } else if (useProjectStore.getState().remote?.id === remoteId) {
+      await openRemote(remoteId, { push: false });
+    }
   }
 }
 
 export type SaveStatus = 'saved' | 'pending' | 'saving' | 'error';
 
-/** Speichert das Projekt 800 ms nach der letzten Änderung in IndexedDB. */
+/** Speichert das Projekt 800 ms nach der letzten Änderung (IndexedDB bzw. Server). */
 export function useAutosave(): { status: SaveStatus; saveNow: () => Promise<void> } {
   const project = useProjectStore((s) => s.project);
+  const remote = useProjectStore((s) => s.remote);
   const revision = useProjectStore((s) => s.revision);
   const [status, setStatus] = useState<SaveStatus>('saved');
   const timer = useRef<number | undefined>(undefined);
-  const latest = useRef(project);
-  latest.current = project;
+  const latest = useRef({ project, remoteId: remote?.id ?? null });
+  latest.current = { project, remoteId: remote?.id ?? null };
+  // Speichervorgänge laufen nacheinander, damit jeder die Revision des vorherigen kennt
+  const queue = useRef<Promise<void>>(Promise.resolve());
 
-  const saveNow = async () => {
-    const p = latest.current;
+  const saveOnce = async () => {
+    const { project: p, remoteId } = latest.current;
     if (!p) return;
-    window.clearTimeout(timer.current);
     setStatus('saving');
     try {
-      await saveProject(p);
-      setStatus(latest.current === p ? 'saved' : 'pending');
+      await persist(p, remoteId);
+      setStatus(latest.current.project === p ? 'saved' : 'pending');
     } catch (e) {
       setStatus('error');
-      useUiStore.getState().toast(t('Speichern fehlgeschlagen: {msg}', { msg: e instanceof Error ? e.message : String(e) }), 'error');
+      useUiStore.getState().toast(t('Speichern fehlgeschlagen: {msg}', { msg: errorText(e) }), 'error');
     }
   };
 
-  const readOnly = useProjectStore((s) => s.readOnly);
+  const saveNow = () => {
+    window.clearTimeout(timer.current);
+    const run = queue.current.then(saveOnce);
+    queue.current = run.catch(() => undefined);
+    return run;
+  };
+
   useEffect(() => {
-    if (!project || revision === 0 || readOnly) return;
+    if (!project || revision === 0) return;
     setStatus('pending');
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => void saveNow(), 800);

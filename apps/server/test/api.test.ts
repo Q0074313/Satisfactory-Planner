@@ -1,133 +1,262 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type { FastifyInstance } from 'fastify';
 import { createProject, PROJECT_FORMAT_VERSION } from '@satis/core';
-import { buildServer } from '../src/app.ts';
-import { openDatabase, type Database } from '../src/db.ts';
+import { buildServer, redactUrl } from '../src/app.ts';
 import { loadConfig } from '../src/config.ts';
+import { RateLimiter } from '../src/rateLimit.ts';
+import { isProjectId, newProjectId, ProjectStore } from '../src/storage.ts';
 
-let app: FastifyInstance;
-let database: Database;
 const H = { 'x-requested-with': 'satis-planner', 'content-type': 'application/json' };
-
-const cookieOf = (r: LightMyRequestResponse) => {
-  const c = r.cookies.find((x) => x.name === 'sp_session');
-  return c ? `sp_session=${c.value}` : '';
-};
-
-async function register(email: string) {
-  const r = await app.inject({ method: 'POST', url: '/api/auth/register', headers: H, payload: { email, password: 'geheim-genug-123', displayName: 'Test' } });
-  expect(r.statusCode).toBe(201);
-  return cookieOf(r);
-}
-
 const newProj = (name: string) => createProject({ name, datasetId: 'sf-1.2.4.0', gameVersion: '1.2.4.0' });
+const fixture = (name: string) => readFile(join(import.meta.dirname, 'fixtures', name), 'utf8');
+
+let dir: string;
+let store: ProjectStore;
+let app: FastifyInstance;
 
 beforeAll(async () => {
-  database = await openDatabase('pglite:memory');
-  app = await buildServer({ db: database.db, sessionSecret: 'x'.repeat(40), publicBaseUrl: 'https://planer.example' });
-}, 60_000);
+  dir = await mkdtemp(join(tmpdir(), 'satis-test-'));
+  store = new ProjectStore(dir);
+  await store.init();
+  app = await buildServer({ store, limits: { maxProjectBytes: 200_000, createPerHour: 1000 } });
+});
 
 afterAll(async () => {
   await app.close();
-  await database.close();
+  await rm(dir, { recursive: true, force: true });
 });
+
+async function create(name = 'Werk') {
+  const r = await app.inject({ method: 'POST', url: '/api/factory', headers: H, payload: { project: newProj(name) } });
+  expect(r.statusCode).toBe(201);
+  return r.json() as { id: string; revision: string };
+}
 
 describe('Konfiguration', () => {
-  it('verlangt alle Umgebungsvariablen und kein Geheimnis im Code', () => {
-    expect(() => loadConfig({})).toThrow(/DATABASE_URL, SESSION_SECRET, PUBLIC_BASE_URL/);
-    const c = loadConfig({ DATABASE_URL: 'pglite:memory', SESSION_SECRET: 's'.repeat(40), PUBLIC_BASE_URL: 'http://localhost:8080' });
+  it('kommt ohne Pflichtvariablen aus und liest Limits', () => {
+    const c = loadConfig({ STORAGE_DIR: '/srv/x', MAX_PROJECT_BYTES: '1000', RATE_CREATE_PER_HOUR: 'abc' });
     expect(c.port).toBe(8080);
-  });
-
-  it('lehnt zu kurze Sitzungsschlüssel ab', async () => {
-    await expect(buildServer({ db: database.db, sessionSecret: 'kurz', publicBaseUrl: 'http://x' })).rejects.toThrow(/32 Zeichen/);
-  });
-});
-
-describe('Konten', () => {
-  it('Registrieren, Anmelden, Abmelden; Passwort wird nicht im Klartext gespeichert', async () => {
-    const cookie = await register('anna@example.org');
-    const me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie } });
-    expect(me.json().user.email).toBe('anna@example.org');
-    const dup = await app.inject({ method: 'POST', url: '/api/auth/register', headers: H, payload: { email: 'Anna@example.org', password: 'geheim-genug-123' } });
-    expect(dup.statusCode).toBe(409);
-    const bad = await app.inject({ method: 'POST', url: '/api/auth/login', headers: H, payload: { email: 'anna@example.org', password: 'falsch-falsch' } });
-    expect(bad.statusCode).toBe(401);
-    const ok = await app.inject({ method: 'POST', url: '/api/auth/login', headers: H, payload: { email: 'anna@example.org', password: 'geheim-genug-123' } });
-    expect(ok.statusCode).toBe(200);
-    const rows = await database.db.query.users.findMany();
-    expect(rows.every((u) => u.passwordHash.startsWith('scrypt$') && !u.passwordHash.includes('geheim'))).toBe(true);
-    const out = await app.inject({ method: 'POST', url: '/api/auth/logout', headers: { ...H, cookie: cookieOf(ok) } });
-    expect(out.statusCode).toBe(204);
-    const after = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie: cookieOf(ok) } });
-    expect(after.statusCode).toBe(401);
-  });
-
-  it('schreibende Anfragen ohne X-Requested-With werden abgewiesen', async () => {
-    const r = await app.inject({ method: 'POST', url: '/api/auth/login', headers: { 'content-type': 'application/json' }, payload: { email: 'a@b.c', password: 'x' } });
-    expect(r.statusCode).toBe(403);
-  });
-
-  it('kurze Passwörter und ungültige Adressen werden abgelehnt', async () => {
-    expect((await app.inject({ method: 'POST', url: '/api/auth/register', headers: H, payload: { email: 'x@y.z', password: 'kurz' } })).statusCode).toBe(400);
-    expect((await app.inject({ method: 'POST', url: '/api/auth/register', headers: H, payload: { email: 'keine-mail', password: 'lang-genug-123' } })).statusCode).toBe(400);
+    expect(c.storageDir).toBe('/srv/x');
+    expect(c.limits.maxProjectBytes).toBe(1000);
+    expect(c.limits.createPerHour).toBe(10);
+    expect(c.trustProxy).toBe(false);
   });
 });
 
-describe('Projekte und Rechte', () => {
-  it('Speichern, Laden, Revisionen, Konflikt, fremde Projekte', async () => {
-    const anna = await register('a2@example.org');
-    const bert = await register('b2@example.org');
-    const p = newProj('Werk');
-    const put = await app.inject({ method: 'PUT', url: `/api/projects/${p.id}`, headers: { ...H, cookie: anna }, payload: { project: p } });
-    expect(put.statusCode).toBe(201);
-    expect(put.json().revision).toBe(1);
-    const again = await app.inject({ method: 'PUT', url: `/api/projects/${p.id}`, headers: { ...H, cookie: anna }, payload: { project: { ...p, name: 'Werk 2' }, baseRevision: 1 } });
-    expect(again.json().revision).toBe(2);
-    const stale = await app.inject({ method: 'PUT', url: `/api/projects/${p.id}`, headers: { ...H, cookie: anna }, payload: { project: p, baseRevision: 1 } });
-    expect(stale.statusCode).toBe(409);
-    const list = await app.inject({ method: 'GET', url: '/api/projects', headers: { cookie: anna } });
-    expect(list.json().projects.map((x: { name: string }) => x.name)).toEqual(['Werk 2']);
-    // Bert darf weder lesen noch überschreiben
-    expect((await app.inject({ method: 'GET', url: `/api/projects/${p.id}`, headers: { cookie: bert } })).statusCode).toBe(404);
-    expect((await app.inject({ method: 'PUT', url: `/api/projects/${p.id}`, headers: { ...H, cookie: bert }, payload: { project: p } })).statusCode).toBe(403);
-    // Ohne Anmeldung
-    expect((await app.inject({ method: 'GET', url: '/api/projects' })).statusCode).toBe(401);
-    const got = await app.inject({ method: 'GET', url: `/api/projects/${p.id}`, headers: { cookie: anna } });
-    expect(got.json().project.name).toBe('Werk 2');
-    expect(got.json().project.formatVersion).toBe(PROJECT_FORMAT_VERSION);
+describe('Projekt-IDs', () => {
+  it('haben 128 Bit Zufall, sind URL-sicher und eindeutig', () => {
+    const ids = new Set(Array.from({ length: 1000 }, newProjectId));
+    expect(ids.size).toBe(1000);
+    for (const id of ids) expect(isProjectId(id)).toBe(true);
+    expect(Buffer.from([...ids][0]!, 'base64url').length).toBe(16);
   });
 
-  it('ungültige Projekte werden mit Details abgelehnt, alte Formate migriert', async () => {
-    const anna = await register('a3@example.org');
-    const bad = await app.inject({ method: 'PUT', url: '/api/projects/x', headers: { ...H, cookie: anna }, payload: { project: { formatVersion: PROJECT_FORMAT_VERSION, id: 'x' } } });
+  it('lehnen Pfadangriffe und falsche Formate ab', () => {
+    for (const bad of ['../../etc/passwd', '..%2F..%2Fetc', 'a'.repeat(21), 'a'.repeat(23), 'abc/def', '', 'prj_abc']) expect(isProjectId(bad)).toBe(false);
+  });
+
+  it('werden in Logs gekürzt', () => {
+    expect(redactUrl('/api/factory/AbCdEfGhIjKlMnOpQrStUv')).toBe('/api/factory/AbCd…');
+    expect(redactUrl('/f/AbCdEfGhIjKlMnOpQrStUv?x=1')).toBe('/f/AbCd…?x=1');
+  });
+});
+
+describe('API', () => {
+  it('Health-Endpunkt prüft den Speicherordner', async () => {
+    const r = await app.inject({ method: 'GET', url: '/api/health' });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toMatchObject({ ok: true, storage: 'ok' });
+  });
+
+  it('anlegen, laden, speichern; Datei liegt im Speicherordner', async () => {
+    const { id, revision } = await create('Werk');
+    expect(isProjectId(id)).toBe(true);
+    expect(await readdir(join(dir, 'projects'))).toContain(`${id}.json`);
+    const got = await app.inject({ method: 'GET', url: `/api/factory/${id}` });
+    expect(got.statusCode).toBe(200);
+    expect(got.json().project.name).toBe('Werk');
+    expect(got.json().revision).toBe(revision);
+    expect(got.headers['cache-control']).toBe('no-store');
+
+    const p = got.json().project;
+    const put = await app.inject({ method: 'PUT', url: `/api/factory/${id}`, headers: H, payload: { project: { ...p, name: 'Werk 2' }, baseRevision: revision } });
+    expect(put.statusCode).toBe(200);
+    expect(put.json().revision).not.toBe(revision);
+    const again = await app.inject({ method: 'GET', url: `/api/factory/${id}` });
+    expect(again.json().project.name).toBe('Werk 2');
+    // Auf der Platte steht das Projekt selbst, mit Formatversion auf oberster Ebene
+    const disk = JSON.parse(await readFile(join(dir, 'projects', `${id}.json`), 'utf8'));
+    expect(disk.formatVersion).toBe(PROJECT_FORMAT_VERSION);
+    expect(disk.name).toBe('Werk 2');
+  });
+
+  it('erkennt Konflikte zwischen zwei Geräten (409), Überschreiben ohne Revision ist möglich', async () => {
+    const { id, revision } = await create('Konflikt');
+    const p = (await app.inject({ method: 'GET', url: `/api/factory/${id}` })).json().project;
+    const a = await app.inject({ method: 'PUT', url: `/api/factory/${id}`, headers: H, payload: { project: { ...p, name: 'Gerät A' }, baseRevision: revision } });
+    expect(a.statusCode).toBe(200);
+    const b = await app.inject({ method: 'PUT', url: `/api/factory/${id}`, headers: H, payload: { project: { ...p, name: 'Gerät B' }, baseRevision: revision } });
+    expect(b.statusCode).toBe(409);
+    expect(b.json().revision).toBe(a.json().revision);
+    const force = await app.inject({ method: 'PUT', url: `/api/factory/${id}`, headers: H, payload: { project: { ...p, name: 'Gerät B' }, baseRevision: null } });
+    expect(force.statusCode).toBe(200);
+  });
+
+  it('gleichzeitiges Speichern: Datei bleibt gültig, keine temporären Reste', async () => {
+    const { id } = await create('Parallel');
+    const p = (await app.inject({ method: 'GET', url: `/api/factory/${id}` })).json().project;
+    const results = await Promise.all(
+      Array.from({ length: 20 }, (_, i) => app.inject({ method: 'PUT', url: `/api/factory/${id}`, headers: H, payload: { project: { ...p, name: `Stand ${i}` } } })),
+    );
+    expect(results.every((r) => r.statusCode === 200)).toBe(true);
+    const disk = JSON.parse(await readFile(join(dir, 'projects', `${id}.json`), 'utf8'));
+    expect(disk.name).toMatch(/^Stand \d+$/);
+    expect((await readdir(join(dir, 'projects'))).filter((n) => n.endsWith('.tmp'))).toEqual([]);
+  });
+
+  it('unbekannte und ungültige IDs: 404, kein Dateizugriff außerhalb des Ordners', async () => {
+    await writeFile(join(dir, 'geheim.json'), '{"x":1}');
+    for (const url of ['/api/factory/AAAAAAAAAAAAAAAAAAAAAA', '/api/factory/..%2Fgeheim', '/api/factory/..%2F..%2Fgeheim', '/api/factory/%2E%2E']) {
+      const r = await app.inject({ method: 'GET', url });
+      expect(r.statusCode, url).toBe(404);
+    }
+    const put = await app.inject({ method: 'PUT', url: '/api/factory/AAAAAAAAAAAAAAAAAAAAAA', headers: H, payload: { project: newProj('x') } });
+    expect(put.statusCode).toBe(404); // Anlegen nur über POST mit zufälliger ID
+  });
+
+  it('ungültiges JSON, ungültige Projekte und fehlender Kopf werden abgelehnt', async () => {
+    const bad = await app.inject({ method: 'POST', url: '/api/factory', headers: H, payload: '{"project": ' });
     expect(bad.statusCode).toBe(400);
-    expect(bad.json().error.code).toBe('invalid-project');
-    // Format 1 (ohne neue Felder) wird angenommen und migriert
-    const p = newProj('Alt') as unknown as Record<string, unknown>;
-    const v1 = { ...p, formatVersion: 1, settings: { gridM: 8, snapM: 1, snapAngleDeg: 90, simulation: { trainAverageSpeedKmh: 80, stopDurationS: 40, timeStepS: 0.5, durationS: 1800 } } };
-    const r = await app.inject({ method: 'PUT', url: `/api/projects/${p.id}`, headers: { ...H, cookie: anna }, payload: { project: v1 } });
-    expect(r.statusCode).toBe(201);
-    const got = await app.inject({ method: 'GET', url: `/api/projects/${p.id}`, headers: { cookie: anna } });
-    expect(got.json().project.settings.simulation.dockingS).toBe(27.08);
+    expect(bad.json().error.code).toBe('invalid-json');
+    const invalid = await app.inject({ method: 'POST', url: '/api/factory', headers: H, payload: { project: { formatVersion: PROJECT_FORMAT_VERSION, id: 'x' } } });
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.json().error.code).toBe('invalid-project');
+    const empty = await app.inject({ method: 'POST', url: '/api/factory', headers: H, payload: {} });
+    expect(empty.statusCode).toBe(400);
+    const csrf = await app.inject({ method: 'POST', url: '/api/factory', headers: { 'content-type': 'application/json' }, payload: { project: newProj('x') } });
+    expect(csrf.statusCode).toBe(403);
   });
 
-  it('Freigabelink: schreibgeschützt lesbar ohne Anmeldung, widerrufbar nur vom Besitzer', async () => {
-    const anna = await register('a4@example.org');
-    const bert = await register('b4@example.org');
-    const p = newProj('Geteilt');
-    await app.inject({ method: 'PUT', url: `/api/projects/${p.id}`, headers: { ...H, cookie: anna }, payload: { project: p } });
-    const share = await app.inject({ method: 'POST', url: `/api/projects/${p.id}/shares`, headers: { ...H, cookie: anna } });
-    expect(share.statusCode).toBe(201);
-    const { token, url } = share.json();
-    expect(url).toBe(`https://planer.example/#/share/${token}`);
-    const pub = await app.inject({ method: 'GET', url: `/api/share/${token}` });
-    expect(pub.json().project.name).toBe('Geteilt');
-    expect(pub.json().readOnly).toBe(true);
-    // Fremde dürfen weder Freigaben anlegen noch widerrufen
-    expect((await app.inject({ method: 'POST', url: `/api/projects/${p.id}/shares`, headers: { ...H, cookie: bert } })).statusCode).toBe(404);
-    expect((await app.inject({ method: 'DELETE', url: `/api/shares/${token}`, headers: { ...H, cookie: bert } })).statusCode).toBe(404);
-    expect((await app.inject({ method: 'DELETE', url: `/api/shares/${token}`, headers: { ...H, cookie: anna } })).statusCode).toBe(204);
-    expect((await app.inject({ method: 'GET', url: `/api/share/${token}` })).statusCode).toBe(404);
+  it('Größenlimit pro Projekt (413)', async () => {
+    const p = newProj('Groß');
+    p.description = 'x'.repeat(150_000);
+    expect((await app.inject({ method: 'POST', url: '/api/factory', headers: H, payload: { project: p } })).statusCode).toBe(201);
+    p.description = 'x'.repeat(210_000);
+    const big = await app.inject({ method: 'POST', url: '/api/factory', headers: H, payload: { project: p } });
+    expect(big.statusCode).toBe(413);
+    expect(big.json().error.code).toBe('too-large');
+    p.description = 'x'.repeat(400_000);
+    expect((await app.inject({ method: 'POST', url: '/api/factory', headers: H, payload: { project: p } })).statusCode).toBe(413);
+  });
+
+  it('Sicherheitsköpfe: kein Referrer, nicht indexieren', async () => {
+    const r = await app.inject({ method: 'GET', url: '/api/health' });
+    expect(r.headers['referrer-policy']).toBe('no-referrer');
+    expect(r.headers['x-robots-tag']).toContain('noindex');
+    expect(r.headers['content-security-policy']).toContain("frame-ancestors 'none'");
+  });
+});
+
+describe('Datenformat-Migration', () => {
+  it('ein Projekt im Format 1 wird beim Laden auf das aktuelle Format migriert und so gespeichert', async () => {
+    const id = newProjectId();
+    const v1 = await fixture('project-v1.json');
+    expect(JSON.parse(v1).formatVersion).toBe(1);
+    await writeFile(join(dir, 'projects', `${id}.json`), v1);
+
+    const got = await app.inject({ method: 'GET', url: `/api/factory/${id}` });
+    expect(got.statusCode).toBe(200);
+    const { project, revision, migrations } = got.json();
+    expect(project.formatVersion).toBe(PROJECT_FORMAT_VERSION);
+    expect(project.settings.simulation.dockingS).toBe(27.08);
+    expect(project.settings.simulation.stopDurationS).toBeUndefined();
+    expect(migrations).toHaveLength(PROJECT_FORMAT_VERSION - 1);
+    expect(migrations[0]).toMatch(/^1 → 2/);
+    // Datei bleibt bis zum nächsten Speichern unverändert
+    expect(JSON.parse(await readFile(join(dir, 'projects', `${id}.json`), 'utf8')).formatVersion).toBe(1);
+
+    const put = await app.inject({ method: 'PUT', url: `/api/factory/${id}`, headers: H, payload: { project, baseRevision: revision } });
+    expect(put.statusCode).toBe(200);
+    expect(JSON.parse(await readFile(join(dir, 'projects', `${id}.json`), 'utf8')).formatVersion).toBe(PROJECT_FORMAT_VERSION);
+  });
+
+  it('Hochladen eines alten Projekts (z. B. aus dem Browser) migriert ebenfalls', async () => {
+    const r = await app.inject({ method: 'POST', url: '/api/factory', headers: H, payload: { project: JSON.parse(await fixture('project-v1.json')) } });
+    expect(r.statusCode).toBe(201);
+    const disk = JSON.parse(await readFile(join(dir, 'projects', `${r.json().id}.json`), 'utf8'));
+    expect(disk.formatVersion).toBe(PROJECT_FORMAT_VERSION);
+  });
+
+  it('neuere Formate als unterstützt werden abgelehnt', async () => {
+    const p = { ...newProj('Zukunft'), formatVersion: PROJECT_FORMAT_VERSION + 1 };
+    const r = await app.inject({ method: 'POST', url: '/api/factory', headers: H, payload: { project: p } });
+    expect(r.statusCode).toBe(400);
+  });
+});
+
+describe('Rate-Limit und Obergrenzen', () => {
+  it('begrenzt das Anlegen je IP (429 mit Retry-After)', async () => {
+    const d = await mkdtemp(join(tmpdir(), 'satis-rl-'));
+    const s = new ProjectStore(d);
+    await s.init();
+    const a = await buildServer({ store: s, limits: { createPerHour: 2 } });
+    const post = (ip: string) => a.inject({ method: 'POST', url: '/api/factory', headers: H, payload: { project: newProj('x') }, remoteAddress: ip });
+    expect((await post('1.1.1.1')).statusCode).toBe(201);
+    expect((await post('1.1.1.1')).statusCode).toBe(201);
+    const third = await post('1.1.1.1');
+    expect(third.statusCode).toBe(429);
+    expect(Number(third.headers['retry-after'])).toBeGreaterThan(0);
+    expect((await post('2.2.2.2')).statusCode).toBe(201);
+    await a.close();
+    await rm(d, { recursive: true, force: true });
+  });
+
+  it('nutzt hinter einem vertrauten Proxy die weitergeleitete Client-IP', async () => {
+    const d = await mkdtemp(join(tmpdir(), 'satis-rl-'));
+    const s = new ProjectStore(d);
+    await s.init();
+    const a = await buildServer({ store: s, limits: { createPerHour: 1 }, trustProxy: 'loopback,uniquelocal' });
+    const post = (xff: string) =>
+      a.inject({ method: 'POST', url: '/api/factory', headers: { ...H, 'x-forwarded-for': xff }, payload: { project: newProj('x') }, remoteAddress: '172.18.0.1' });
+    expect((await post('203.0.113.5')).statusCode).toBe(201);
+    expect((await post('203.0.113.6')).statusCode).toBe(201);
+    // Vorgetäuschte Adresse vorne im Kopf hilft nicht: maßgeblich ist der letzte nicht vertraute Eintrag
+    expect((await post('9.9.9.9, 203.0.113.5')).statusCode).toBe(429);
+    await a.close();
+    await rm(d, { recursive: true, force: true });
+  });
+
+  it('Gesamtzahl der Projekte ist begrenzt (507)', async () => {
+    const d = await mkdtemp(join(tmpdir(), 'satis-max-'));
+    const s = new ProjectStore(d);
+    await s.init();
+    const a = await buildServer({ store: s, limits: { maxProjects: 1 } });
+    expect((await a.inject({ method: 'POST', url: '/api/factory', headers: H, payload: { project: newProj('a') } })).statusCode).toBe(201);
+    expect((await a.inject({ method: 'POST', url: '/api/factory', headers: H, payload: { project: newProj('b') } })).statusCode).toBe(507);
+    await a.close();
+    await rm(d, { recursive: true, force: true });
+  });
+
+  it('Zeitfenster läuft ab', () => {
+    let now = 0;
+    const rl = new RateLimiter({ max: 1, windowMs: 1000 }, () => now);
+    expect(rl.hit('a')).toBe(0);
+    expect(rl.hit('a')).toBe(1);
+    now = 1000;
+    expect(rl.hit('a')).toBe(0);
+  });
+
+  it('räumt verwaiste temporäre Dateien beim Start auf', async () => {
+    const d = await mkdtemp(join(tmpdir(), 'satis-tmp-'));
+    const s1 = new ProjectStore(d);
+    await s1.init();
+    await writeFile(join(s1.dir, 'AAAAAAAAAAAAAAAAAAAAAA.json.abc.tmp'), '{"halb');
+    const s2 = new ProjectStore(d);
+    await s2.init();
+    expect(await readdir(s2.dir)).toEqual([]);
+    await rm(d, { recursive: true, force: true });
   });
 });

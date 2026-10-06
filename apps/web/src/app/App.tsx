@@ -8,7 +8,8 @@ import { loadGameData } from '../state/gamedata';
 import { matchAction } from '../state/keymap';
 import { effectiveTheme, usePrefs } from '../state/prefsStore';
 import { setNotifier, useProjectStore } from '../state/projectStore';
-import { importFromFile, openShared, reopenLast, useAutosave, type SaveStatus } from '../state/session';
+import { boot, importFromFile, openRemote, useAutosave, type SaveStatus } from '../state/session';
+import { idFromLocation } from '../state/server';
 import { LAYER_LABELS, useUiStore, type LayerKey, type Mode } from '../state/uiStore';
 import { FactoryEditor } from '../features/factory/FactoryEditor';
 import { LeftPanel } from '../features/factory/LeftPanel';
@@ -23,7 +24,7 @@ import { RailProperties } from '../features/rail/RailProperties';
 import { TransportView } from '../features/transport/TransportView';
 import { SettingsDialog } from '../features/settings/SettingsDialog';
 import { HelpMenu, TourOverlay, WelcomeCard } from '../features/tutorial/Tour';
-import { AccountMenu, SharedBanner } from '../features/account/Account';
+import { ProjectLinkBar, ProjectLinkButton, useLinkBar } from '../features/link/ProjectLink';
 import { TextField } from '../ui/fields';
 
 setNotifier((m, k) => useUiStore.getState().toast(m, k));
@@ -72,14 +73,16 @@ export function App() {
     document.documentElement.lang = lang;
   }, [lang]);
   useEffect(() => {
-    void reopenLast().finally(() => setBooting(false));
-    // Freigabelink in einer bereits geöffneten App (nur der #-Teil ändert sich)
-    const onHash = () => {
-      const m = /^#\/share\/([\w-]+)$/.exec(location.hash);
-      if (m) void openShared(m[1]!).then((ok) => ok && setShowList(false));
+    void boot().finally(() => setBooting(false));
+    // Zurück/Vor im Browser zwischen Projekt-Links
+    const onPop = () => {
+      const id = idFromLocation();
+      if (!id) return setShowList(true);
+      if (useProjectStore.getState().remote?.id !== id) void openRemote(id, { push: false }).then((ok) => ok && setShowList(false));
+      else setShowList(false);
     };
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   if (booting) return <div className="boot">{t('Lade …')}</div>;
@@ -102,7 +105,8 @@ function Workspace({ onOpenList }: { onOpenList: () => void }) {
   const redo = useProjectStore((s) => s.redo);
   const canUndo = useProjectStore((s) => s.past.length > 0);
   const canRedo = useProjectStore((s) => s.future.length > 0);
-  const readOnly = useProjectStore((s) => s.readOnly);
+  const remote = useProjectStore((s) => s.remote);
+  const linkBar = useLinkBar();
   const mode = useUiStore((s) => s.mode);
   const setMode = useUiStore((s) => s.setMode);
   const factoryId = useUiStore((s) => s.factoryId);
@@ -223,22 +227,25 @@ function Workspace({ onOpenList }: { onOpenList: () => void }) {
           <button onClick={redo} disabled={!canRedo} title={t('Wiederholen (Strg+Y / Strg+Umschalt+Z)')}>
             ↷
           </button>
-          <span className={`save-status save-${status}`} title={t('Autosave in den Browser-Speicher (Strg+S speichert sofort)')}>
-            {readOnly ? t('Schreibgeschützt') : t(SAVE_LABEL[status])}
+          <span
+            className={`save-status save-${status}`}
+            title={remote ? t('Autosave auf den Server (Strg+S speichert sofort)') : t('Autosave in den Browser-Speicher (Strg+S speichert sofort)')}
+          >
+            {t(SAVE_LABEL[status])}
           </span>
           <button onClick={() => downloadProject(project)} title={t('Als JSON exportieren (Strg+E)')}>
             {t('Export')}
           </button>
           <button onClick={() => void importFromFile()}>{t('Import')}</button>
           {mode === 'factory' && <LayerMenu />}
-          <AccountMenu />
+          <ProjectLinkButton onShow={linkBar.show} />
           <HelpMenu />
           <button onClick={() => useUiStore.getState().setSettingsOpen(true)} title={t('Einstellungen (Strg+,)')} data-testid="settings-button">
             ⚙
           </button>
         </div>
       </header>
-      <SharedBanner />
+      {!linkBar.hidden && <ProjectLinkBar onHide={linkBar.hide} />}
 
       {mode === 'factory' && (
         <div className="factory-tabs">

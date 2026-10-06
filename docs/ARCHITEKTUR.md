@@ -21,8 +21,8 @@ Satis Planner ist eine Webanwendung zur Planung von Satisfactory-Fabriken. Sie v
 | **Core: Transport** | `packages/core/src/transport` | Zugkapazität, Umlaufschätzung, Durchsatz je Auftrag, Bilanz lokal/extern je Fabrik, Transportbefunde. | Schiene, Produktion |
 | **Core: Mehrsprachigkeit** | `packages/core/src/i18n` | `tr()` mit deutschem Quelltext als Schlüssel, Wörterbücher je Sprache, Zahlenformat. Prüfmeldungen und Fehlermeldungen des Kerns werden übersetzt. | – |
 | **Core: Prüfung** | `packages/core/src/validation` | Einheitliches Befundformat, Regelkatalog, Prüfmotor mit Zwischenspeicher je Teilbereich. | alle Core-Module |
-| **Web-App** | `apps/web` | React-Oberfläche: Layout, Zustand, Undo/Redo, Autosave, Canvas-Editoren, Panels, Einstellungen (Sprache, Farbschema, Tastenbelegung), geführte Touren, Konto und Freigaben. | Core |
-| **Server** | `apps/server` | Benutzerkonten, serverseitige Projekte (optimistische Sperre), schreibgeschützte Freigabelinks. Liefert auch die statische Web-App aus. Optional: Ohne Server bleibt die App voll nutzbar. | Core (Schema und Migrationen) |
+| **Web-App** | `apps/web` | React-Oberfläche: Layout, Zustand, Undo/Redo, Autosave, Canvas-Editoren, Panels, Einstellungen (Sprache, Farbschema, Tastenbelegung), geführte Touren, Projekt-Link. | Core |
+| **Server** | `apps/server` | Projekte als JSON-Dateien unter geheimen Links (`/f/<id>`, kein Login), optimistische Sperre über Revisionen, Rate-Limit. Liefert auch die statische Web-App aus. Optional: Ohne Server bleibt die App voll nutzbar (IndexedDB). | Core (Schema und Migrationen) |
 
 **Grundsatz:** Alles, was rechnet oder prüft, liegt in `@satis/core`, ist frei von React und DOM und läuft ohne Editor in Vitest. Die Web-App ruft nur Funktionen auf und stellt Ergebnisse dar.
 
@@ -38,7 +38,7 @@ Satis Planner ist eine Webanwendung zur Planung von Satisfactory-Fabriken. Sie v
 | Lokale Speicherung | **IndexedDB** (`idb`) | Projekte können mehrere MB groß sein, localStorage reicht dafür nicht. Funktioniert ohne Konto und offline. |
 | Optimierung | **YALPS** (lineare Programmierung, reines TS) | Produktionskreisläufe, Nebenprodukte und Rohstoffgrenzen sind ein lineares Problem. Ein rekursiver Rezeptbaum kann Kreisläufe nicht korrekt lösen. YALPS läuft synchron in Browser und Tests. Hinter der Schnittstelle `LpSolver` könnte später HiGHS (WASM) treten. |
 | Tests | **Vitest** | Gleiche Konfiguration wie Vite, schnell, TypeScript ohne Zusatzaufwand. |
-| Server | **Fastify + PostgreSQL + Drizzle ORM** | Ein einziger Node-Prozess liefert API und statische App aus. Postgres gibt es bei fast jedem Hoster. Drizzle erzeugt versionierte SQL-Migrationen. Für Tests und lokale Entwicklung ohne Datenbankinstallation läuft dasselbe Schema auf **PGlite** (PostgreSQL als WebAssembly). Keine Microservices. |
+| Server | **Fastify + Dateiablage** | Ein einziger Node-Prozess liefert API und statische App aus. Eine JSON-Datei pro Projekt, atomar geschrieben – keine Datenbank nötig, Sicherung per tar. Betrieb im Docker-Container hinter Tailscale Funnel (siehe README). |
 | Mehrsprachigkeit | **eigenes `tr()`** (deutscher Quelltext = Schlüssel) | Kein zusätzliches Paket; fehlende Übersetzungen fallen auf Deutsch zurück; ein Test prüft, dass jeder Text übersetzt ist und Platzhalter erhalten bleiben. |
 
 ### Rendering: Canvas 2D statt WebGL, 3D später zusätzlich
@@ -109,13 +109,12 @@ satis-planner/
    │     │  ├─ transport/    Transportaufträge, Schätzung, Bilanz lokal/extern
    │     │  ├─ settings/     Sprache, Farbschema, Tastenbelegung, Spieldatensatz
    │     │  ├─ tutorial/     Geführte Touren
-   │     │  ├─ account/      Konto, Projekte im Konto, Freigabelinks
+   │     │  ├─ link/         Projekt-Link (Leiste mit Kopieren)
    │     │  └─ findings/     Befundliste (je Ansicht gefiltert)
    │     └─ ui/              Wiederverwendbare Bausteine
    └─ server/
-      ├─ src/                app.ts (API), schema.ts (Drizzle), db.ts, auth.ts, config.ts, main.ts
-      ├─ drizzle/            Versionierte SQL-Migrationen
-      └─ test/               API-Tests gegen PGlite
+      ├─ src/                app.ts (API), storage.ts (Dateiablage), rateLimit.ts, config.ts, main.ts
+      └─ test/               API-Tests (Temp-Ordner), fixtures/ mit alten Formaten
 ```
 
 ## 4. Datenfluss
@@ -125,7 +124,7 @@ flowchart LR
   subgraph Speicher
     IDB[(IndexedDB)]
     JSON[[Export-JSON]]
-    API[(Server: Konto, Freigaben)]
+    API[(Server: storage/projects/&lt;id&gt;.json)]
   end
   GD[(Spieldaten<br/>data/gamedata/&lt;version&gt;)]
   subgraph Web
@@ -180,7 +179,7 @@ Sprache, Farbschema, Tastenbelegung, Flussanimation und Tutorialstand sind **kei
 
 ### Server
 
-Der Server ist optional. Er speichert Projekte als JSON-Dokument (`jsonb`) und führt beim Speichern und Laden dieselbe Migrations- und Schemaprüfung aus wie der Browser (`importProject` aus `@satis/core`). Freigabelinks liefern einen schreibgeschützten Stand; die Oberfläche öffnet ihn ohne Autosave und bietet „Als Kopie übernehmen“ an.
+Der Server ist optional. Er speichert jedes Projekt als eigene JSON-Datei `storage/projects/<id>.json` (Inhalt = Projekt im aktuellen Format, `formatVersion` auf oberster Ebene) und führt beim Speichern und Laden dieselbe Migrations- und Schemaprüfung aus wie der Browser (`importProject` aus `@satis/core`). Die ID ist zugleich der geheime Link `/f/<id>`. Gleichzeitiges Speichern von zwei Geräten erkennt er über die Revision (Hash des Dateiinhalts) und antwortet mit 409; die Oberfläche fragt dann, welcher Stand gelten soll.
 
 ## 5. Erweiterbarkeit und Versionierung
 

@@ -1,23 +1,18 @@
 /**
- * Zugriff auf den optionalen Server (Konten, Projekte im Konto, Freigaben).
- * Ohne Server (statische Auslieferung) bleibt der Planer voll nutzbar; die
- * Kontofunktionen sind dann ausgeblendet.
+ * Zugriff auf den optionalen Server (Projekte unter geheimen Links /f/<id>).
+ * Ohne Server (z. B. nur `npm run dev`) bleibt der Planer voll nutzbar und
+ * speichert lokal im Browser (IndexedDB).
  */
 import { create } from 'zustand';
 import type { Project } from '@satis/core';
 import { N_, t } from '../i18n';
-
-export interface User {
-  id: string;
-  email: string;
-  displayName: string;
-}
 
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
     message: string,
+    readonly body: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -25,16 +20,13 @@ export class ApiError extends Error {
 
 /** Fehlercodes der API → verständlicher, übersetzter Text. */
 const ERROR_TEXT: Record<string, string> = {
-  'invalid-email': N_('Ungültige E-Mail-Adresse.'),
-  'weak-password': N_('Das Passwort muss mindestens 10 Zeichen lang sein.'),
-  'email-taken': N_('Diese E-Mail-Adresse ist bereits registriert.'),
-  'invalid-credentials': N_('E-Mail oder Passwort ist falsch.'),
-  'rate-limited': N_('Zu viele Anmeldeversuche. Bitte später erneut versuchen.'),
-  unauthenticated: N_('Nicht angemeldet.'),
-  forbidden: N_('Dieses Projekt gehört einem anderen Konto.'),
+  'rate-limited': N_('Zu viele Anfragen. Bitte später erneut versuchen.'),
   conflict: N_('Das Projekt wurde zwischenzeitlich anderweitig gespeichert.'),
-  'not-found': N_('Nicht gefunden.'),
+  'not-found': N_('Projekt nicht gefunden. Ist der Link vollständig?'),
   'invalid-project': N_('Das Projekt entspricht nicht dem erwarteten Format.'),
+  'invalid-json': N_('Ungültiges JSON.'),
+  'too-large': N_('Das Projekt ist zu groß für den Server.'),
+  'storage-full': N_('Die maximale Anzahl an Projekten auf dem Server ist erreicht.'),
 };
 
 async function api<T>(method: string, url: string, body?: unknown): Promise<T> {
@@ -48,51 +40,48 @@ async function api<T>(method: string, url: string, body?: unknown): Promise<T> {
   const data = (await res.json().catch(() => ({}))) as { error?: { code: string; message: string } } & T;
   if (!res.ok) {
     const code = data.error?.code ?? 'error';
-    throw new ApiError(res.status, code, ERROR_TEXT[code] ? t(ERROR_TEXT[code]!) : (data.error?.message ?? `HTTP ${res.status}`));
+    throw new ApiError(res.status, code, ERROR_TEXT[code] ? t(ERROR_TEXT[code]!) : (data.error?.message ?? `HTTP ${res.status}`), data as Record<string, unknown>);
   }
   return data;
 }
 
+const path = (id: string) => `/api/factory/${encodeURIComponent(id)}`;
+
 export const serverApi = {
   health: () => api<{ ok: boolean }>('GET', '/api/health'),
-  me: () => api<{ user: User }>('GET', '/api/auth/me'),
-  login: (email: string, password: string) => api<{ user: User }>('POST', '/api/auth/login', { email, password }),
-  register: (email: string, password: string, displayName: string) => api<{ user: User }>('POST', '/api/auth/register', { email, password, displayName }),
-  logout: () => api<void>('POST', '/api/auth/logout'),
-  listProjects: () => api<{ projects: { id: string; name: string; updatedAt: string; datasetId: string; revision: number }[] }>('GET', '/api/projects'),
-  loadProject: (id: string) => api<{ project: unknown; revision: number }>('GET', `/api/projects/${encodeURIComponent(id)}`),
-  saveProject: (p: Project, baseRevision: number | null) => api<{ revision: number }>('PUT', `/api/projects/${encodeURIComponent(p.id)}`, { project: p, baseRevision }),
-  deleteProject: (id: string) => api<void>('DELETE', `/api/projects/${encodeURIComponent(id)}`),
-  createShare: (id: string) => api<{ token: string; url: string }>('POST', `/api/projects/${encodeURIComponent(id)}/shares`),
-  listShares: (id: string) => api<{ shares: { token: string; url: string; createdAt: string }[] }>('GET', `/api/projects/${encodeURIComponent(id)}/shares`),
-  revokeShare: (token: string) => api<void>('DELETE', `/api/shares/${encodeURIComponent(token)}`),
-  loadShare: (token: string) => api<{ project: unknown; readOnly: true }>('GET', `/api/share/${encodeURIComponent(token)}`),
+  createProject: (project: Project) => api<{ id: string; revision: string }>('POST', '/api/factory', { project }),
+  loadProject: (id: string) => api<{ project: unknown; revision: string; migrations: string[] }>('GET', path(id)),
+  saveProject: (id: string, project: Project, baseRevision: string | null) => api<{ revision: string }>('PUT', path(id), { project, baseRevision }),
 };
 
-interface AccountState {
-  /** null = noch nicht geprüft, false = kein Server erreichbar. */
-  available: boolean | null;
-  user: User | null;
-  check(): Promise<void>;
-  setUser(u: User | null): void;
+/** Format der Projekt-IDs auf dem Server (128 Bit, base64url). */
+export const REMOTE_ID = /^[A-Za-z0-9_-]{22}$/;
+
+export const projectUrl = (id: string) => `${location.origin}/f/${id}`;
+
+/** ID aus der aktuellen Adresse (/f/<id>), sonst null. Ungültige IDs liefern ''. */
+export function idFromLocation(): string | null {
+  const m = /^\/f\/([^/]*)\/?$/.exec(location.pathname);
+  if (!m) return null;
+  return REMOTE_ID.test(m[1]!) ? m[1]! : '';
 }
 
-export const useAccount = create<AccountState>((set) => ({
+interface ServerState {
+  /** null = noch nicht geprüft, false = kein Server erreichbar. */
+  available: boolean | null;
+  check(): Promise<boolean>;
+}
+
+export const useServer = create<ServerState>((set) => ({
   available: null,
-  user: null,
   async check() {
     try {
       await serverApi.health();
+      set({ available: true });
+      return true;
     } catch {
-      set({ available: false, user: null });
-      return;
-    }
-    try {
-      const { user } = await serverApi.me();
-      set({ available: true, user });
-    } catch {
-      set({ available: true, user: null });
+      set({ available: false });
+      return false;
     }
   },
-  setUser: (user) => set({ user }),
 }));

@@ -1,0 +1,59 @@
+{
+  "formatVersion": 1,
+  "id": "prj_v1fixture00",
+  "name": "Altes Werk (Format 1)",
+  "description": "",
+  "createdAt": "2026-09-01T12:00:00.000Z",
+  "updatedAt": "2026-09-01T12:00:00.000Z",
+  "gameData": {
+    "datasetId": "sf-1.2.4.0",
+    "gameVersion": "1.2.4.0"
+  },
+  "settings": {
+    "gridM": 8,
+    "snapM": 1,
+    "snapAngleDeg": 90,
+    "simulation": {
+      "trainAverageSpeedKmh": 80,
+      "timeStepS": 0.5,
+      "durationS": 3600,
+      "stopDurationS": 40
+    }
+  },
+  "factories": {
+    "fac_nqszenufdnwn": {
+      "id": "fac_nqszenufdnwn",
+      "name": "Fabrik 1",
+      "color": "#e8a33d",
+      "floorIds": [
+        "flr_h70oqvsq0sof"
+      ],
+      "notes": ""
+    }
+  },
+  "floors": {
+    "flr_h70oqvsq0sof": {
+      "id": "flr_h70oqvsq0sof",
+      "factoryId": "fac_nqszenufdnwn",
+      "name": "Erdgeschoss",
+      "kind": "production",
+      "elevationM": 0,
+      "heightM": 12
+    }
+  },
+  "areas": {},
+  "buildings": {},
+  "links": {},
+  "groups": {},
+  "productionPlans": {},
+  "railNetworks": {},
+  "railNodes": {},
+  "railSegments": {},
+  "railSignals": {},
+  "stations": {},
+  "trains": {},
+  "timetables": {},
+  "transportOrders": {},
+  "measurements": {},
+  "findingStates": {}
+}

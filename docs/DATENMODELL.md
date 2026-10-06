@@ -108,9 +108,9 @@ Die Annahmen der Schätzung stehen in `settings.simulation`: `trainAverageSpeedK
 ### Befunde (abgeleitet)
 `Finding { key, ruleId, severity (error|warning|info), kind (game-rule|recommendation|unchecked), certainty (static|dynamic), domain, objects[], message, explanation, suggestion, location }`. Gespeichert wird nur `findingStates[key]`.
 
-## Serverdatenbank (optional)
+## Serverablage (optional)
 
-Tabellen (PostgreSQL, Drizzle, Migrationen in `apps/server/drizzle/`): `users` (E-Mail, Anzeigename, scrypt-Passworthash), `sessions` (HMAC des Sitzungstokens, Ablauf), `projects` (Besitzer, Name, Projekt als `jsonb`, `format_version`, `dataset_id`, `revision` für optimistische Sperre), `shares` (zufälliges Token, Projekt, widerrufen).
+Eine Datei pro Projekt: `storage/projects/<id>.json`. Inhalt ist das Projekt selbst (wie `project` in der Exportdatei, mit `formatVersion` auf oberster Ebene). `<id>` sind 16 Zufallsbytes als base64url (22 Zeichen) und zugleich der geheime Link `/f/<id>`; die `id` im Projekt selbst ist davon unabhängig. Die Revision für die optimistische Sperre ist ein Hash des Dateiinhalts und wird nicht gespeichert. Ältere Formate bleiben bis zum nächsten Speichern unverändert auf der Platte und werden beim Laden migriert.
 
 ## Versionierung
 

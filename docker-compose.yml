@@ -1,28 +1,37 @@
-# Beispiel für den Betrieb mit PostgreSQL. Werte kommen aus der Umgebung bzw. einer
-# lokalen .env-Datei (nicht einchecken; Vorlage: .env.example).
+# Satis Planner auf dem Heimserver. Öffentlich erreichbar über Tailscale Funnel:
+#   tailscale funnel --bg 8080
+# Der Port ist nur auf 127.0.0.1 freigegeben – erreichbar für tailscaled auf
+# demselben Rechner, nicht direkt aus dem Heimnetz oder Internet.
+# Optionale Einstellungen in .env (Vorlage: .env.example).
 services:
-  db:
-    image: postgres:17
-    environment:
-      POSTGRES_DB: satis
-      POSTGRES_USER: satis
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD setzen}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U satis']
-      interval: 5s
-      retries: 10
   app:
     build: .
-    depends_on:
-      db:
-        condition: service_healthy
+    image: satis-planner:latest
+    restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://satis:${POSTGRES_PASSWORD}@db:5432/satis
-      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET setzen (mind. 32 Zeichen)}
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      STORAGE_DIR: /app/storage
+      # tailscaled leitet weiter und setzt X-Forwarded-For; nur lokalen Absendern glauben
+      TRUST_PROXY: loopback,uniquelocal
+      MAX_PROJECT_BYTES: ${MAX_PROJECT_BYTES:-5242880}
+      MAX_PROJECTS: ${MAX_PROJECTS:-5000}
+      RATE_CREATE_PER_HOUR: ${RATE_CREATE_PER_HOUR:-10}
+      RATE_SAVE_PER_MINUTE: ${RATE_SAVE_PER_MINUTE:-120}
+      RATE_LOAD_PER_MINUTE: ${RATE_LOAD_PER_MINUTE:-300}
     ports:
-      - '8080:8080'
-volumes:
-  pgdata:
+      - '127.0.0.1:${PORT:-8080}:8080'
+    volumes:
+      # Projekte (eine JSON-Datei pro Projekt) – überlebt Rebuilds und Updates
+      - ./storage:/app/storage
+    # Härtung: Dateisystem schreibgeschützt (außer storage und /tmp), keine Zusatzrechte
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'

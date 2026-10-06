@@ -1,14 +1,15 @@
-/** Startet den Server: Konfiguration lesen, Datenbank migrieren, lauschen. */
+/** Startet den Server: Konfiguration lesen, Speicherordner vorbereiten, lauschen. */
 import { buildServer } from './app.ts';
 import { loadConfig } from './config.ts';
-import { openDatabase } from './db.ts';
+import { ProjectStore } from './storage.ts';
 
 const cfg = loadConfig();
-const database = await openDatabase(cfg.databaseUrl);
-const app = await buildServer({ db: database.db, sessionSecret: cfg.sessionSecret, publicBaseUrl: cfg.publicBaseUrl, staticDir: cfg.staticDir, logger: true });
+const store = new ProjectStore(cfg.storageDir);
+await store.init();
+const app = await buildServer({ store, limits: cfg.limits, staticDir: cfg.staticDir, trustProxy: cfg.trustProxy, logger: true });
+app.log.info(`Projektablage: ${store.dir} (${store.size} Projekte)`);
 const stop = async () => {
   await app.close();
-  await database.close();
   process.exit(0);
 };
 process.on('SIGINT', () => void stop());
