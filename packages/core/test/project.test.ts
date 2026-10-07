@@ -258,3 +258,12 @@ describe('Operationen innerhalb von Immer-Entwürfen (wie in der Web-App)', () =
     expect(ProjectSchema.safeParse(p).success).toBe(true);
   });
 });
+
+describe('Softwareversion', () => {
+  it('APP_VERSION entspricht der Version im Wurzel-package.json', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { APP_VERSION } = await import('../src/project/serialize.ts');
+    const pkg = JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8')) as { version: string };
+    expect(APP_VERSION).toBe(`satis-planner ${pkg.version}`);
+  });
+});
