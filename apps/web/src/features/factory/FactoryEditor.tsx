@@ -10,9 +10,9 @@ import {
   factoryOps as ops,
   geo,
   orientPorts,
+  portStubZ,
   routePath,
   type GameDataIndex,
-  type LinkRouting,
   type ObjectRef,
   type Placement,
   type Project,
@@ -28,10 +28,11 @@ import { useFindingMarks } from '../../state/derived';
 import { usePrefs } from '../../state/prefsStore';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore, type Tool } from '../../state/uiStore';
-import { drawBuilding, drawPort, renderFactory, snapOrigin } from './render';
+import { drawBuilding, drawPort, linkTierStyle, renderFactory, snapOrigin } from './render';
 import { buildScene, hitTest, hitToRef, neighborGaps, portKey, type FactoryScene, type Hit } from './scene';
 import { ElevationView } from './ElevationView';
-import { EditorToolbar, ROUTING_LABELS, ROUTING_ORDER } from './EditorToolbar';
+import { EditorToolbar, ROUTING_LABELS, tierShort } from './EditorToolbar';
+import { linkToolFor, nextRouting, nextTier } from '../../state/linkTool';
 
 type Drag =
   | { kind: 'move'; start: geo.Vec2; delta: geo.Vec2; buildingIds: string[]; areaIds: string[]; moved: boolean }
@@ -180,13 +181,14 @@ function PlanEditor() {
   }
 
   /** Platzierung so wählen, dass die gedrehte Hülle am Fangraster ausgerichtet ist. */
-  function snappedPlacement(gdx: GameDataIndex, type: string, cursor: geo.Vec2, rotationDeg: number, free: boolean, fl: string): Placement {
+  function snappedPlacement(gdx: GameDataIndex, type: string, cursor: geo.Vec2, rotationDeg: number, free: boolean, fl: string, vertical?: 'up' | 'down'): Placement {
     const def = gdx.building(type);
     const step = live.current.project.settings.snapM;
-    if (!def || free || step <= 0) return { floorId: fl, x: cursor.x, y: cursor.y, zOffsetM: 0, rotationDeg };
-    const r0 = geo.rectOf(buildingOutline(def, { x: 0, y: 0, rotationDeg }));
+    const v = vertical ? { vertical } : {};
+    if (!def || free || step <= 0) return { floorId: fl, x: cursor.x, y: cursor.y, zOffsetM: 0, rotationDeg, ...v };
+    const r0 = geo.rectOf(buildingOutline(def, { x: 0, y: 0, rotationDeg, vertical }));
     const corner = snapPoint({ x: cursor.x + r0.minX, y: cursor.y + r0.minY }, false);
-    return { floorId: fl, x: corner.x - r0.minX, y: corner.y - r0.minY, zOffsetM: 0, rotationDeg };
+    return { floorId: fl, x: corner.x - r0.minX, y: corner.y - r0.minY, zOffsetM: 0, rotationDeg, ...v };
   }
 
   function snapDelta(raw: geo.Vec2, free: boolean): geo.Vec2 {
@@ -328,7 +330,7 @@ function PlanEditor() {
     const L = live.current;
     const i = it.current;
     if (tl.kind === 'place') {
-      const pl = snappedPlacement(L.gd, tl.type, i.cursor, tl.rotationDeg, i.alt, L.floorId);
+      const pl = snappedPlacement(L.gd, tl.type, i.cursor, tl.rotationDeg, i.alt, L.floorId, tl.vertical);
       const def = L.gd.building(tl.type);
       if (!def) return;
       const parts = buildingFootprint(def, pl, L.project.floors[L.floorId]);
@@ -382,7 +384,7 @@ function PlanEditor() {
         if (port.kind !== tl.linkKind) continue;
         const free = !L.scene.connectedPorts.has(portKey(sb.building.id, port.id));
         const wanted = i.link ? sb.building.id !== i.link.buildingId && portMatches(i.link.from, port) : true;
-        if (free && wanted) drawPort(ctx, vp, port.world, port.kind, port.direction, false, true);
+        if (free && wanted) drawPort(ctx, vp, port.world, port.kind, port.direction, false, true, port.role);
       }
     }
     if (!i.link) return;
@@ -398,12 +400,14 @@ function PlanEditor() {
     } else {
       const end = snapPoint(i.cursor, i.alt);
       const stubStart = { x: i.link.from.world.x + i.link.from.worldNormal.x, y: i.link.from.world.y + i.link.from.worldNormal.y, z: i.link.from.world.z };
-      pts = routePath([i.link.from.world, stubStart, ...i.link.waypoints, { ...end, z }], tl.routing);
+      const startZ = i.link.waypoints.at(-1)?.z ?? portStubZ(i.link.from);
+      const lift = Math.abs(startZ - z) > 0.01 ? [{ ...end, z: startZ }] : [];
+      pts = routePath([i.link.from.world, i.link.from.vertical ? { ...stubStart, z: portStubZ(i.link.from) } : stubStart, ...i.link.waypoints, ...lift, { ...end, z }], tl.routing);
       // Vom Eingang aus gezeichnet: Fluss läuft zum Startanschluss
       if (i.link.from.direction === 'in') pts = [...pts].reverse();
     }
     pathPolyline(ctx, vp, pts);
-    ctx.strokeStyle = tl.linkKind === 'belt' ? COLORS.belt : COLORS.pipe;
+    ctx.strokeStyle = linkTierStyle(L.gd, { kind: tl.linkKind, tier: tl.tier }).color;
     ctx.setLineDash([6, 4]);
     ctx.lineWidth = 2;
     ctx.stroke();
@@ -414,7 +418,7 @@ function PlanEditor() {
     const last = (i.link.waypoints.at(-1) ?? i.link.from.world) as geo.Vec2;
     drawDimension(ctx, vp, last, end);
     const s = vp.toScreen(i.cursor);
-    drawLabel(ctx, t(ROUTING_LABELS[tl.routing]), s.x + 14, s.y - 14, { align: 'left', bg: COLORS.labelBg, size: 10 });
+    drawLabel(ctx, `${tierShort(L.gd.name(tl.tier))} · ${t(ROUTING_LABELS[tl.routing])}`, s.x + 14, s.y - 14, { align: 'left', bg: COLORS.labelBg, size: 10 });
   }
 
   // ------------------------------------------------------------------ Eingaben
@@ -449,7 +453,7 @@ function PlanEditor() {
     }
 
     if (tl.kind === 'place') {
-      const pl = snappedPlacement(L.gd, tl.type, e.world, tl.rotationDeg, e.alt, L.floorId);
+      const pl = snappedPlacement(L.gd, tl.type, e.world, tl.rotationDeg, e.alt, L.floorId, tl.vertical);
       if (tl.buildingId) {
         const id = tl.buildingId;
         apply(t('Maschine aufstellen'), (d) => ops.placeBuilding(d, id, pl));
@@ -536,8 +540,11 @@ function PlanEditor() {
       }
       const draft = i.link;
       const waypoints = [...draft.waypoints];
-      const lastZ = waypoints.at(-1)?.z ?? draft.from.world.z;
-      if (Math.abs(lastZ - h.port.world.z) > 0.01) {
+      const lastZ = waypoints.at(-1)?.z ?? portStubZ(draft.from);
+      if (h.port.vertical) {
+        // Senkrechter Anschluss (Pumpe): waagrecht bis über bzw. unter den Anschluss, dann senkrecht hinein
+        if (Math.abs(lastZ - portStubZ(h.port)) > 0.01) waypoints.push({ x: h.port.world.x, y: h.port.world.y, z: lastZ });
+      } else if (Math.abs(lastZ - h.port.world.z) > 0.01) {
         // Höhenwechsel: senkrechter Abschnitt (Lift) vor dem Ziel
         const stub = { x: h.port.world.x + h.port.worldNormal.x * 2, y: h.port.world.y + h.port.worldNormal.y * 2 };
         waypoints.push({ ...stub, z: lastZ }, { ...stub, z: h.port.world.z });
@@ -556,7 +563,7 @@ function PlanEditor() {
       return;
     }
     const p = snapPoint(e.world, e.alt);
-    const lastZ = i.link.waypoints.at(-1)?.z ?? i.link.from.world.z;
+    const lastZ = i.link.waypoints.at(-1)?.z ?? portStubZ(i.link.from);
     if (Math.abs(lastZ - z) > 0.01) i.link.waypoints.push({ ...p, z: lastZ });
     i.link.waypoints.push({ ...p, z });
   }
@@ -698,9 +705,14 @@ function PlanEditor() {
 
       const action = matchAction(e, 'factory', usePrefs.getState().bindings);
       if (!action) return;
-      const beltTier = L.gd.beltTiers[0]?.id ?? '';
-      const pipeTier = L.gd.pipeTiers[0]?.id ?? '';
-      const routing: LinkRouting = tl.kind === 'link' ? tl.routing : 'direct';
+      const linkKey = (kind: 'belt' | 'pipe') => {
+        // Erneut drücken bei aktivem Werkzeug: Verlegemodus weiterschalten
+        if (tl.kind === 'link' && tl.linkKind === kind) {
+          const routing = nextRouting(tl.routing);
+          ui.setTool({ ...tl, routing });
+          ui.toast(`${kind === 'belt' ? t('Förderband') : t('Rohr')}: ${t(ROUTING_LABELS[routing])}`);
+        } else ui.setTool(linkToolFor(L.gd, kind));
+      };
       const nudge = (dx: number, dy: number) => {
         if (!selBuildings.length && !L.selection.some((s) => s.table === 'areas')) return;
         e.preventDefault();
@@ -722,20 +734,44 @@ function PlanEditor() {
           ui.setTool({ kind: 'area', areaKind: 'build-area' });
           break;
         case 'factory.belt':
-          ui.setTool({ kind: 'link', linkKind: 'belt', tier: tl.kind === 'link' && tl.linkKind === 'belt' ? tl.tier : beltTier, routing });
+          linkKey('belt');
           break;
         case 'factory.pipe':
-          ui.setTool({ kind: 'link', linkKind: 'pipe', tier: tl.kind === 'link' && tl.linkKind === 'pipe' ? tl.tier : pipeTier, routing });
+          linkKey('pipe');
           break;
+        case 'factory.tier':
+          if (tl.kind === 'link') {
+            const tier = nextTier(L.gd, tl.linkKind, tl.tier);
+            ui.setTool({ ...tl, tier });
+            ui.toast(L.gd.name(tier));
+          } else {
+            const links = L.selection.filter((s) => s.table === 'links').map((s) => L.project.links[s.id]).filter((l) => !!l);
+            if (links.length) {
+              apply(t('Stufe ändern'), (d, g) => links.forEach((l) => ops.updateLink(d, g, l.id, { tier: nextTier(L.gd, l.kind, l.tier) })));
+            }
+          }
+          break;
+        case 'factory.vertical': {
+          const cycle = (v: 'up' | 'down' | undefined) => (v === undefined ? 'up' : v === 'up' ? 'down' : undefined);
+          if (tl.kind === 'place') {
+            if (L.gd.building(tl.type)?.pump) ui.setTool({ ...tl, vertical: cycle(tl.vertical) });
+          } else if (selBuildings.length) {
+            const first = selBuildings.map((id) => L.project.buildings[id]).find((b) => b?.placement && L.gd.building(b.type)?.pump);
+            if (first) {
+              const v = cycle(first.placement!.vertical);
+              apply(t('Einbaulage ändern'), (d, g) => ops.setVertical(d, g, selBuildings, v ?? null));
+            } else ui.toast(t('Nur Pipeline-Pumpen können senkrecht eingebaut werden.'), 'info');
+          }
+          break;
+        }
         case 'factory.routing':
           if (tl.kind === 'link') {
-            const next = ROUTING_ORDER[(ROUTING_ORDER.indexOf(tl.routing) + 1) % ROUTING_ORDER.length]!;
-            ui.setTool({ ...tl, routing: next });
+            ui.setTool({ ...tl, routing: nextRouting(tl.routing) });
           } else {
             const links = L.selection.filter((s) => s.table === 'links').map((s) => s.id);
             if (links.length) {
               const cur = L.project.links[links[0]!]?.routing ?? 'direct';
-              const next = ROUTING_ORDER[(ROUTING_ORDER.indexOf(cur) + 1) % ROUTING_ORDER.length]!;
+              const next = nextRouting(cur);
               apply(t('Verlegemodus'), (d, g) => links.forEach((id) => ops.updateLink(d, g, id, { routing: next })));
             }
           }
@@ -865,7 +901,7 @@ function toolHint(tl: Tool): string {
     case 'select':
       return t('Klicken: auswählen · Ziehen: verschieben/Rahmen · R drehen · Entf löschen · Strg+C/V/D · U Aufstellung aufheben · Leertaste/rechte Maustaste: Ansicht verschieben');
     case 'place':
-      return t('Klicken: platzieren · R / Umschalt+R drehen · Alt: ohne Fangen · Esc: beenden');
+      return t('Klicken: platzieren · R / Umschalt+R drehen · O: Pumpe senkrecht/waagrecht · Alt: ohne Fangen · Esc: beenden');
     case 'paste':
       return t('Klicken: Kopie einfügen (aktives Stockwerk) · Alt: ohne Fangen · Esc: beenden');
     case 'group':
@@ -873,7 +909,7 @@ function toolHint(tl: Tool): string {
     case 'area':
       return t('Ziehen: Rechteck · Klicken: Eckpunkte setzen, Doppelklick/Enter/Startpunkt: abschließen · Rücktaste: Punkt entfernen');
     case 'link':
-      return t('Anschluss anklicken (Ein- oder Ausgang) → Zwischenpunkte setzen (Bild↑/↓ für Lifte) → Gegenstück anklicken · N: Verlegemodus · Rücktaste: Punkt zurück · Esc: abbrechen');
+      return t('Anschluss anklicken (Ein- oder Ausgang) → Zwischenpunkte setzen (Bild↑/↓ für Lifte) → Gegenstück anklicken · B bzw. P erneut: Verlegemodus · N: Stufe (Mk) · Rücktaste: Punkt zurück · Esc: abbrechen');
     case 'measure':
       return t('Zwei Punkte anklicken · Umschalt: waagrecht/senkrecht · Alt: ohne Fangen');
   }

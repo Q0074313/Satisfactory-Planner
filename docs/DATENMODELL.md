@@ -61,7 +61,7 @@ erDiagram
 
 ### Fabrik, Stockwerk, Fläche
 - **Factory**: `name`, `color`, `floorIds` (geordnet nach Höhe), `notes`.
-- **Floor**: *physisches* Stockwerk mit `elevationM` (Oberkante Boden), `heightM` (lichte Höhe) und `kind` (`production`, `logistics` oder `other`). Eine Logistikebene unter der Produktion ist einfach ein eigenes Stockwerk mit `kind = logistics`.
+- **Floor**: *physisches* Stockwerk mit `elevationM` (Oberkante Boden), `heightM` (lichte Höhe) und `kind` (`production`, `logistics` oder `other`). Eine Logistikebene unter der Produktion ist einfach ein eigenes Stockwerk mit `kind = logistics`. Neue Ebenen: Produktion 18 m, Logistik 6 m lichte Höhe, über der obersten Ebene mit 2 m Decke (Beispiel: Erdgeschoss 0–18 m, Logistik 20–26 m, Ebene 28–46 m). Die Werte sind nur Vorgaben und bleiben frei änderbar.
 - **PlanArea**: Polygon auf einem Stockwerk, `kind`:
   - `build-area` – selbst festgelegte Baufläche,
   - `foundation` – Fundamentfläche mit `foundationType` (Kachelmaß aus den Spieldaten),
@@ -70,10 +70,10 @@ erDiagram
 *Darstellungsebenen* (Gebäude, Bänder, Rohre, Anschlüsse, Maße …) sind dagegen reine Anzeigeoptionen der Oberfläche und **nicht** Teil des Projekts.
 
 ### Gebäude und Maschinen
-**Building**: `type` (Gebäudeklasse), `recipeId`, `clock`, `somersloops`, `label`, `notes`, `groupInstance { groupId, instanceId, memberKey }`, `extraction { itemId, purity }` (nur Gewinnungsgebäude: geförderter Rohstoff und Reinheit unrein/normal/rein), `transfer { mode: load|unload, stationId }` (nur Frachtplattformen: Schnittstelle zu Transportaufträgen) und
+**Building**: `type` (Gebäudeklasse), `recipeId`, `clock`, `somersloops`, `label`, `notes`, `groupInstance { groupId, instanceId, memberKey }`, `extraction { itemId, purity }` (nur Gewinnungsgebäude: geförderter Rohstoff und Reinheit unrein/normal/rein), `transfer { mode: load|unload, stationId }` (nur Frachtplattformen sowie Lkw- und Tanklaster-Stationen: Schnittstelle zu Transportaufträgen; `stationId` nur bei Frachtplattformen) und
 
 - `placement: null` → **geplant, nicht aufgestellt** (erscheint in „Nicht platziert“ und in der Bilanz als „geplant“),
-- `placement: { floorId, x, y, zOffsetM, rotationDeg }` → im Grundriss aufgestellt.
+- `placement: { floorId, x, y, zOffsetM, rotationDeg, vertical? }` → im Grundriss aufgestellt. `vertical` (`up` | `down`) gibt es nur bei Pipeline-Pumpen: senkrecht eingebaut mit Förderrichtung nach oben bzw. unten. Fehlt das Feld, liegt das Gebäude waagrecht. Ältere Dateien ohne das Feld bleiben gültig, eine Formatänderung war dafür nicht nötig.
 
 Abmessungen und Kollisionsboxen werden **nicht** im Projekt gespeichert, sondern aus den Spieldaten gelesen (`mClearanceData`). So bleibt das Projekt schlank und nutzt nach einem Datensatzwechsel automatisch die neuen Maße.
 
@@ -101,7 +101,7 @@ Das Ergebnis des Solvers (Rezeptraten, Maschinenzahlen, Nebenprodukte, Strom, En
 - **Timetable**: `stops [{ stationId, waitS, condition, transfer, itemIds }]`.
 
 ### Transport
-**TransportOrder**: `itemId`, `ratePerMin`, `fromFactoryId`, `toFactoryId`, optional die Bahnhöfe, `trainIds`, `roundTripEstimateS` (manuelle Umlaufzeit; leer = Schätzung aus Strecke und Annahmen bzw. Messung aus der Simulation).
+**TransportOrder**: `itemId`, `ratePerMin`, `fromFactoryId`, `toFactoryId`, `mode` (`train` | `vehicle` | `belt` | `pipe`, Standard `train`), optional die Bahnhöfe, `trainIds`, `roundTripEstimateS` (manuelle Umlaufzeit für Zug bzw. Fahrzeug; leer = Schätzung bzw. Messung aus der Simulation), `vehicle { type, count, distanceM, speedKmh }` (nur Fahrzeugaufträge; `type` = Fahrzeugklasse aus den Spieldaten, `speedKmh` leer = Höchstgeschwindigkeit) und `direct { tier, lines, lengthM, from, to }` (nur direkte Bänder/Rohre; `from` = Ausgang in der liefernden, `to` = Eingang in der empfangenden Fabrik, jeweils `{ buildingId, portId }`). Die neuen Felder haben Standardwerte; ältere Dateien werden ohne Formatwechsel als Zugaufträge gelesen.
 
 Die Annahmen der Schätzung stehen in `settings.simulation`: `trainAverageSpeedKmh` (Annahme 80 km/h), `dockingS` (Umschlag je Halt, Wiki 27,08 s), `timeStepS`, `durationS`.
 

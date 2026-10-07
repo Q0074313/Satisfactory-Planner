@@ -37,6 +37,7 @@ export function linkEnds(p: Project, gd: GameDataIndex, link: Pick<LogisticsLink
 }
 
 export function portStubPoint(port: WorldPort, distance = PORT_STUB_M): Vec3 {
+  if (port.vertical) return { x: port.world.x, y: port.world.y, z: port.world.z + port.vertical * distance };
   return { x: port.world.x + port.worldNormal.x * distance, y: port.world.y + port.worldNormal.y * distance, z: port.world.z };
 }
 

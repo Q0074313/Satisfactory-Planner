@@ -106,6 +106,40 @@ export function closestT(shape: SegmentShape, pt: Vec2): { t: number; d: number 
   return best;
 }
 
+/** Bogenlängentabelle der Grundrisskurve (t → zurückgelegte Länge). */
+function arcTable(shape: SegmentShape, n = 64): { t: number[]; s: number[] } {
+  const t = [0];
+  const s = [0];
+  let prev = bezierPoint(shape.curve, 0);
+  for (let i = 1; i <= n; i++) {
+    const q = bezierPoint(shape.curve, i / n);
+    t.push(i / n);
+    s.push(s[i - 1]! + dist(prev, q));
+    prev = q;
+  }
+  return { t, s };
+}
+
+/** Grundrisslänge vom Segmentanfang bis zum Parameter t. */
+export function lengthAtT(shape: SegmentShape, t: number): number {
+  const tab = arcTable(shape);
+  const i = Math.min(tab.t.length - 1, Math.max(1, Math.ceil(t * (tab.t.length - 1))));
+  const w = (t - tab.t[i - 1]!) / (tab.t[i]! - tab.t[i - 1]!);
+  return tab.s[i - 1]! + (tab.s[i]! - tab.s[i - 1]!) * w;
+}
+
+/** Parameter t bei gegebener Grundrisslänge ab Segmentanfang. */
+export function tAtLength(shape: SegmentShape, len: number): number {
+  const tab = arcTable(shape);
+  const total = tab.s.at(-1)!;
+  if (len <= 0) return 0;
+  if (len >= total) return 1;
+  let i = 1;
+  while (tab.s[i]! < len) i++;
+  const w = (len - tab.s[i - 1]!) / (tab.s[i]! - tab.s[i - 1]! || 1);
+  return tab.t[i - 1]! + (tab.t[i]! - tab.t[i - 1]!) * w;
+}
+
 /** Zerlegt eine Bezierkurve bei t (de Casteljau). */
 export function splitBezier(c: Bezier3, t: number): [Bezier3, Bezier3] {
   const lerp = (a: Vec2, b: Vec2) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });

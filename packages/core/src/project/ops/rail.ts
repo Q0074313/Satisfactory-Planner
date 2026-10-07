@@ -24,6 +24,8 @@ import { arcEndDirection, otherSide, outward, segmentShape, splitBezier } from '
 import { OpError } from '../errors.ts';
 
 const NETWORK_COLORS = ['#e8a33d', '#4fc3ff', '#9be7a1', '#ff8a8a', '#c49bff', '#ffe08a'];
+/** Kräftige Zugfarben, die sich von Netz- und Blockfarben abheben. */
+const TRAIN_COLORS = ['#ff2d95', '#00e5c0', '#ffffff', '#ff6a00', '#2979ff', '#d4ff00'];
 /** Länge eines Bahnsteigs bzw. des Bahnhofsgebäudes entlang des Gleises (Wiki: Wagenlänge 16 m). */
 export const PLATFORM_LENGTH_M = 16;
 
@@ -123,6 +125,28 @@ export function sideTowards(node: RailNode, target: Vec2): NodeSide {
 }
 
 /**
+ * Seite, auf der ein Gleis von einem vorhandenen Knoten aus weitergeht. Ist
+ * genau eine Seite belegt (Gleisende), geht es auf der freien Seite weiter,
+ * auch wenn der Zielpunkt etwas hinter dem Knoten liegt (z. B. für eine Kehre).
+ * Sonst liefe der Bogen spitz in das vorhandene Gleis zurück. An Knoten mit
+ * zwei belegten Seiten (Weiche) zählt die Lage des Ziels.
+ */
+export function continueSide(p: Project, node: RailNode, target: Vec2): NodeSide {
+  let a = 0;
+  let b = 0;
+  for (const s of Object.values(p.railSegments)) {
+    for (const end of [s.a, s.b]) {
+      if (end.nodeId !== node.id) continue;
+      if (end.side === 'A') a++;
+      else b++;
+    }
+  }
+  if (a > 0 && b === 0) return 'B';
+  if (b > 0 && a === 0) return 'A';
+  return sideTowards(node, target);
+}
+
+/**
  * Zeichnet ein Gleissegment zwischen zwei Endpunkten. Neue Knoten erhalten
  * eine Achse, die einen tangentialen Kreisbogen ergibt; zwischen zwei neuen
  * Punkten entsteht eine Gerade.
@@ -147,7 +171,7 @@ export function addTrack(
     const n = p.railNodes[from.nodeId]!;
     if (n.networkId !== networkId) throw new OpError(tr('Der Startknoten gehört zu einem anderen Schienennetz.'));
     fromNodeId = n.id;
-    fromSide = from.side ?? sideTowards(n, P3);
+    fromSide = from.side ?? continueSide(p, n, P3);
   } else {
     fromNodeId = '';
     fromSide = 'B';
@@ -156,6 +180,7 @@ export function addTrack(
     const n = p.railNodes[to.nodeId]!;
     if (n.networkId !== networkId) throw new OpError(tr('Der Endknoten gehört zu einem anderen Schienennetz.'));
     toNodeId = n.id;
+    // Am Zielknoten zählt die Lage des Startpunkts (Zusammenführung zu einer Weiche bleibt möglich)
     toSide = to.side ?? sideTowards(n, P0);
   } else {
     toNodeId = '';
@@ -473,7 +498,7 @@ export function addTrain(p: Project, networkId: string, name: string, consist?: 
     id,
     networkId,
     name,
-    color: '#e8a33d',
+    color: TRAIN_COLORS[Object.values(p.trains).filter((t) => t.networkId === networkId).length % TRAIN_COLORS.length]!,
     consist: consist ?? [{ kind: 'locomotive', reversed: false }, { kind: 'wagon', cargo: 'solid' }],
     timetableId: null,
     startSegmentId: null,

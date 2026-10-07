@@ -1,5 +1,5 @@
-import type { FactoryFlow, GameDataIndex, ObjectRef, Project } from '@satis/core';
-import { localName } from '@satis/core';
+import type { FactoryFlow, GameDataIndex, LogisticsLink, ObjectRef, Project } from '@satis/core';
+import { localName, placedBounds } from '@satis/core';
 import type { Viewport } from '../../canvas/viewport';
 import {
   arrowHead,
@@ -29,6 +29,24 @@ export interface RenderInput {
   flow?: FactoryFlow;
   /** Phase der Flussanimation (0 … 1). */
   phase?: number;
+}
+
+/**
+ * Darstellung einer Leitungsstufe: Farbe und Breite steigen mit der Stufe,
+ * Rohre Mk.2 bekommen eine helle Mittellinie (Doppellinie).
+ */
+export function linkTierStyle(gd: GameDataIndex, link: Pick<LogisticsLink, 'kind' | 'tier'>): { color: string; widthFactor: number; double: boolean; index: number; label: string } {
+  const tiers = link.kind === 'belt' ? gd.beltTiers : gd.pipeTiers;
+  const palette = link.kind === 'belt' ? COLORS.beltTiers : COLORS.pipeTiers;
+  const index = Math.max(0, tiers.findIndex((x) => x.id === link.tier));
+  const label = /Mk\.?\s*\d+/i.exec(gd.name(link.tier))?.[0] ?? '';
+  return {
+    color: palette[Math.min(index, palette.length - 1)] ?? (link.kind === 'belt' ? COLORS.belt : COLORS.pipe),
+    widthFactor: link.kind === 'belt' ? 0.8 + index * 0.12 : 0.9 + index * 0.45,
+    double: link.kind === 'pipe' && index >= 1,
+    index,
+    label,
+  };
 }
 
 /** Auslastung → Farbe (grün … gelb … rot). */
@@ -91,18 +109,28 @@ export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: Re
     const isBelt = sl.link.kind === 'belt';
     if ((isBelt && !layers.belts) || (!isBelt && !layers.pipes)) continue;
     const onFloor = sl.visibleOnFloor;
-    const base = isBelt ? COLORS.belt : COLORS.pipe;
+    const style = linkTierStyle(gd, sl.link);
+    const base = style.color;
     const fr = r.flow?.links.get(sl.link.id);
     const over = fr && fr.capacity > 0 ? utilColor(Math.max(fr.required, fr.total) / fr.capacity) : '';
     const color = selected.has(sl.link.id) ? COLORS.selection : layers.flow && over ? over : base;
     ctx.globalAlpha = onFloor ? 1 : 0.25;
     ctx.strokeStyle = color;
-    const width = Math.max(2, Math.min(vp.scale * (isBelt ? 1.2 : 0.9), 14));
+    const width = Math.max(2, Math.min(vp.scale * (isBelt ? 1.2 : 0.9) * style.widthFactor, 16));
     ctx.lineWidth = width;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     pathPolyline(ctx, vp, sl.points);
     ctx.stroke();
+    if (style.double) {
+      // Rohr Mk.2: helle Mittellinie
+      ctx.strokeStyle = COLORS.bg;
+      ctx.globalAlpha = (onFloor ? 1 : 0.25) * 0.55;
+      ctx.lineWidth = Math.max(1, width * 0.3);
+      pathPolyline(ctx, vp, sl.points);
+      ctx.stroke();
+      ctx.globalAlpha = onFloor ? 1 : 0.25;
+    }
     // Förderrichtung: Pfeile entlang der Leitung (bei Fluss animiert)
     const flowing = (fr?.total ?? 0) > 1e-6;
     ctx.strokeStyle = COLORS.bg;
@@ -141,7 +169,14 @@ export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: Re
         fr.required > fr.capacity + 1e-6
           ? `${formatNumber(fr.required, 1)} > ${formatNumber(fr.capacity, 0)} ${unit}`
           : `${formatNumber(fr.total, 1)} / ${formatNumber(fr.capacity, 0)} ${unit}`;
-      drawLabel(ctx, txt, m.x, m.y - width - 6, { size: 10, bg: COLORS.labelBg, color: over || COLORS.text });
+      drawLabel(ctx, `${style.label} · ${txt}`, m.x, m.y - width - 6, { size: 10, bg: COLORS.labelBg, color: over || COLORS.text });
+    } else if (layers.labels && onFloor && vp.scale > 4 && style.label) {
+      // Stufe an der Leitung
+      const k = Math.floor(sl.points.length / 2);
+      const a = sl.points[Math.max(0, k - 1)]!;
+      const b = sl.points[k]!;
+      const m = vp.toScreen({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+      drawLabel(ctx, style.label, m.x, m.y - width - 6, { size: 10, bg: COLORS.labelBg, color: base });
     }
     ctx.globalAlpha = 1;
   }
@@ -154,12 +189,44 @@ export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: Re
     }
   }
 
+  // Direkte Bänder/Rohre zu anderen Fabriken: Stummel mit Pfeil und Ziel
+  for (const ex of scene.external) {
+    const sb = scene.byId.get(ex.buildingId);
+    if (!sb?.onActiveFloor || r.hidden?.has(ex.buildingId)) continue;
+    const isBelt = ex.port.kind === 'belt';
+    if ((isBelt && !layers.belts) || (!isBelt && !layers.pipes)) continue;
+    const o = project.transportOrders[ex.orderId];
+    const style = o?.direct ? linkTierStyle(gd, { kind: ex.port.kind, tier: o.direct.tier }) : { color: isBelt ? COLORS.belt : COLORS.pipe, widthFactor: 1 };
+    const n = ex.port.vertical ? { x: 0, y: -1 } : ex.port.worldNormal;
+    const a = { x: ex.port.world.x, y: ex.port.world.y };
+    const b = { x: a.x + n.x * 6, y: a.y + n.y * 6 };
+    const sa = vp.toScreen(a);
+    const sb2 = vp.toScreen(b);
+    const width = Math.max(2, Math.min(vp.scale * (isBelt ? 1.2 : 0.9) * style.widthFactor, 16));
+    ctx.strokeStyle = style.color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'butt';
+    ctx.setLineDash([Math.max(4, width), Math.max(3, width * 0.6)]);
+    ctx.beginPath();
+    ctx.moveTo(sa.x, sa.y);
+    ctx.lineTo(sb2.x, sb2.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = style.color;
+    if (ex.dir === 'out') arrowHead(ctx, sa, sb2, Math.max(7, width * 1.4));
+    else arrowHead(ctx, sb2, sa, Math.max(7, width * 1.4));
+    if (layers.labels) {
+      const other = project.factories[ex.otherFactoryId]?.name ?? '?';
+      drawLabel(ctx, ex.dir === 'out' ? `→ ${other}` : `← ${other}`, sb2.x + n.x * 10, sb2.y + n.y * 10, { size: 11, bg: COLORS.labelBg, color: style.color });
+    }
+  }
+
   if (layers.ports && vp.scale > 2) {
     for (const sb of scene.buildings) {
       if (!sb.onActiveFloor || r.hidden?.has(sb.building.id)) continue;
       for (const port of sb.ports) {
         if ((port.kind === 'belt' && !layers.belts) || (port.kind === 'pipe' && !layers.pipes)) continue;
-        drawPort(ctx, vp, port.world, port.kind, port.direction, scene.connectedPorts.has(portKey(sb.building.id, port.id)));
+        drawPort(ctx, vp, port.world, port.kind, port.direction, scene.connectedPorts.has(portKey(sb.building.id, port.id)), false, port.role);
       }
     }
   }
@@ -204,9 +271,15 @@ export function drawBuilding(
     ctx.setLineDash([]);
   }
   const pl = sb.building.placement;
-  if (!pl || !def?.bounds) return;
+  const b = def ? placedBounds(def, pl) : null;
+  if (!pl || !def || !b) return;
+  if (pl.vertical) {
+    // Senkrechte Pumpe: Förderrichtung als Pfeil nach oben bzw. unten
+    const c = vp.toScreen({ x: pl.x, y: pl.y });
+    drawLabel(ctx, pl.vertical === 'up' ? '▲' : '▼', c.x, c.y, { size: Math.max(9, Math.min(vp.scale * 1.1, 18)), color: COLORS.frontMark });
+    return;
+  }
   // Vorderseite (+y lokal, Ausgänge) als Dreieck markieren
-  const b = def.bounds;
   const toW = (x: number, y: number) => {
     const r = (pl.rotationDeg * Math.PI) / 180;
     return { x: pl.x + x * Math.cos(r) - y * Math.sin(r), y: pl.y + x * Math.sin(r) + y * Math.cos(r) };
@@ -246,10 +319,11 @@ export function drawPort(
   direction: 'in' | 'out' | 'any',
   connected: boolean,
   highlight = false,
+  role?: 'fuel',
 ): void {
   const s = vp.toScreen(p);
   const r = Math.max(3, Math.min(vp.scale * 0.6, 9));
-  const color = direction === 'in' ? COLORS.portIn : direction === 'out' ? COLORS.portOut : COLORS.pipe;
+  const color = role === 'fuel' ? COLORS.fuelPort : direction === 'in' ? COLORS.portIn : direction === 'out' ? COLORS.portOut : COLORS.pipe;
   ctx.beginPath();
   if (kind === 'belt') ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
   else ctx.rect(s.x - r, s.y - r, r * 2, r * 2);

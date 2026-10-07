@@ -4,22 +4,56 @@
  */
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import {
+  cachedFactoryFlow,
   cargoKind,
   estimateOrder,
   factoryTrade,
   getLanguage,
   localName,
+  placedPortDefs,
+  transferCargo,
+  transferInterface,
   transportAssumptions,
   transportOps as ops,
+  type GameDataIndex,
+  type OrderEstimate,
+  type PortRef,
+  type Project,
+  type TransportMode,
   type TransportOrder,
 } from '@satis/core';
-import { t } from '../../i18n';
+import { N_, t } from '../../i18n';
 import { useProjectStore } from '../../state/projectStore';
 import { useSimStore } from '../../state/simStore';
 import { useUiStore } from '../../state/uiStore';
 import { Badge, fmtNum, NumberField, Row, Section, TextField } from '../../ui/fields';
 
 const unitOf = (kind: 'solid' | 'liquid') => (kind === 'solid' ? '/min' : 'm³/min');
+
+const MODE_LABELS: Record<TransportMode, string> = { train: N_('Zug'), vehicle: N_('Fahrzeug'), belt: N_('Förderband'), pipe: N_('Rohr') };
+const MODES: TransportMode[] = ['train', 'vehicle', 'belt', 'pipe'];
+
+/** Kurzbeschreibung des Transportmittels eines Auftrags (Tabelle). */
+function meansLabel(p: Project, gd: GameDataIndex, o: TransportOrder): string {
+  if (o.mode === 'vehicle') return o.vehicle ? `${o.vehicle.count} × ${gd.name(o.vehicle.type)}` : t(MODE_LABELS.vehicle);
+  if (o.mode === 'belt' || o.mode === 'pipe') return o.direct ? `${o.direct.lines} × ${gd.name(o.direct.tier)}` : t(MODE_LABELS[o.mode]);
+  return o.trainIds.map((id) => p.trains[id]?.name).join(', ');
+}
+
+/** Status-Badge eines Auftrags je Transportmittel. */
+function StatusBadge({ o, est }: { o: TransportOrder; est: OrderEstimate }) {
+  if (o.mode === 'train') {
+    if (o.trainIds.length === 0) return <Badge kind="warn">{t('kein Zug')}</Badge>;
+    return est.ok ? <Badge kind="ok">{t('reicht (geschätzt)')}</Badge> : <Badge kind="err">{t('zu wenig (geschätzt)')}</Badge>;
+  }
+  if (o.mode === 'vehicle') {
+    if (est.vehicle && !est.vehicle.kindOk) return <Badge kind="err">{t('falsches Fahrzeug')}</Badge>;
+    if (!est.vehicle?.count) return <Badge kind="warn">{t('kein Fahrzeug')}</Badge>;
+    return est.ok ? <Badge kind="ok">{t('reicht (geschätzt)')}</Badge> : <Badge kind="err">{t('zu wenig (geschätzt)')}</Badge>;
+  }
+  if (est.direct && !est.direct.kindOk) return <Badge kind="err">{o.mode === 'belt' ? t('kein Feststoff') : t('keine Flüssigkeit')}</Badge>;
+  return est.ok ? <Badge kind="ok">{t('reicht')}</Badge> : <Badge kind="err">{t('zu klein')}</Badge>;
+}
 
 /** Gemessene Umlaufzeiten aus einer laufenden bzw. ausgewerteten Simulation. */
 function useMeasured(): Map<string, number> {
@@ -137,7 +171,7 @@ function OrdersTable({ measured }: { measured: Map<string, number> }) {
   const orders = Object.values(project.transportOrders);
   const rows = useMemo(() => orders.map((o) => ({ o, est: estimateOrder(project, gd, o, { measuredCycleS: measured }) })), [orders, project, gd, measured]);
   return (
-    <Section title={t('Aufträge und Zugdurchsatz')}>
+    <Section title={t('Aufträge und Durchsatz')}>
       {rows.length === 0 ? (
         <p className="dim">{t('Keine Transportaufträge.')}</p>
       ) : (
@@ -147,9 +181,9 @@ function OrdersTable({ measured }: { measured: Map<string, number> }) {
               <th>{t('Auftrag')}</th>
               <th>{t('Von → Nach')}</th>
               <th className="num">{t('Menge')}</th>
-              <th>{t('Züge')}</th>
-              <th className="num" title={t('Kapazität je Umlauf × Anteil / Umlaufzeit')}>
-                {t('Durchsatz (Schätzung)')}
+              <th>{t('Transportmittel')}</th>
+              <th className="num" title={t('Zug und Fahrzeug: Kapazität je Umlauf / Umlaufzeit (Schätzung); Band und Rohr: Kapazität der Leitungen')}>
+                {t('Durchsatz')}
               </th>
               <th>{t('Status')}</th>
             </tr>
@@ -166,9 +200,11 @@ function OrdersTable({ measured }: { measured: Map<string, number> }) {
                   <td className="num">
                     {fmtNum(o.ratePerMin, 1)} {u}
                   </td>
-                  <td>{o.trainIds.map((id) => project.trains[id]?.name).join(', ') || <span className="dim">–</span>}</td>
+                  <td>
+                    <span className="dim">{t(MODE_LABELS[o.mode])}:</span> {meansLabel(project, gd, o) || <span className="dim">–</span>}
+                  </td>
                   <td className="num">
-                    {est.trains.length ? `${fmtNum(est.perMin, 1)} ${u}` : '–'}
+                    {est.trains.length || o.mode !== 'train' ? `${fmtNum(est.perMin, 1)} ${u}` : '–'}
                     {est.trains.some((x) => x.cycleSource === 'measured') && (
                       <Badge kind="info" title={t('Umlaufzeit aus der Simulation')}>
                         {t('gemessen')}
@@ -177,13 +213,7 @@ function OrdersTable({ measured }: { measured: Map<string, number> }) {
                     {est.trains.some((x) => x.cycleSource === 'manual') && <Badge kind="muted">{t('manuell')}</Badge>}
                   </td>
                   <td>
-                    {o.trainIds.length === 0 ? (
-                      <Badge kind="warn">{t('kein Zug')}</Badge>
-                    ) : est.ok ? (
-                      <Badge kind="ok">{t('reicht (geschätzt)')}</Badge>
-                    ) : (
-                      <Badge kind="err">{t('zu wenig (geschätzt)')}</Badge>
-                    )}
+                    <StatusBadge o={o} est={est} />
                   </td>
                 </tr>
               );
@@ -191,7 +221,7 @@ function OrdersTable({ measured }: { measured: Map<string, number> }) {
           </tbody>
         </table>
       )}
-      <p className="dim small-text">{t('Alle Durchsatzwerte sind Schätzungen. Mit der Simulation im Schienennetz gemessene Umlaufzeiten ersetzen die Schätzung, sobald ein Zug mindestens zwei Umläufe gefahren ist.')}</p>
+      <p className="dim small-text">{t('Durchsatz von Zügen und Fahrzeugen ist eine Schätzung. Mit der Simulation im Schienennetz gemessene Umlaufzeiten ersetzen die Schätzung, sobald ein Zug mindestens zwei Umläufe gefahren ist. Bänder und Rohre: Kapazität der gewählten Stufe mal Anzahl Leitungen.')}</p>
     </Section>
   );
 }
@@ -307,6 +337,30 @@ function OrderProps({ order: o, measured }: { order: TransportOrder; measured: M
             ))}
           </select>
         </Row>
+        <Row label={t('Transportmittel')}>
+          <select
+            value={o.mode}
+            data-testid="transport-mode"
+            onChange={(e) => {
+              const mode = e.target.value as TransportMode;
+              if (mode === o.mode) return;
+              // Vorhandene Angaben bleiben erhalten; fehlende bzw. unpassende werden vorbelegt
+              const def = ops.defaultsFor(gd, mode, o.itemId);
+              const patch: ops.OrderPatch = { mode };
+              if (mode === 'vehicle' && !o.vehicle) patch.vehicle = def.vehicle;
+              if ((mode === 'belt' || mode === 'pipe') && !(o.direct && (mode === 'belt' ? gd.building(o.direct.tier)?.conveyor : gd.building(o.direct.tier)?.pipe)))
+                patch.direct = def.direct;
+              upd(t('Transportmittel'), patch);
+            }}
+          >
+            {MODES.map((m) => (
+              <option key={m} value={m}>
+                {t(MODE_LABELS[m])}
+              </option>
+            ))}
+          </select>
+        </Row>
+        {o.mode === 'train' && (
         <Row label={t('Ladebahnhof')}>
           <select value={o.fromStationId ?? ''} onChange={(e) => upd(t('Ladebahnhof'), { fromStationId: e.target.value || null })}>
             <option value="">{t('– beliebig –')}</option>
@@ -318,6 +372,7 @@ function OrderProps({ order: o, measured }: { order: TransportOrder; measured: M
             ))}
           </select>
         </Row>
+        )}
         <Row label={t('Nach Fabrik')}>
           <select value={o.toFactoryId} onChange={(e) => upd(t('Empfänger'), { toFactoryId: e.target.value })}>
             {factories.map((f) => (
@@ -327,6 +382,7 @@ function OrderProps({ order: o, measured }: { order: TransportOrder; measured: M
             ))}
           </select>
         </Row>
+        {o.mode === 'train' && (
         <Row label={t('Entladebahnhof')}>
           <select value={o.toStationId ?? ''} onChange={(e) => upd(t('Entladebahnhof'), { toStationId: e.target.value || null })}>
             <option value="">{t('– beliebig –')}</option>
@@ -338,10 +394,13 @@ function OrderProps({ order: o, measured }: { order: TransportOrder; measured: M
             ))}
           </select>
         </Row>
+        )}
+        {(o.mode === 'train' || o.mode === 'vehicle') && (
         <Row label={t('Umlaufzeit manuell')} hint={t('Leer = aus Strecke und Annahmen schätzen bzw. aus der Simulation messen')}>
           <NumberField value={o.roundTripEstimateS ?? NaN} min={1} suffix="s" onCommit={(v) => upd(t('Umlaufzeit'), { roundTripEstimateS: v })} />
         </Row>
-        {o.roundTripEstimateS !== null && (
+        )}
+        {o.roundTripEstimateS !== null && o.mode !== 'belt' && o.mode !== 'pipe' && (
           <div className="button-row">
             <button className="small" onClick={() => upd(t('Umlaufzeit'), { roundTripEstimateS: null })}>
               {t('Schätzung verwenden')}
@@ -349,6 +408,9 @@ function OrderProps({ order: o, measured }: { order: TransportOrder; measured: M
           </div>
         )}
       </Section>
+      {o.mode === 'vehicle' && <VehicleSection order={o} est={est} />}
+      {(o.mode === 'belt' || o.mode === 'pipe') && <DirectSection order={o} est={est} />}
+      {o.mode === 'train' && (
       <Section title={t('Züge')}>
         {trains.length === 0 && <p className="dim small-text">{t('Noch keine Züge – im Schienennetz anlegen.')}</p>}
         {trains.map((tr) => (
@@ -399,6 +461,7 @@ function OrderProps({ order: o, measured }: { order: TransportOrder; measured: M
           </span>
         </Row>
       </Section>
+      )}
       <div className="button-row pad">
         <button
           className="danger"
@@ -411,5 +474,185 @@ function OrderProps({ order: o, measured }: { order: TransportOrder; measured: M
         </button>
       </div>
     </>
+  );
+}
+
+/** Übergaben (LKW- bzw. Tanklaster-Stationen) einer Fabrik im passenden Modus. */
+function vehicleStations(p: Project, gd: GameDataIndex, factoryId: string, mode: 'load' | 'unload', solid: boolean) {
+  return Object.values(p.buildings).filter((b) => {
+    const def = gd.building(b.type);
+    return b.factoryId === factoryId && b.placement && b.transfer?.mode === mode && transferInterface(def) === 'vehicle' && (transferCargo(def!) === 'solid') === solid;
+  });
+}
+
+function VehicleSection({ order: o, est }: { order: TransportOrder; est: OrderEstimate }) {
+  const project = useProjectStore((s) => s.project)!;
+  const gd = useProjectStore((s) => s.gd)!;
+  const apply = useProjectStore((s) => s.apply);
+  const v = o.vehicle!;
+  const ve = est.vehicle;
+  const def = gd.vehicle(v.type);
+  const kind = cargoKind(gd, o.itemId);
+  const u = unitOf(kind);
+  const solid = kind === 'solid';
+  const updV = (label: string, patch: Partial<typeof v>) => apply(label, (d, g) => ops.updateOrder(d, g, o.id, { vehicle: { ...v, ...patch } }));
+  const needed = ve && ve.capacityPerTrip > 0 && ve.cycleS ? Math.ceil((o.ratePerMin * ve.cycleS) / (60 * ve.capacityPerTrip) - 1e-9) : null;
+  const iface = (factoryId: string, mode: 'load' | 'unload') => vehicleStations(project, gd, factoryId, mode, solid).length;
+  const stationName = gd.name(solid ? 'Build_TruckStation_C' : 'Build_FluidTruckStation_C');
+  return (
+    <Section title={t('Fahrzeuge')}>
+      <Row label={t('Fahrzeug')} hint={t('Laderaum aus den Docs, Höchstgeschwindigkeit und Tankinhalt laut Wiki')}>
+        <select value={v.type} onChange={(e) => updV(t('Fahrzeug'), { type: e.target.value })} data-testid="vehicle-type">
+          {gd.vehicles.map((x) => (
+            <option key={x.id} value={x.id}>
+              {localName(x.name)} ({x.cargo.kind === 'solid' ? t('{n} Stapel', { n: x.cargo.slots }) : `${fmtNum(x.cargo.m3, 0)} m³`}, {x.maxSpeedKmh} km/h)
+            </option>
+          ))}
+        </select>
+      </Row>
+      <Row label={t('Anzahl')}>
+        <NumberField value={v.count} min={0} step={1} digits={0} onCommit={(n) => updV(t('Anzahl Fahrzeuge'), { count: Math.max(0, Math.round(n)) })} />
+      </Row>
+      <Row label={t('Strecke (einfach)')} hint={t('Länge der Fahrstrecke von der Lade- zur Entladestation')}>
+        <NumberField value={v.distanceM} min={0} suffix="m" onCommit={(n) => updV(t('Strecke'), { distanceM: n })} />
+      </Row>
+      <Row label={t('Ø Geschwindigkeit')} hint={t('Leer = Höchstgeschwindigkeit laut Wiki. Kurven, Steigungen und Anfahren machen das Fahrzeug langsamer.')}>
+        <NumberField value={v.speedKmh ?? NaN} min={1} max={200} suffix="km/h" allowEmpty placeholder={def ? String(def.maxSpeedKmh) : ''} onCommit={(n) => updV(t('Geschwindigkeit'), { speedKmh: Number.isFinite(n) ? n : null })} />
+      </Row>
+      {ve && (
+        <>
+          <Row label={t('Laderaum je Fahrt')}>
+            {ve.kindOk ? (
+              `${fmtNum(ve.capacityPerTrip, 0)} ${solid ? t('Stück') : 'm³'}`
+            ) : (
+              <Badge kind="err">{solid ? t('Fahrzeug für Flüssigkeiten') : t('Fahrzeug für Feststoffe')}</Badge>
+            )}
+          </Row>
+          <Row label={t('Umlauf')} hint={t('2 × Strecke / Geschwindigkeit + 2 × {s} s Andocken (Wiki „Truck Station“)', { s: ve.dockingS })}>
+            {ve.cycleS ? `${fmtNum(ve.cycleS, 0)} s` : '–'} <span className="dim small-text">{ve.cycleSource === 'manual' ? t('manuell') : t('geschätzt')}</span>
+          </Row>
+          <Row label={t('Summe (Schätzung)')}>
+            <span className={est.ok ? 'pos' : 'neg'} data-testid="vehicle-sum">
+              {fmtNum(est.perMin, 1)} / {fmtNum(o.ratePerMin, 1)} {u}
+            </span>
+            {needed !== null && needed > v.count && <span className="dim small-text"> · {t('nötig: {n} Fahrzeuge', { n: needed })}</span>}
+          </Row>
+        </>
+      )}
+      <Row label={t('Übergabe')} hint={t('{station} im Grundriss mit „Beladen“ beim Absender und „Entladen“ beim Empfänger', { station: stationName })}>
+        {iface(o.fromFactoryId, 'load') > 0 ? <Badge kind="ok">{t('Beladen ✓')}</Badge> : <Badge kind="warn">{t('Beladen fehlt')}</Badge>}{' '}
+        {iface(o.toFactoryId, 'unload') > 0 ? <Badge kind="ok">{t('Entladen ✓')}</Badge> : <Badge kind="warn">{t('Entladen fehlt')}</Badge>}
+      </Row>
+    </Section>
+  );
+}
+
+/** Wählbare Übergabeanschlüsse einer Fabrik (Band- bzw. Rohranschlüsse, frei oder bereits für diesen Auftrag gewählt). */
+function endpointOptions(p: Project, gd: GameDataIndex, factoryId: string, kind: 'belt' | 'pipe', role: 'from' | 'to', current: PortRef | null) {
+  const used = new Set<string>();
+  for (const l of Object.values(p.links)) {
+    used.add(`${l.from.buildingId}/${l.from.portId}`);
+    used.add(`${l.to.buildingId}/${l.to.portId}`);
+  }
+  for (const o of Object.values(p.transportOrders)) {
+    for (const e of [o.direct?.from, o.direct?.to]) if (e && (o.mode === 'belt' || o.mode === 'pipe')) used.add(`${e.buildingId}/${e.portId}`);
+  }
+  const out: { value: string; label: string }[] = [];
+  for (const b of Object.values(p.buildings)) {
+    if (b.factoryId !== factoryId || !b.placement) continue;
+    const def = gd.building(b.type);
+    if (!def) continue;
+    for (const port of placedPortDefs(def, b.placement)) {
+      if (port.kind !== kind) continue;
+      if (role === 'from' ? port.direction === 'in' : port.direction === 'out') continue;
+      const key = `${b.id}/${port.id}`;
+      const isCurrent = current && current.buildingId === b.id && current.portId === port.id;
+      if (used.has(key) && !isCurrent) continue;
+      const [, dir, idx] = port.id.split('-');
+      const portName = `${dir === 'in' ? t('Eingang') : dir === 'out' ? t('Ausgang') : t('Anschluss')} ${Number(idx) + 1}`;
+      const floor = p.floors[b.placement.floorId]?.name ?? '';
+      out.push({ value: key, label: `${b.label || gd.name(b.type)} · ${portName} (${floor})` });
+    }
+  }
+  return out.sort((a, b) => a.label.localeCompare(b.label, getLanguage()));
+}
+
+function DirectSection({ order: o, est }: { order: TransportOrder; est: OrderEstimate }) {
+  const project = useProjectStore((s) => s.project)!;
+  const gd = useProjectStore((s) => s.gd)!;
+  const apply = useProjectStore((s) => s.apply);
+  const d = o.direct!;
+  const kind = o.mode === 'belt' ? 'belt' : 'pipe';
+  const u = unitOf(cargoKind(gd, o.itemId));
+  const tiers = kind === 'belt' ? gd.beltTiers : gd.pipeTiers;
+  const updD = (label: string, patch: Partial<typeof d>) => apply(label, (dr, g) => ops.updateOrder(dr, g, o.id, { direct: { ...d, ...patch } }));
+  const flowIn = useMemo(() => cachedFactoryFlow(project, gd, o.toFactoryId).direct.get(o.id), [project, gd, o.toFactoryId, o.id]);
+  const flowOut = useMemo(() => cachedFactoryFlow(project, gd, o.fromFactoryId).direct.get(o.id), [project, gd, o.fromFactoryId, o.id]);
+  const per = tiers.find((x) => x.id === d.tier);
+  const perCap = per?.conveyor?.itemsPerMin ?? per?.pipe?.m3PerMin ?? 0;
+  const endpoint = (role: 'from' | 'to') => {
+    const factoryId = role === 'from' ? o.fromFactoryId : o.toFactoryId;
+    const cur = role === 'from' ? d.from : d.to;
+    const opts = endpointOptions(project, gd, factoryId, kind, role, cur);
+    return (
+      <select
+        data-testid={`direct-${role}`}
+        value={cur ? `${cur.buildingId}/${cur.portId}` : ''}
+        onChange={(e) => {
+          const [buildingId, portId] = e.target.value ? e.target.value.split('/') : [];
+          updD(t('Übergabe'), { [role]: buildingId ? { buildingId, portId: portId! } : null });
+        }}
+      >
+        <option value="">{t('– nicht gewählt –')}</option>
+        {opts.map((x) => (
+          <option key={x.value} value={x.value}>
+            {x.label}
+          </option>
+        ))}
+      </select>
+    );
+  };
+  return (
+    <Section title={kind === 'belt' ? t('Förderbänder zwischen den Fabriken') : t('Rohre zwischen den Fabriken')}>
+      <Row label={t('Stufe')}>
+        <select value={d.tier} onChange={(e) => updD(t('Stufe ändern'), { tier: e.target.value })}>
+          {tiers.map((x) => (
+            <option key={x.id} value={x.id}>
+              {localName(x.name)} ({x.conveyor ? `${x.conveyor.itemsPerMin}/min` : `${x.pipe!.m3PerMin} m³/min`})
+            </option>
+          ))}
+        </select>
+      </Row>
+      <Row label={t('Parallele Leitungen')}>
+        <NumberField value={d.lines} min={1} step={1} digits={0} onCommit={(n) => updD(t('Leitungen'), { lines: Math.max(1, Math.round(n)) })} />
+      </Row>
+      <Row label={t('Länge')} hint={t('Planungsangabe, z. B. für den Materialbedarf')}>
+        <NumberField value={d.lengthM} min={0} suffix="m" onCommit={(n) => updD(t('Länge'), { lengthM: n })} />
+      </Row>
+      <Row label={t('Kapazität')}>
+        {est.direct?.kindOk === false ? (
+          <Badge kind="err">{kind === 'belt' ? t('Förderbänder tragen nur Feststoffe') : t('Rohre tragen nur Flüssigkeiten und Gase')}</Badge>
+        ) : (
+          <span className={est.ok ? 'pos' : 'neg'} data-testid="direct-capacity">
+            {fmtNum(est.direct?.capacity ?? 0, 0)} / {fmtNum(o.ratePerMin, 1)} {u}
+          </span>
+        )}
+        {!est.ok && perCap > 0 && <span className="dim small-text"> · {t('nötig: {n} Leitungen', { n: Math.ceil(o.ratePerMin / perCap - 1e-9) })}</span>}
+      </Row>
+      <Row label={t('Ausgang bei {factory}', { factory: project.factories[o.fromFactoryId]?.name ?? '?' })} plain hint={t('Anschluss in der liefernden Fabrik, an dem die Leitung beginnt')}>
+        {endpoint('from')}
+      </Row>
+      <Row label={t('Eingang bei {factory}', { factory: project.factories[o.toFactoryId]?.name ?? '?' })} plain hint={t('Anschluss in der empfangenden Fabrik, an dem die Leitung ankommt')}>
+        {endpoint('to')}
+      </Row>
+      {(flowOut || flowIn) && (
+        <Row label={t('Durchsatzmodell')} hint={t('Fluss über die Leitung laut Durchsatzmodell der beiden Fabriken (mit Kapazitätsgrenze)')}>
+          {flowOut && t('ab {factory}: {n}', { factory: project.factories[o.fromFactoryId]?.name ?? '?', n: `${fmtNum(flowOut.perMin, 1)} ${u}` })}
+          {flowOut && flowIn && ' · '}
+          {flowIn && t('an {factory}: {n}', { factory: project.factories[o.toFactoryId]?.name ?? '?', n: `${fmtNum(flowIn.perMin, 1)} ${u}` })}
+        </Row>
+      )}
+      <p className="dim small-text">{t('Die Leitung erscheint im Grundriss beider Fabriken als Stummel mit Pfeil am gewählten Anschluss. Das Durchsatzmodell rechnet mit ihr wie mit einer gezeichneten Verbindung.')}</p>
+    </Section>
   );
 }

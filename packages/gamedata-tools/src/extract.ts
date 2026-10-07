@@ -25,6 +25,7 @@ import type {
   GdItem,
   GdPortCounts,
   GdRecipe,
+  GdVehicle,
   ItemForm,
   SourceRef,
   GdVec3 as Vec3,
@@ -440,6 +441,27 @@ function main() {
     };
   }
 
+  // ---------- Straßenfahrzeuge (LKW-Stationen) ----------
+  // Laderaum aus den Docs; Geschwindigkeit und Tankinhalt aus kuratierten Wiki-Fakten.
+  const vehicles: Record<string, GdVehicle> = {};
+  for (const c of en.get('FGVehicleDescriptor') ?? []) {
+    const speed = facts[`vehicle.${c.ClassName}.maxSpeedKmh`]?.value;
+    if (speed === undefined || c.mManualFuelConsumption === undefined) continue;
+    const fluid = c.mIsFluidStorageInventory === 'True';
+    const m3 = facts[`vehicle.${c.ClassName}.fluidM3`]?.value;
+    if (fluid && m3 === undefined) {
+      report.push(`Fahrzeug ${c.ClassName}: Tankinhalt fehlt in curated/facts.json – ausgelassen.`);
+      continue;
+    }
+    vehicles[c.ClassName] = {
+      id: c.ClassName,
+      name: name(c),
+      cargo: fluid ? { kind: 'liquid', m3: m3! } : { kind: 'solid', slots: Number.parseInt(c.mInventorySize ?? '0', 10) },
+      maxSpeedKmh: speed,
+      sourceRef: { source: 'docs', detail: `${c.ClassName}.mInventorySize; Geschwindigkeit${fluid ? ', Tankinhalt' : ''}: Wiki`, confidence: 'game-data' },
+    };
+  }
+
   const data: GameData = {
     meta: {
       schemaVersion: GAMEDATA_SCHEMA_VERSION,
@@ -487,6 +509,7 @@ function main() {
     recipes,
     buildings,
     facts,
+    vehicles,
   };
 
   const outDir = resolve(arg('out') ?? join(repoRoot, 'data/gamedata', gameVersion));
@@ -499,7 +522,7 @@ function main() {
       '',
       `- Erzeugt: ${data.meta.generatedAt}`,
       `- Spielversion: ${gameVersion} (Engine-Changelist ${data.meta.gameBuild.engineChangelist ?? '?'}, ${data.meta.gameBuild.branch ?? '?'})`,
-      `- Gegenstände: ${Object.keys(items).length}, Rezepte: ${Object.keys(recipes).length}, Gebäude: ${Object.keys(buildings).length}, Fakten: ${Object.keys(facts).length}`,
+      `- Gegenstände: ${Object.keys(items).length}, Rezepte: ${Object.keys(recipes).length}, Gebäude: ${Object.keys(buildings).length}, Fahrzeuge: ${Object.keys(vehicles).length}, Fakten: ${Object.keys(facts).length}`,
       `- Quelle Docs SHA-256: \`${docsHash}\``,
       '',
       '## Befunde',

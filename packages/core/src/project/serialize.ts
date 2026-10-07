@@ -178,6 +178,8 @@ export function repairReferences(p: Project): string[] {
     if (o.fromStationId && !p.stations[o.fromStationId]) o.fromStationId = null;
     if (o.toStationId && !p.stations[o.toStationId]) o.toStationId = null;
     o.trainIds = o.trainIds.filter((id) => p.trains[id]);
+    if (o.direct?.from && !p.buildings[o.direct.from.buildingId]?.placement) o.direct.from = null;
+    if (o.direct?.to && !p.buildings[o.direct.to.buildingId]?.placement) o.direct.to = null;
   }
   return out;
 }

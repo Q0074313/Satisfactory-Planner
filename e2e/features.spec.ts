@@ -3,7 +3,7 @@ import { clickWorld, newProject, placeFromCatalog, projectState, setPrefs } from
 
 const state = <T>(page: Page, fn: string) => projectState<T>(page, fn);
 
-test('Förderband vom Eingang zum Ausgang, Verlegemodus Gerade per Taste N', async ({ page }) => {
+test('Förderband vom Eingang zum Ausgang, Verlegemodus Gerade per erneutem B, Stufe per N', async ({ page }) => {
   await newProject(page);
   await placeFromCatalog(page, 'Eisenbarren', 'Eisenbarren', [[0, 0]]);
   await placeFromCatalog(page, 'Eisenplatte', 'Eisenplatte', [[16, 24]]);
@@ -18,8 +18,12 @@ test('Förderband vom Eingang zum Ausgang, Verlegemodus Gerade per Taste N', asy
     };
   });
   await page.keyboard.press('b');
-  await page.keyboard.press('n'); // Normal → Gerade
-  await expect(page.locator('.editor-toolbar .segmented button.active').last()).toHaveText('Gerade');
+  await page.keyboard.press('b'); // erneut: Normal → Gerade
+  const routing = page.locator('.editor-toolbar .segmented').nth(1);
+  const tier = page.locator('.editor-toolbar .segmented').nth(2);
+  await expect(routing.locator('button.active')).toHaveText('Gerade');
+  await page.keyboard.press('n'); // Mk.1 → Mk.2
+  await expect(tier.locator('button.active')).toHaveText('Mk.2');
   // Start am Eingang des Konstruktors, Ende am Ausgang des Schmelzofens
   await clickWorld(page, geo.inp.x, geo.inp.y);
   await clickWorld(page, geo.out.x, geo.out.y);
@@ -28,6 +32,14 @@ test('Förderband vom Eingang zum Ausgang, Verlegemodus Gerade per Taste N', asy
     `(p) => { const l = Object.values(p.links)[0]; return { fromType: p.buildings[l.from.buildingId].type, toType: p.buildings[l.to.buildingId].type, routing: l.routing }; }`,
   );
   expect(link).toEqual({ fromType: 'Build_SmelterMk1_C', toType: 'Build_ConstructorMk1_C', routing: 'straight' });
+  expect(await state<string>(page, '(p) => Object.values(p.links)[0].tier')).toBe('Build_ConveyorBeltMk2_C');
+  // Auswahl bleibt für die nächste Benutzung des Werkzeugs erhalten
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('v');
+  await page.keyboard.press('b');
+  await expect(routing.locator('button.active')).toHaveText('Gerade');
+  await expect(tier.locator('button.active')).toHaveText('Mk.2');
 });
 
 test('Gebäude im 0,5-m-Raster platzieren', async ({ page }) => {
@@ -100,6 +112,12 @@ test('Signal auf freiem Gleis teilt das Segment; Richtung nach Klickseite', asyn
     return Math.round(Math.cos(h) * (s.facing === 'forward' ? 1 : -1));
   });
   expect(dir).toBe(1);
+
+  // Auswahlwerkzeug: Klick auf den Signalpfeil wählt das Signal, nicht den Knoten darunter
+  await page.keyboard.press('v');
+  // Signal nach Osten: Pfeil rechts der Fahrt (Süden), 7 px / 2 px/m + 3 m = 6,5 m neben dem Knoten
+  await railClick(page, r.x, 6.5);
+  expect(await page.evaluate(() => (window as any).__satis.useUiStore.getState().selection.map((s: any) => s.table))).toEqual(['railSignals']);
 });
 
 test('Simulation: Zug fährt animiert, Zeit läuft', async ({ page }) => {
@@ -205,4 +223,101 @@ test('Transport: Auftrag mit Zug und geschätztem Durchsatz', async ({ page }) =
   await expect(page.getByTestId('orders-table')).toContainText('kein Zug');
   await expect(page.locator('.finding').filter({ hasText: 'kein Zug zugeordnet' })).toBeVisible();
   await expect(page.getByTestId('trade-table')).toBeVisible();
+});
+
+test('Stockwerke: neue Ebenen 18 m bzw. 6 m mit 2 m Decke, Anzeige des Bereichs', async ({ page }) => {
+  await newProject(page);
+  const floors = page.locator('.section').filter({ hasText: 'Stockwerke' });
+  await expect(floors.locator('.floor-list li')).toHaveText([/Erdgeschoss.*0 m – 18 m/]);
+  await floors.getByRole('button', { name: '+ Logistik' }).click();
+  await floors.getByRole('button', { name: '+ Ebene' }).click();
+  await expect(floors.locator('.floor-list li')).toHaveText([/28 m – 46 m/, /Logistik · 20 m – 26 m/, /0 m – 18 m/]);
+});
+
+test('Softwareversion und ausführliches Tutorial', async ({ page }) => {
+  await newProject(page);
+  await expect(page.locator('.topbar .app-version')).toHaveText(/^v\d+\.\d+\.\d+/);
+  await page.getByTestId('help-button').click();
+  await page.getByRole('button', { name: 'Einführung' }).click();
+  await expect(page.getByTestId('tour-detail')).toHaveCount(0);
+  await page.getByTestId('tour-detail-toggle').click();
+  await expect(page.getByTestId('tour-detail')).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__satis.usePrefs.getState().detailedTours)).toBe(true);
+});
+
+test('Fahrplan: nur bestimmte Gegenstände per Suche auswählen', async ({ page }) => {
+  await newProject(page);
+  await page.evaluate(() => {
+    const { useProjectStore, useUiStore, core } = (window as any).__satis;
+    let ttId = '';
+    useProjectStore.getState().apply('setup', (p: any) => {
+      const rail = core.railOps;
+      const net = rail.addNetwork(p, 'N');
+      const pf = [{ type: 'freight', mode: 'load', flipped: false }];
+      const s1 = rail.addStation(p, { networkId: net, name: 'A', position: { x: 0, y: 0, z: 0 }, headingDeg: 0, platforms: pf });
+      const s2 = rail.addStation(p, { networkId: net, name: 'B', position: { x: 0, y: 100, z: 0 }, headingDeg: 0, platforms: pf });
+      ttId = rail.addTimetable(p, net, 'F', [s1, s2]);
+      useUiStore.getState().setNetwork(net);
+    });
+    useUiStore.getState().setMode('rail');
+    useUiStore.getState().select([{ table: 'timetables', id: ttId }]);
+  });
+  const stop = page.locator('.stop').first();
+  await stop.locator('.row').filter({ hasText: 'Umschlag' }).locator('select').selectOption('items');
+  await stop.getByPlaceholder('Gegenstand suchen …').fill('Eisenerz');
+  await stop.locator('.picker-results li').filter({ hasText: 'Eisenerz' }).first().click();
+  await expect(stop.locator('.chip')).toHaveText([/Eisenerz/]);
+  // Güterbahnsteig: Flüssigkeiten stehen nicht zur Auswahl
+  await stop.getByPlaceholder('Gegenstand suchen …').fill('Rohöl');
+  await expect(stop.locator('.picker-results li')).toHaveCount(0);
+  expect(await state<string[]>(page, '(p) => Object.values(p.timetables)[0].stops[0].itemIds')).toEqual(['Desc_OreIron_C']);
+});
+
+test('Transport per Lkw und per direktem Förderband zwischen zwei Fabriken', async ({ page }) => {
+  await newProject(page);
+  // Fabrik 1: Schmelzofen, Fabrik 2: Konstruktor
+  await page.evaluate(() => {
+    const { useProjectStore, useUiStore, core } = (window as any).__satis;
+    useProjectStore.getState().apply('setup', (p: any, gd: any) => {
+      const fac = core.factoryOps;
+      const [a] = Object.values(p.factories) as any[];
+      const b = fac.addFactory(p, 'Werk B');
+      const fb = p.factories[b];
+      fac.addBuilding(p, gd, { factoryId: a.id, type: 'Build_SmelterMk1_C', recipeId: 'Recipe_IngotIron_C', placement: { floorId: a.floorIds[0], x: 0, y: 0, zOffsetM: 0, rotationDeg: 0 } });
+      const c = fac.addBuilding(p, gd, { factoryId: b, type: 'Build_ConstructorMk1_C', recipeId: 'Recipe_IronPlate_C', placement: { floorId: fb.floorIds[0], x: 0, y: 0, zOffsetM: 0, rotationDeg: 0 } });
+      const sink = fac.addBuilding(p, gd, { factoryId: b, type: 'Build_ResourceSink_C', placement: { floorId: fb.floorIds[0], x: 40, y: 0, zOffsetM: 0, rotationDeg: 0 } });
+      fac.addLink(p, gd, { kind: 'belt', tier: 'Build_ConveyorBeltMk1_C', from: { buildingId: c, portId: 'belt-out-0' }, to: { buildingId: sink, portId: 'belt-in-0' } });
+    });
+    useUiStore.getState().setMode('transport');
+  });
+  await page.locator('[data-tour="add-order"]').click();
+  const props = page.locator('.panel-right');
+  // Lkw: Schätzung erscheint
+  await props.getByTestId('transport-mode').selectOption('vehicle');
+  await props.getByTestId('vehicle-type').selectOption('Desc_Truck_C');
+  await expect(props.getByTestId('vehicle-sum')).toContainText('/ 60');
+  await expect(page.getByTestId('orders-table')).toContainText('1 × Lkw');
+  await expect(page.locator('.finding').filter({ hasText: 'keine entladende Lkw-Station' })).toBeVisible();
+  // Förderband: Gegenstand Eisenbarren, Anschlüsse wählen
+  await props.getByTestId('transport-mode').selectOption('belt');
+  const item = props.locator('.row').filter({ hasText: 'Gegenstand' }).locator('input');
+  await item.fill('Eisenbarren');
+  await item.blur();
+  await props.getByTestId('direct-from').selectOption({ index: 1 });
+  await props.getByTestId('direct-to').selectOption({ index: 1 });
+  await expect(props.getByTestId('direct-capacity')).toContainText('60 / 60');
+  const o = await projectState<any>(page, '(p) => Object.values(p.transportOrders)[0]');
+  expect(o.mode).toBe('belt');
+  expect(o.itemId).toBe('Desc_IronIngot_C');
+  expect(o.direct.from.portId).toBe('belt-out-0');
+  expect(o.direct.to.portId).toMatch(/^belt-in-/);
+  // Im Grundriss der empfangenden Fabrik: Konstruktor wird über die Leitung versorgt
+  const util = await page.evaluate(() => {
+    const { useProjectStore, core } = (window as any).__satis;
+    const { project, gd } = useProjectStore.getState();
+    const f = Object.values(project.factories).find((x: any) => x.name === 'Werk B') as any;
+    const ctor = Object.values(project.buildings).find((b: any) => b.factoryId === f.id && b.type === 'Build_ConstructorMk1_C') as any;
+    return core.computeFactoryFlow(project, gd, f.id).machines.get(ctor.id).utilization;
+  });
+  expect(util).toBeGreaterThan(0.99);
 });

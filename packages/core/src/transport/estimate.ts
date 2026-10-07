@@ -1,6 +1,15 @@
 /**
- * Schätzungen für den Zugtransport zwischen Fabriken.
+ * Schätzungen für den Transport zwischen Fabriken (Zug, Fahrzeug, direkte
+ * Leitung).
  *
+ * Fahrzeuge (Traktor, LKW, Tanklaster, Explorer): Laderaum aus den Docs
+ * (Stapel × Stapelgröße bzw. 3200 m³ laut Wiki) × Anzahl je Umlauf; Umlauf =
+ * 2 × Strecke / Geschwindigkeit + 2 × Andockzeit (Wiki „Truck Station“: 8 s).
+ * Ohne eigene Angabe gilt die Höchstgeschwindigkeit laut Wiki (optimistisch).
+ *
+ * Direkte Leitung: Kapazität = Stufe × Anzahl paralleler Leitungen (exakt).
+ *
+ * Zug:
  * - Kapazität je Umlauf: Güterwagen × 32 Stapel × Stapelgröße (Feststoffe)
  *   bzw. Flüssigkeitswagen × 2400 m³ (Wiki „Freight Car“).
  * - Umlaufzeit: Summe der kürzesten Wege zwischen den Halten des Fahrplans
@@ -15,7 +24,7 @@
  */
 import type { GameDataIndex } from '../gamedata/index.ts';
 import { tr } from '../i18n/index.ts';
-import type { Project, Train, TransportOrder } from '../model/schema.ts';
+import type { Project, TimetableStop, Train, TransportMode, TransportOrder } from '../model/schema.ts';
 import { machineRates } from '../production/machine.ts';
 import { solveProduction } from '../production/solver.ts';
 import { buildGraph, isBidirectional, shortestRoute } from '../rail/topology.ts';
@@ -61,6 +70,7 @@ export function estimateTrainCycle(p: Project, gd: GameDataIndex, trainId: strin
   if (!tt || tt.stops.length < 2) return empty;
   const g = buildGraph(p, t.networkId);
   const penalty = gd.fact('rail.station.passThroughPenaltyM') ?? 100;
+  const scheduled = new Set(tt.stops.map((s) => s.stationId));
   const speed = (p.settings.simulation.trainAverageSpeedKmh * 1000) / 3600;
   const legs: CycleLeg[] = [];
   let lengthM = 0;
@@ -72,7 +82,7 @@ export function estimateTrainCycle(p: Project, gd: GameDataIndex, trainId: strin
       return;
     }
     // Wegwahl mit Bahnhofsaufschlag wie im Spiel, Länge ohne Aufschlag
-    const r = shortestRoute(p, g, { fromStationId: s.stationId, toStationId: next.stationId, bidirectional: isBidirectional(t), passThroughPenaltyM: penalty });
+    const r = shortestRoute(p, g, { fromStationId: s.stationId, toStationId: next.stationId, bidirectional: isBidirectional(t), passThroughPenaltyM: penalty, scheduledStationIds: scheduled });
     const len = r ? r.states.reduce((sum, st) => sum + (g.lengths.get(st.segId) ?? 0), 0) : null;
     legs.push({ fromStationId: s.stationId, toStationId: next.stationId, lengthM: len });
     if (len !== null) lengthM += len;
@@ -83,10 +93,19 @@ export function estimateTrainCycle(p: Project, gd: GameDataIndex, trainId: strin
   return { trainId, legs, complete, lengthM, travelS, stopS, cycleS: complete ? travelS + stopS : null };
 }
 
+/** Wird der Gegenstand an diesem Halt umgeschlagen? */
+export function stopTransfersItem(stop: Pick<TimetableStop, 'transfer' | 'itemIds'>, itemId: string): boolean {
+  return stop.transfer === 'all' || (stop.transfer === 'items' && stop.itemIds.includes(itemId));
+}
+
 export interface OrderTrainEstimate {
   trainId: string;
+  /** Zug hält am Lade- bzw. Entladebahnhof und schlägt den Gegenstand dort um. */
   servesFrom: boolean;
   servesTo: boolean;
+  /** Zug hält dort, der Halt schließt den Gegenstand aber vom Umschlag aus. */
+  excludedFrom: boolean;
+  excludedTo: boolean;
   capacityPerCycle: number;
   /** Anteil der Zugkapazität für diesen Auftrag (0 … 1). */
   share: number;
@@ -95,13 +114,64 @@ export interface OrderTrainEstimate {
   perMin: number;
 }
 
+export interface OrderVehicleEstimate {
+  vehicleId: string;
+  count: number;
+  /** Ladegut des Fahrzeugs passt zum Gegenstand. */
+  kindOk: boolean;
+  capacityPerTrip: number;
+  speedKmh: number;
+  dockingS: number;
+  cycleS: number | null;
+  cycleSource: 'estimate' | 'manual';
+  perMin: number;
+}
+
+export interface OrderDirectEstimate {
+  tier: string;
+  lines: number;
+  /** Band für Feststoffe bzw. Rohr für Flüssigkeiten. */
+  kindOk: boolean;
+  /** Kapazität aller Leitungen (/min bzw. m³/min). */
+  capacity: number;
+}
+
 export interface OrderEstimate {
   orderId: string;
   rate: number;
+  mode: TransportMode;
   trains: OrderTrainEstimate[];
-  /** Geschätzter Gesamtdurchsatz aller Züge des Auftrags (/min bzw. m³/min). */
+  vehicle: OrderVehicleEstimate | null;
+  direct: OrderDirectEstimate | null;
+  /** Geschätzter Gesamtdurchsatz (/min bzw. m³/min). */
   perMin: number;
   ok: boolean;
+}
+
+/** Fahrzeugtransport: Laderaum je Fahrt, Umlaufzeit und Durchsatz. */
+export function estimateVehicleOrder(gd: GameDataIndex, order: TransportOrder): OrderVehicleEstimate | null {
+  const v = order.vehicle;
+  const def = v ? gd.vehicle(v.type) : undefined;
+  if (!v || !def) return null;
+  const kind = cargoKind(gd, order.itemId);
+  const kindOk = def.cargo.kind === kind;
+  const capacityPerTrip = !kindOk ? 0 : def.cargo.kind === 'liquid' ? def.cargo.m3 : def.cargo.slots * (gd.item(order.itemId)?.stackSize ?? 0);
+  const speedKmh = v.speedKmh ?? def.maxSpeedKmh;
+  const dockingS = gd.fact('vehicle.docking.durationS') ?? 8;
+  const estimate = speedKmh > 0 ? (2 * v.distanceM) / ((speedKmh * 1000) / 3600) + 2 * dockingS : null;
+  const cycleS = order.roundTripEstimateS ?? estimate;
+  const perMin = cycleS && cycleS > 0 ? (v.count * capacityPerTrip * 60) / cycleS : 0;
+  return { vehicleId: def.id, count: v.count, kindOk, capacityPerTrip, speedKmh, dockingS, cycleS, cycleSource: order.roundTripEstimateS !== null ? 'manual' : 'estimate', perMin };
+}
+
+/** Direkte Leitung: Kapazität aller parallelen Leitungen. */
+export function estimateDirectOrder(gd: GameDataIndex, order: TransportOrder): OrderDirectEstimate | null {
+  const d = order.direct;
+  if (!d || (order.mode !== 'belt' && order.mode !== 'pipe')) return null;
+  const tier = gd.building(d.tier);
+  const per = order.mode === 'belt' ? (tier?.conveyor?.itemsPerMin ?? 0) : (tier?.pipe?.m3PerMin ?? 0);
+  const kindOk = (cargoKind(gd, order.itemId) === 'solid') === (order.mode === 'belt');
+  return { tier: d.tier, lines: d.lines, kindOk, capacity: kindOk ? per * d.lines : 0 };
 }
 
 export function estimateOrder(
@@ -111,15 +181,29 @@ export function estimateOrder(
   opts: { measuredCycleS?: Map<string, number> } = {},
 ): OrderEstimate {
   const kind = cargoKind(gd, order.itemId);
+  if (order.mode === 'vehicle') {
+    const vehicle = estimateVehicleOrder(gd, order);
+    const perMin = vehicle?.perMin ?? 0;
+    return { orderId: order.id, rate: order.ratePerMin, mode: order.mode, trains: [], vehicle, direct: null, perMin, ok: perMin + 1e-6 >= order.ratePerMin };
+  }
+  if (order.mode === 'belt' || order.mode === 'pipe') {
+    const direct = estimateDirectOrder(gd, order);
+    const perMin = Math.min(order.ratePerMin, direct?.capacity ?? 0);
+    return { orderId: order.id, rate: order.ratePerMin, mode: order.mode, trains: [], vehicle: null, direct, perMin, ok: (direct?.capacity ?? 0) + 1e-6 >= order.ratePerMin };
+  }
   const trains: OrderTrainEstimate[] = [];
   for (const trainId of order.trainIds) {
     const t = p.trains[trainId];
     if (!t) continue;
     const tt = t.timetableId ? p.timetables[t.timetableId] : undefined;
     const stops = new Set(tt?.stops.map((s) => s.stationId) ?? []);
-    const servesFrom = order.fromStationId ? stops.has(order.fromStationId) : stops.size > 0;
-    const servesTo = order.toStationId ? stops.has(order.toStationId) : stops.size > 0;
-    const sharing = Object.values(p.transportOrders).filter((o) => o.trainIds.includes(trainId) && cargoKind(gd, o.itemId) === kind);
+    // Halte, an denen der Gegenstand umgeschlagen wird (Umschlag „alles“ oder Gegenstand ausgewählt)
+    const transfers = new Set(tt?.stops.filter((s) => stopTransfersItem(s, order.itemId)).map((s) => s.stationId) ?? []);
+    const servesFrom = order.fromStationId ? transfers.has(order.fromStationId) : transfers.size > 0;
+    const servesTo = order.toStationId ? transfers.has(order.toStationId) : transfers.size > 0;
+    const excludedFrom = !servesFrom && !!order.fromStationId && stops.has(order.fromStationId);
+    const excludedTo = !servesTo && !!order.toStationId && stops.has(order.toStationId);
+    const sharing = Object.values(p.transportOrders).filter((o) => o.mode === 'train' && o.trainIds.includes(trainId) && cargoKind(gd, o.itemId) === kind);
     const totalRate = sharing.reduce((s, o) => s + o.ratePerMin, 0);
     const share = totalRate > 0 ? order.ratePerMin / totalRate : 1 / Math.max(1, sharing.length);
     const measured = opts.measuredCycleS?.get(trainId);
@@ -131,10 +215,10 @@ export function estimateOrder(
           : { s: estimateTrainCycle(p, gd, trainId).cycleS, src: 'estimate' as const };
     const capacityPerCycle = trainCapacity(gd, t, order.itemId);
     const perMin = cycle.s && servesFrom && servesTo ? (capacityPerCycle * share * 60) / cycle.s : 0;
-    trains.push({ trainId, servesFrom, servesTo, capacityPerCycle, share, cycleS: cycle.s, cycleSource: cycle.src, perMin });
+    trains.push({ trainId, servesFrom, servesTo, excludedFrom, excludedTo, capacityPerCycle, share, cycleS: cycle.s, cycleSource: cycle.src, perMin });
   }
   const perMin = trains.reduce((s, x) => s + x.perMin, 0);
-  return { orderId: order.id, rate: order.ratePerMin, trains, perMin, ok: perMin + 1e-6 >= order.ratePerMin };
+  return { orderId: order.id, rate: order.ratePerMin, mode: 'train', trains, vehicle: null, direct: null, perMin, ok: perMin + 1e-6 >= order.ratePerMin };
 }
 
 export interface TradeRow {
@@ -199,5 +283,7 @@ export function transportAssumptions(p: Project, gd: GameDataIndex): string[] {
     tr('Umschlag {s} s je Halt plus Wartezeit laut Fahrplan (Wiki: 27,08 s).', { s: p.settings.simulation.dockingS }),
     tr('Wagen werden vollständig beladen: {slots} Stapel × Stapelgröße bzw. {m3} m³.', { slots: gd.fact('rail.freightCar.slots') ?? 32, m3: gd.fact('rail.freightCar.fluidM3') ?? 2400 }),
     tr('Keine Wartezeiten an Signalen; mehrere Aufträge teilen sich einen Zug im Verhältnis ihrer Mengen.'),
+    tr('Fahrzeuge: Laderaum aus den Docs, Umlauf = 2 × Strecke / Geschwindigkeit + 2 × {s} s Andocken (Wiki „Truck Station“); ohne eigene Angabe mit Höchstgeschwindigkeit laut Wiki, also optimistisch. Treibstoffverbrauch wird nicht geschätzt.', { s: gd.fact('vehicle.docking.durationS') ?? 8 }),
+    tr('Direkte Bänder und Rohre: Kapazität = Stufe × Anzahl paralleler Leitungen; Förderhöhe zwischen Fabriken wird nicht geprüft.'),
   ];
 }

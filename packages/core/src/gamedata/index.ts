@@ -1,5 +1,5 @@
 import { localName } from '../i18n/index.ts';
-import type { BuildingCategory, GameData, GdBuilding, GdItem, GdRecipe, ItemId } from './types.ts';
+import type { BuildingCategory, GameData, GdBuilding, GdItem, GdRecipe, GdVehicle, ItemId } from './types.ts';
 
 export * from './types.ts';
 
@@ -23,6 +23,9 @@ export interface GameDataIndex {
   /** Rohrstufen, aufsteigend (ohne „Clean“-Varianten). */
   pipeTiers: GdBuilding[];
   fact(key: string): number | undefined;
+  /** Straßenfahrzeuge, aufsteigend nach Laderaum. */
+  vehicles: GdVehicle[];
+  vehicle(id: string): GdVehicle | undefined;
   /** Name in der Oberflächensprache. */
   name(id: string): string;
 }
@@ -65,8 +68,10 @@ export function createGameDataIndex(data: GameData): GameDataIndex {
     liftTiers,
     pipeTiers,
     fact: (key) => data.facts[key]?.value,
+    vehicles: sortBy(Object.values(data.vehicles ?? {}), (v) => (v.cargo.kind === 'solid' ? v.cargo.slots : 1000 + v.cargo.m3)),
+    vehicle: (id) => data.vehicles?.[id],
     name: (id) => {
-      const n = data.items[id]?.name ?? data.recipes[id]?.name ?? data.buildings[id]?.name;
+      const n = data.items[id]?.name ?? data.recipes[id]?.name ?? data.buildings[id]?.name ?? data.vehicles?.[id]?.name;
       return n ? localName(n) : id;
     },
   };

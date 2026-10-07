@@ -8,6 +8,7 @@ import { t } from '../../i18n';
 import { usePrefs } from '../../state/prefsStore';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
+import { versionLabel } from '../../version';
 import { counts, TOURS, type Counts } from './tours';
 
 interface Rect {
@@ -27,6 +28,7 @@ export function TourOverlay() {
   const base = useRef<Counts>(counts(project));
   const popRef = useRef<HTMLDivElement | null>(null);
   const [popSize, setPopSize] = useState({ w: 360, h: 180 });
+  const detailed = usePrefs((s) => s.detailedTours);
 
   // Ansicht für den Schritt einstellen und Ausgangswerte merken
   useEffect(() => {
@@ -55,7 +57,7 @@ export function TourOverlay() {
 
   useLayoutEffect(() => {
     if (popRef.current) setPopSize({ w: popRef.current.offsetWidth, h: popRef.current.offsetHeight });
-  }, [step, rect]);
+  }, [step, rect, detailed]);
 
   // Aufgabe erledigt → weiter
   const done = !!step?.until?.({ p: project, ui, base: base.current });
@@ -97,12 +99,23 @@ export function TourOverlay() {
   return (
     <div className="tour-layer" data-testid="tour">
       {rect ? <div className="tour-spot" style={{ left: rect.x - 6, top: rect.y - 6, width: rect.w + 12, height: rect.h + 12 }} /> : <div className="tour-dim" />}
-      <div className="tour-pop" ref={popRef} style={pos} role="dialog" aria-label={t(step.title)}>
+      <div className={`tour-pop ${detailed ? 'tour-pop-wide' : ''}`} ref={popRef} style={pos} role="dialog" aria-label={t(step.title)}>
         <div className="tour-progress">
           {t(def.title)} · {tour.step + 1} / {def.steps.length}
         </div>
         <h3>{t(step.title)}</h3>
         <p>{t(step.body)}</p>
+        {detailed && step.detail && (
+          <div className="tour-detail" data-testid="tour-detail">
+            <strong>{t('Genauer erklärt')}</strong>
+            <p>{t(step.detail)}</p>
+          </div>
+        )}
+        {step.detail && (
+          <button className="link-button small-text" onClick={() => usePrefs.getState().setDetailedTours(!detailed)} data-testid="tour-detail-toggle">
+            {detailed ? t('Kürzer erklären') : t('Genauer erklären (für Einsteiger)')}
+          </button>
+        )}
         {step.until && <p className={`tour-task ${done ? 'done' : ''}`}>{done ? t('✓ Erledigt') : t('Aufgabe: Probiere es aus – es geht automatisch weiter.')}</p>}
         <div className="button-row">
           <button onClick={finish}>{t('Beenden')}</button>
@@ -123,6 +136,7 @@ export function TourOverlay() {
 export function HelpMenu() {
   const [open, setOpen] = useState(false);
   const done = usePrefs((s) => s.toursDone);
+  const detailed = usePrefs((s) => s.detailedTours);
   return (
     <div className="menu">
       <button onClick={() => setOpen(!open)} title={t('Hilfe und Tutorial (F1)')} data-testid="help-button">
@@ -143,6 +157,11 @@ export function HelpMenu() {
               {t(tour.title)} {done.includes(tour.id) && <span className="dim">✓</span>}
             </button>
           ))}
+          <label className="check-row menu-check">
+            <input type="checkbox" checked={detailed} onChange={(e) => usePrefs.getState().setDetailedTours(e.target.checked)} />
+            {t('Ausführliche Erklärungen (Einsteiger)')}
+          </label>
+          <p className="dim small-text menu-version">{versionLabel()}</p>
         </div>
       )}
     </div>
@@ -167,6 +186,16 @@ export function WelcomeCard() {
           }}
         >
           {t('Einführung starten')}
+        </button>
+        <button
+          onClick={() => {
+            usePrefs.getState().setWelcomed();
+            usePrefs.getState().setDetailedTours(true);
+            useUiStore.getState().startTour('intro');
+          }}
+          data-testid="welcome-detailed"
+        >
+          {t('Ausführlich für Einsteiger')}
         </button>
         <button onClick={() => usePrefs.getState().setWelcomed()}>{t('Später')}</button>
       </div>

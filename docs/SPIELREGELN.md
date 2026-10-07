@@ -35,7 +35,9 @@ Kennzeichnung der Verlässlichkeit:
 | Förderband Mk.1–6 | 60, 120, 270, 480, 780, 1200 /min = `mSpeed` / 2 | Spieldaten, abgeleitet (abgeglichen mit Wiki: Mk.1 = 60/min) |
 | Förderlift Mk.1–6 | wie Bänder | Spieldaten, abgeleitet |
 | Rohr Mk.1 / Mk.2 | 300 / 600 m³/min = `mFlowLimit` · 60 | Spieldaten, abgeleitet |
-| Pumpe Mk.1 / Mk.2 | Förderhöhe 20 / 50 m (`mDesignPressure`) | Spieldaten |
+| Pumpe Mk.1 / Mk.2 | Förderhöhe 20 / 50 m (`mDesignPressure`); auch senkrecht einbaubar, Förderhöhe zählt ab dem Eingang | Spieldaten; Wiki „Pipeline Pump“ |
+| Förderhöhe ohne Pumpe | Wasser-, Öl- und Quellenextraktor, Raffinerie, Umfüllanlage, Mixer, Flüssigkeits-Frachtplattform 10 m; Flüssigkeitsspeicher 8 m; Industrieller Flüssigkeitsspeicher 12 m (empfohlene Werte, tatsächlich etwas mehr); Rohrkreuzungen geben die höchste ankommende Förderhöhe weiter; Gase brauchen keine | Wiki „Head lift“ |
+| LKW- und Tanklaster-Station | äußerster Bandeingang nur für Treibstoff | Wiki „Truck Station“ |
 | Splitter / Zusammenführung | 1 → 3 bzw. 3 → 1 Bandanschlüsse | Wiki-Infobox |
 | Rohrkreuzung | 4 (Kreuz) bzw. 3 (T) richtungsfreie Anschlüsse | Wiki „Pipeline Junction“ |
 | Anschlusszahlen der Maschinen | z. B. Fabrikator 2/1, Manufaktor 4/1, Raffinerie 1+1 / 1+1 | Wiki-Infobox; zur Kontrolle aus Rezepten abgeleitet |
@@ -66,12 +68,14 @@ Quellen: Wiki „[Train Signals](https://satisfactory.wiki.gg/wiki/Block_Signal)
 6. **Blocksignal:** Grün, wenn der folgende Block frei ist. Nach einem Fehler im Spiel können bei mehreren Einfahrsignalen mehrere Züge gleichzeitig einfahren und kollidieren. Das Wiki empfiehlt deshalb Pfadsignale an Zusammenführungen.
 7. **Pfadsignal:** Reserviert einen Pfad durch den Block. Mehrere Züge können einfahren, wenn sich ihre Pfade nicht kreuzen. Ein Zug fährt nur ein, wenn er den Block auch wieder verlassen kann („Path in, block out“). Pfadblöcke sollten wegen eines Fehlers im Spiel eben sein.
 8. **Geometrische Kreuzungen:** Gleise, die sich berühren oder durchdringen, gehören zum selben Block, auch ohne Verbindung an den Enden. Seit 1.2 ist die Gleis-Hitbox kleiner (genauer Wert nicht dokumentiert).
-9. **Wegfindung:** Kürzester Weg, keine Umleitung bei Belegung. Durchfahrene Bahnhöfe kosten +100 m. Züge fahren nicht an der Rückseite eines Signals vorbei; falsch gesetzte Signale können ein Ziel unerreichbar machen.
+9. **Wegfindung** (Wiki „Electric Locomotive – Pathfinding“): Kürzester Weg zum nächsten Halt, keine Umleitung bei Belegung. Ein durchfahrener Bahnhof, der nicht im Fahrplan steht, kostet +100 m, wenn er in Fahrtrichtung zeigt. Bei gleicher Länge gewinnt der Weg mit weniger Gleisteilen; führt er durch einen solchen Bahnhof, zählen seine Gleisteile als 0. Danach entscheidet die Weiche: links vor Mitte vor rechts. Bauweise und Signale ändern die Wegwahl nicht, nur die Durchfahrbarkeit: Züge fahren nicht an der Rückseite eines Signals vorbei, falsch gesetzte Signale können ein Ziel unerreichbar machen. *Umsetzung:* Längen bis 5 cm Unterschied gelten als gleich (Bogenlängen sind Näherungen).
 10. **Bahnhöfe** sind gerichtet: Züge halten nur in Fahrtrichtung des Bahnhofs, abfahren können sie in beide Richtungen. Bahnsteige liegen *hinter* dem Bahnhofsgebäude; jeder Wagen steht an einem Bahnsteig (Länge 16 m).
 11. **Zweirichtungszüge:** Nur mit einer rückwärts gerichteten Lok. Sie wird nur genutzt, wenn die vordere Lok das Ziel nicht erreicht. Mit Schleifen im Netz kann sich die Wagenreihenfolge umkehren.
 12. **Güterbahnsteige** funktionieren nur, wenn der Zug in Vorwärtsrichtung einen gültigen Weg hat.
 13. **Umschlag:** 27,08 s je Halt (Docs: 27 s), alle Wagen gleichzeitig; Bänder am Bahnsteig pausieren währenddessen.
 14. **Maße und Grenzen:** Wagen und Lok 16 m; Gleissegment 12–100 m; kleinster Kurvenradius 17 m (90°-Kurve); Lok max. 120 km/h (eben); Wagen 32 Stapel bzw. 2400 m³ (seit 1.2).
+15. **Zugkraft** (Wiki „Freight Car – Weight“, „Electric Locomotive“): Lok 300 t, Wagen leer 30 t, voll 100 t. Höchste Zugmasse je Lok (inkl. Lok): 1-m-Rampe (12,5 %) 1644 t, 2-m-Rampe (25 %) 800 t, 4-m-Rampe (50 %) 580 t – also 13 / 5 / 2,8 volle Wagen je Lok. Eben zieht eine Lok etwa 100 leere Wagen. Loks an jeder Stelle des Zuges helfen mit; *Annahme:* die zulässige Masse wächst linear mit der Zahl der Loks.
+16. **Halteeinstellungen:** Je Halt wird alles, nichts oder nur eine Auswahl von Gegenständen umgeschlagen (Wiki „Electric Locomotive – Stop settings“).
 
 ### Was die statische Prüfung **nicht** leisten kann
 
@@ -102,9 +106,10 @@ Spalten: **Art** (Spielregel / Empfehlung / nicht geprüft), **Gewissheit** (sta
 | FAB-013 | Produkt wird nicht abgeführt | Spielregel | statisch | Warnung | Spielverhalten, Durchsatzmodell |
 | FAB-014 | Gegenstand wird am Ziel nicht verarbeitet | Spielregel | statisch | Warnung | Durchsatzmodell |
 | FAB-015 | Durchsatzmodell vereinfacht | nicht geprüft | statisch | Hinweis | Einschränkung des Planers |
-| FAB-016 | Förderhöhe von Rohren nicht geprüft | nicht geprüft | statisch | Hinweis | Spieldaten (Pumpen 20/50 m) |
+| FAB-016 | Förderhöhe von Rohren nicht geprüft (Quelle ohne bekannte Förderhöhe) | nicht geprüft | statisch | Hinweis | Spieldaten (Pumpen 20/50 m), Wiki „Head lift“ |
 | FAB-017 | Senkrechte Leitung durchquert ein Stockwerk | Empfehlung | statisch | Hinweis | eigene Vorgabe |
 | FAB-018 | Höhenwechsel ohne senkrechten Abschnitt | nicht geprüft | statisch | Hinweis | Einschränkung des Planers |
+| FAB-019 | Förderhöhe reicht nicht | Spielregel | statisch | Warnung | Wiki „Head lift“, „Pipeline Pump“ |
 
 **Durchsatzmodell (Etappe 5):** lineares Programm je Fabrik über die eingezeichneten Verbindungen. Maschinen laufen mit einer Auslastung 0…1; Zutaten fließen im Rezeptverhältnis zu; jeder Ausgang muss vollständig abfließen; Splitter, Zusammenführungen, Rohrkreuzungen, Pumpen, Ventile und Lager mit Abgang erhalten die Menge je Gegenstand. Es wird einmal ohne und einmal mit Kapazitätsgrenzen gerechnet. **Annahmen:** bestmögliche Verteilung an Splittern (im Spiel gleichmäßig mit Überlauf), keine Filter, Rohrfluss in Zeichenrichtung, keine Förderhöhe, Kraftwerksverbrauch nicht modelliert, Zuordnung der Produkte zu Ausgängen in Rezeptreihenfolge.
 
@@ -131,6 +136,7 @@ Spalten: **Art** (Spielregel / Empfehlung / nicht geprüft), **Gewissheit** (sta
 | RAIL-022 | Wagen ohne passenden Bahnsteig | Empfehlung | statisch | Hinweis | 10 |
 | RAIL-023 | Zweirichtungszug in Netz mit Wendemöglichkeit | Empfehlung | möglich | Warnung | 11 |
 | RAIL-024 | Deadlocks statisch nicht ausschließbar | nicht geprüft | möglich | Hinweis | Einschränkung |
+| RAIL-025 | Zu wenige Loks für Steigung und Zuglast (voll beladen, steilste Steigung der Fahrwege) | Empfehlung | möglich | Warnung | 15 |
 
 Die Regeln RAIL-020 bis RAIL-024 werden ausdrücklich als **mögliche** Probleme ausgewiesen. Sie sind kein Nachweis eines Fehlers.
 
@@ -138,7 +144,7 @@ Die Regeln RAIL-020 bis RAIL-024 werden ausdrücklich als **mögliche** Probleme
 
 ### Simulation (Etappe 7)
 
-Konstante Durchschnittsgeschwindigkeit (Annahme, einstellbar), Blocksignal: Einfahrt nur in freien, nicht reservierten Block; Pfadsignal: Reservierung des Wegs durch die Pfadblöcke bis zum nächsten gewöhnlichen Block, der frei sein muss (Mechanik 7); Halte mit Umschlagzeit (Mechanik 13) plus Wartezeit; Wegwahl mit 100 m Aufschlag je durchfahrenem Bahnhof (Mechanik 9); Zweirichtungszüge fahren nur rückwärts ab, wenn vorwärts kein Weg existiert (Mechanik 11). Erkannt werden Deadlocks als zyklisches Warten und Kollisionen (nur ohne ausreichende Signale). **Ein Lauf ohne Deadlock ist kein Nachweis**, dass keiner auftreten kann.
+Konstante Durchschnittsgeschwindigkeit (Annahme, einstellbar), Blocksignal: Einfahrt nur in freien, nicht reservierten Block; Pfadsignal: Reservierung des Wegs durch die Pfadblöcke bis zum nächsten gewöhnlichen Block, der frei sein muss (Mechanik 7); Halte mit Umschlagzeit (Mechanik 13) plus Wartezeit; Wegwahl wie im Spiel (Mechanik 9); Zweirichtungszüge fahren nur rückwärts ab, wenn vorwärts kein Weg existiert (Mechanik 11). Start: Jeder Zug steht am ersten freien Halt seines Fahrplans; gibt es mehr Züge als freie Halte, beginnt er an einer zufälligen freien Stelle (kein Bahnhofsgleis, möglichst freier Block), von der aus er seinen ersten Halt erreicht. Der Zufall ist je Zug fest, damit Läufe vergleichbar bleiben. Erkannt werden Deadlocks als zyklisches Warten und Kollisionen (nur ohne ausreichende Signale). **Ein Lauf ohne Deadlock ist kein Nachweis**, dass keiner auftreten kann.
 
 ### Transport (Etappe 6)
 
@@ -153,8 +159,29 @@ Konstante Durchschnittsgeschwindigkeit (Annahme, einstellbar), Blocksignal: Einf
 | TRN-007 | Kein passender Wagen für den Gegenstand | Spielregel | statisch | Fehler | Wiki „Freight Car“ |
 | TRN-008 | Zugdurchsatz ist eine Schätzung | nicht geprüft | möglich | Hinweis | Annahmen des Planers |
 | TRN-009 | Keine passende Frachtplattform im Grundriss | Empfehlung | statisch | Hinweis | Planungskonsistenz |
+| TRN-010 | Halt schließt den Gegenstand vom Umschlag aus | Spielregel | statisch | Fehler | Wiki „Electric Locomotive“ (Stop settings) |
 
 Schätzung: Kapazität je Umlauf = Wagen × 32 Stapel × Stapelgröße (Feststoffe) bzw. Wagen × 2400 m³; Umlaufzeit = Summe der kürzesten Wege des Fahrplans / Ø-Geschwindigkeit + je Halt Umschlag (27,08 s) + Wartezeit. Gemessene Umlaufzeiten aus der Simulation oder ein manueller Wert ersetzen die Schätzung.
+
+**Transportmittel:** Jeder Auftrag fährt per Zug, Fahrzeug oder direkter Leitung. TRN-001 bis TRN-010 gelten für Zugaufträge.
+
+| Mechanik | Wert | Quelle |
+|---|---|---|
+| Fahrzeug-Laderaum | Schlepper 25, Lkw 48, Explorer 12 Stapel (`mInventorySize`); Tanklaster 3200 m³ | Spieldaten; Tanklaster Wiki „Truck“ |
+| Höchstgeschwindigkeit | Schlepper 69, Lkw und Tanklaster 89, Explorer 107 km/h | Wiki „Tractor“, „Truck“, „Explorer“ |
+| Andocken an Lkw-/Tanklaster-Station | 8 s je Fahrzeug | Wiki „Truck Station“ |
+| Fahrzeugschätzung | Laderaum × Anzahl je Umlauf; Umlauf = 2 × Strecke / Geschwindigkeit + 2 × 8 s; ohne eigene Angabe Höchstgeschwindigkeit (optimistisch) | abgeleitet |
+| Direkte Leitung | Kapazität = Stufe × Anzahl paralleler Leitungen; im Durchsatzmodell als Zu- bzw. Abfluss am gewählten Anschluss | Spieldaten (Band-/Rohrstufen) |
+
+| ID | Titel | Art | Gewissheit | Schwere | Quelle |
+|---|---|---|---|---|---|
+| TRN-011 | Transportmittel passt nicht zum Gegenstand | Spielregel | statisch | Fehler | Spieldaten, Wiki |
+| TRN-012 | Fahrzeugauftrag ohne Fahrzeug | Empfehlung | statisch | Warnung | Planungskonsistenz |
+| TRN-013 | Geschätzte Fahrzeugkapazität reicht nicht | Empfehlung | möglich | Warnung | Spieldaten, Wiki „Truck Station“ |
+| TRN-014 | Leitungen zwischen den Fabriken zu klein | Spielregel | statisch | Warnung | Spieldaten |
+| TRN-015 | Keine Übergabe im Grundriss (Lkw-Station bzw. Übergabeanschluss) | Empfehlung | statisch | Hinweis | Planungskonsistenz |
+
+*Nicht berechnet:* Treibstoffverbrauch der Fahrzeuge, Förderhöhe von Rohren zwischen Fabriken, Fahrwege der Fahrzeuge (die Strecke wird angegeben).
 
 ### Produktion (umgesetzt)
 

@@ -168,7 +168,7 @@ describe('Durchsatzmodell', () => {
     const sink = add('Build_ResourceSink_C');
     belt(pf, 'belt-out-0', s, 'belt-in-0');
     belt(s, 'belt-out-0', sink, 'belt-in-0');
-    p.transportOrders.o1 = { id: 'o1', name: 'Erz', itemId: 'Desc_OreIron_C', ratePerMin: 15, fromFactoryId: other, toFactoryId: f.id, fromStationId: null, toStationId: null, trainIds: [], roundTripEstimateS: null };
+    p.transportOrders.o1 = { id: 'o1', name: 'Erz', itemId: 'Desc_OreIron_C', ratePerMin: 15, fromFactoryId: other, toFactoryId: f.id, mode: 'train', fromStationId: null, toStationId: null, trainIds: [], roundTripEstimateS: null, vehicle: null, direct: null };
     const flow = computeFactoryFlow(p, gd, f.id);
     expect(flow.machines.get(s)!.utilization).toBeCloseTo(0.5);
     expect(flow.platforms.get(pf)!.items).toEqual([{ itemId: 'Desc_OreIron_C', perMin: expect.closeTo(15) }]);

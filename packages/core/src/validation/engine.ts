@@ -38,7 +38,7 @@ export const factoryScope: ScopeDef = {
     ...Object.values(p.areas).filter((x) => x.factoryId === id),
     ...Object.values(p.buildings).filter((x) => x.factoryId === id),
     ...Object.values(p.links).filter((x) => x.factoryId === id),
-    ...Object.values(p.transportOrders).filter((o) => o.toFactoryId === id),
+    ...Object.values(p.transportOrders).filter((o) => o.toFactoryId === id || o.fromFactoryId === id),
   ],
   check: (p, gd, id) => checkFactory(p, gd, id, { flow: cachedFactoryFlow(p, gd, id) }),
 };

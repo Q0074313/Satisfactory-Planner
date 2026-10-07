@@ -13,6 +13,7 @@ import {
   segmentMinRadius,
   segmentShape,
   trainLengthM,
+  trainTraction,
   wagonPlatformIssues,
   type Platform,
   type TimetableStop,
@@ -23,6 +24,7 @@ import { useProjectStore } from '../../state/projectStore';
 import { useSimStore } from '../../state/simStore';
 import { useUiStore } from '../../state/uiStore';
 import { Badge, fmtNum, NumberField, Row, Section, TextField } from '../../ui/fields';
+import { ItemPicker } from '../../ui/ItemPicker';
 
 export function RailProperties() {
   const selection = useUiStore((s) => s.selection);
@@ -403,6 +405,47 @@ function StationProps({ id }: { id: string }) {
   );
 }
 
+/** Zugkraft und Länge: Loks je Wagen bei der steilsten Steigung, Platz am kürzesten Bahnhof. */
+function TractionInfo({ trac, stationName, vehicleLen }: { trac: NonNullable<ReturnType<typeof trainTraction>>; stationName: string | null; vehicleLen: number }) {
+  const gradePct = fmtNum(trac.maxGrade * 100, 1);
+  return (
+    <>
+      <Row label={t('Masse')} hint={t('Lok 300 t, Wagen leer 30 t, voll 100 t (Wiki „Freight Car“).')}>
+        {t('{empty} t leer · {full} t voll', { empty: fmtNum(trac.massEmptyT, 0), full: fmtNum(trac.massFullT, 0) })}
+      </Row>
+      <Row
+        label={t('Steigung')}
+        hint={trac.gradeFrom === 'route' ? t('Steilster Anstieg auf den Fahrwegen des Fahrplans') : t('Steilster Anstieg im ganzen Netz (kein Fahrplan)')}
+      >
+        {trac.rampClass === null ? (
+          <>
+            {gradePct} % · {t('eben')}
+          </>
+        ) : (
+          <>
+            {gradePct} %{' '}
+            {trac.ok ? <Badge kind="ok">{t('Loks reichen')}</Badge> : <Badge kind="warn">{t('zu wenige Loks')}</Badge>}
+          </>
+        )}
+      </Row>
+      {trac.rampClass !== null && (
+        <Row label={t('Loks')} hint={t('Wiki-Tabelle: höchste Zugmasse je Lok bei 12,5 / 25 / 50 % Steigung = 1644 / 800 / 580 t. Annahme: mehrere Loks ziehen entsprechend mehr.')}>
+          {t('{have} vorhanden, {need} nötig (je Lok ca. {per} volle Wagen)', { have: trac.locomotives, need: trac.locosNeeded ?? '–', per: trac.wagonsPerLoco ?? '–' })}
+        </Row>
+      )}
+      {trac.rampClass === null && trac.wagons > 0 && (
+        <p className="dim small-text">{t('Auf ebener Strecke zieht eine Lok laut Wiki etwa 100 leere Wagen. Für beladene Züge nennt das Wiki erst ab einer Steigung Grenzwerte.')}</p>
+      )}
+      {trac.maxVehicles !== null && (
+        <Row label={t('Maximallänge')} hint={t('Kürzester Bahnhof des Fahrplans: Bahnhofsgebäude + Bahnsteige, je 16 m')}>
+          {t('{n} Fahrzeuge ({m} m) an {station}', { n: trac.maxVehicles, m: trac.maxVehicles * vehicleLen, station: stationName ?? '?' })}{' '}
+          {trac.lengthM > trac.maxVehicles * vehicleLen ? <Badge kind="warn">{t('Zug zu lang')}</Badge> : <Badge kind="ok">{t('passt')}</Badge>}
+        </Row>
+      )}
+    </>
+  );
+}
+
 const VEHICLE_LABEL = (v: Vehicle) =>
   v.kind === 'locomotive' ? (v.reversed ? t('Lok ⟵') : t('Lok ⟶')) : v.cargo === 'liquid' ? t('Wagen (flüssig)') : t('Wagen (fest)');
 
@@ -425,6 +468,7 @@ function TrainProps({ id }: { id: string }) {
     });
   }, [project, t0]);
   const cycle = useMemo(() => (t0 ? estimateTrainCycle(project, gd, id) : null), [project, gd, id, t0]);
+  const trac = useMemo(() => (t0 ? trainTraction(project, gd, id) : null), [project, gd, id, t0]);
   if (!t0) return null;
   const tr = t0;
   const setConsist = (consist: Vehicle[]) => apply(t('Zug ändern'), (d) => ops.updateTrain(d, id, { consist }));
@@ -458,6 +502,7 @@ function TrainProps({ id }: { id: string }) {
       <Row label={t('Kapazität')}>
         {t('{a} Stapel · {b} m³', { a: wagons.filter((w) => w.kind === 'wagon' && w.cargo === 'solid').length * slots, b: fmtNum(wagons.filter((w) => w.kind === 'wagon' && w.cargo === 'liquid').length * fluid, 0) })}
       </Row>
+      {trac && <TractionInfo trac={trac} stationName={trac.shortestStationId ? (project.stations[trac.shortestStationId]?.name ?? '?') : null} vehicleLen={vehicleLen} />}
       {cycle?.cycleS && (
         <Row label={t('Umlauf (Schätzung)')} hint={t('Strecke / Durchschnittsgeschwindigkeit + Umschlag und Wartezeit je Halt')}>
           {fmtNum(cycle.cycleS, 0)} s ({fmtNum(cycle.lengthM / 1000, 2)} km)
@@ -545,7 +590,21 @@ function TimetableProps({ id }: { id: string }) {
     [stops[i], stops[j]] = [stops[j]!, stops[i]!];
     setStops(stops);
   };
-  const items = Object.values(gd.data.items).sort((a, b) => localName(a.name).localeCompare(localName(b.name), getLanguage()));
+  const allItems = Object.values(gd.data.items).sort((a, b) => localName(a.name).localeCompare(localName(b.name), getLanguage()));
+  /** Gegenstände, die die Bahnsteige des Bahnhofs umschlagen können. */
+  const itemsFor = (stationId: string) => {
+    const st = project.stations[stationId];
+    const types = new Set(st?.platforms.map((pf) => pf.type) ?? []);
+    if (!types.size || (types.has('freight') && types.has('fluid'))) return allItems;
+    if (types.has('fluid')) return allItems.filter((i) => i.form !== 'solid');
+    if (types.has('freight')) return allItems.filter((i) => i.form === 'solid');
+    return allItems;
+  };
+  /** Vorschläge: Gegenstände der Transportaufträge, die an diesem Bahnhof laden oder entladen. */
+  const suggestionsFor = (stationId: string) =>
+    Object.values(project.transportOrders)
+      .filter((o) => o.fromStationId === stationId || o.toStationId === stationId)
+      .map((o) => ({ id: o.itemId, reason: o.fromStationId === stationId ? t('Auftrag „{name}“ lädt hier', { name: o.name }) : t('Auftrag „{name}“ entlädt hier', { name: o.name }) }));
   const users = Object.values(project.trains).filter((x) => x.timetableId === id);
   return (
     <Section title={t('Fahrplan')}>
@@ -592,14 +651,8 @@ function TimetableProps({ id }: { id: string }) {
             </select>
           </Row>
           {s.transfer === 'items' && (
-            <Row label={t('Gegenstände')}>
-              <select multiple size={4} value={s.itemIds} onChange={(e) => upd(i, { itemIds: [...e.target.selectedOptions].map((o) => o.value) })}>
-                {items.map((it) => (
-                  <option key={it.id} value={it.id}>
-                    {localName(it.name)}
-                  </option>
-                ))}
-              </select>
+            <Row label={t('Gegenstände')} plain hint={t('Nur diese Gegenstände werden an diesem Halt geladen bzw. entladen. Die Liste zeigt, was die Bahnsteige des Bahnhofs umschlagen können.')}>
+              <ItemPicker items={itemsFor(s.stationId)} value={s.itemIds} onChange={(itemIds) => upd(i, { itemIds })} suggestions={suggestionsFor(s.stationId)} />
             </Row>
           )}
         </div>

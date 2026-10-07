@@ -82,6 +82,11 @@ export const PlacementSchema = z.object({
   /** Höhe relativ zur Oberkante des Stockwerks. */
   zOffsetM: finite.default(0),
   rotationDeg: finite,
+  /**
+   * Nur Pipeline-Pumpen: senkrecht eingebaut, Förderrichtung nach oben bzw.
+   * unten. Fehlt das Feld, liegt das Gebäude waagrecht.
+   */
+  vertical: z.enum(['up', 'down']).optional(),
 });
 export type Placement = z.infer<typeof PlacementSchema>;
 
@@ -129,8 +134,9 @@ export const BuildingSchema = z.object({
    */
   extraction: ExtractionSchema.nullable().default(null),
   /**
-   * Nur Frachtplattformen: Be- oder Entladen und zugehöriger Bahnhof. Bildet
-   * die Schnittstelle zwischen Fabrik und Transportaufträgen.
+   * Nur Frachtplattformen und LKW-/Tanklaster-Stationen: Be- oder Entladen
+   * und (bei Frachtplattformen) zugehöriger Bahnhof. Bildet die Schnittstelle
+   * zwischen Fabrik und Transportaufträgen.
    */
   transfer: TransferSchema.nullable().default(null),
   notes: z.string().default(''),
@@ -191,6 +197,7 @@ export const BuildingGroupSchema = z.object({
       y: finite,
       zOffsetM: finite,
       rotationDeg: finite,
+      vertical: z.enum(['up', 'down']).optional(),
       extraction: ExtractionSchema.nullable().default(null),
     }),
   ),
@@ -376,6 +383,40 @@ export const TimetableSchema = z.object({
 });
 export type Timetable = z.infer<typeof TimetableSchema>;
 
+/**
+ * Transportmittel eines Auftrags:
+ * - `train`: Züge über Bahnhöfe (Frachtplattformen als Übergabe)
+ * - `vehicle`: Straßenfahrzeuge über LKW- bzw. Tanklaster-Stationen
+ * - `belt` / `pipe`: direkte Leitung von einem Anschluss der liefernden zu
+ *   einem Anschluss der empfangenden Fabrik
+ */
+export const TransportModeSchema = z.enum(['train', 'vehicle', 'belt', 'pipe']);
+export type TransportMode = z.infer<typeof TransportModeSchema>;
+
+export const VehicleTransportSchema = z.object({
+  /** Fahrzeugtyp aus den Spieldaten, z. B. `Desc_Truck_C`. */
+  type: z.string(),
+  count: z.number().int().min(0),
+  /** Fahrstrecke einfach (Meter). */
+  distanceM: finite.nonnegative(),
+  /** Angenommene Durchschnittsgeschwindigkeit; `null` = Höchstgeschwindigkeit laut Wiki. */
+  speedKmh: finite.positive().nullable().default(null),
+});
+export type VehicleTransport = z.infer<typeof VehicleTransportSchema>;
+
+export const DirectTransportSchema = z.object({
+  /** Band- bzw. Rohrstufe als Gebäudetyp. */
+  tier: z.string(),
+  /** Parallele Leitungen. */
+  lines: z.number().int().min(1),
+  /** Länge einer Leitung (Planungsangabe, Meter). */
+  lengthM: finite.nonnegative().default(0),
+  /** Übergabe: Ausgang in der liefernden bzw. Eingang in der empfangenden Fabrik. */
+  from: PortRefSchema.nullable().default(null),
+  to: PortRefSchema.nullable().default(null),
+});
+export type DirectTransport = z.infer<typeof DirectTransportSchema>;
+
 export const TransportOrderSchema = z.object({
   id,
   name: z.string(),
@@ -383,11 +424,16 @@ export const TransportOrderSchema = z.object({
   ratePerMin: finite.nonnegative(),
   fromFactoryId: id,
   toFactoryId: id,
+  mode: TransportModeSchema.default('train'),
   fromStationId: id.nullable().default(null),
   toStationId: id.nullable().default(null),
   trainIds: z.array(id).default([]),
-  /** Geschätzte Umlaufzeit, solange nicht simuliert (Sekunden). */
+  /** Geschätzte Umlaufzeit (Zug bzw. Fahrzeug), ersetzt die Schätzung (Sekunden). */
   roundTripEstimateS: finite.positive().nullable().default(null),
+  /** Nur bei `vehicle`. */
+  vehicle: VehicleTransportSchema.nullable().default(null),
+  /** Nur bei `belt` und `pipe`. */
+  direct: DirectTransportSchema.nullable().default(null),
 });
 export type TransportOrder = z.infer<typeof TransportOrderSchema>;
 

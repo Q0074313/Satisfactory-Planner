@@ -42,6 +42,11 @@ const DARK = {
   blockSignal: '#38c172',
   pathSignal: '#a77bff',
   signalInk: '#111',
+  fuelPort: '#ff5ce1',
+  /** Förderbänder Mk.1 … Mk.6 (Farbton steigt mit der Stufe). */
+  beltTiers: ['#b8a45a', '#e2c12a', '#f0962e', '#ea5f3a', '#d64fa0', '#9b78f0'],
+  /** Rohre Mk.1, Mk.2. */
+  pipeTiers: ['#4fb3e0', '#2a6fe0'],
 };
 
 type Palette = typeof DARK;
@@ -86,6 +91,9 @@ const LIGHT: Palette = {
   blockSignal: '#1f9e4a',
   pathSignal: '#7b4fd6',
   signalInk: '#fff',
+  fuelPort: '#b0249a',
+  beltTiers: ['#8a7a3a', '#a88a00', '#c06a10', '#c0401c', '#a8317c', '#6a46c8'],
+  pipeTiers: ['#2a8fc0', '#1048b0'],
 };
 
 /** Aktuelle Zeichenfarben (werden beim Wechsel des Farbschemas ersetzt). */
@@ -215,7 +223,8 @@ export function formatM(v: number): string {
  */
 export function drawChevrons(ctx: CanvasRenderingContext2D, vp: Viewport, pts: Vec[], spacingPx: number, sizePx: number, phase = 0): void {
   const scr = pts.map((p) => vp.toScreen(p));
-  let carry = spacingPx * (1 - (phase % 1));
+  // Pfeile wandern mit steigender Phase in Förderrichtung
+  let carry = spacingPx * (phase % 1);
   ctx.beginPath();
   for (let i = 1; i < scr.length; i++) {
     const a = scr[i - 1]!;

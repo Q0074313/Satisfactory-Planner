@@ -101,12 +101,24 @@ describe('Formatmigrationen', () => {
 });
 
 describe('Fabrikoperationen', () => {
+  it('neue Ebenen: Produktion 18 m, Logistik 6 m, dazwischen 2 m Decke', () => {
+    const p = newProject();
+    const { factory } = firstFactory(p);
+    const eg = p.floors[factory.floorIds[0]!]!;
+    expect([eg.elevationM, eg.heightM]).toEqual([0, 18]);
+    const log = ops.addFloor(p, factory.id, { kind: 'logistics' });
+    expect([p.floors[log]!.elevationM, p.floors[log]!.heightM]).toEqual([20, 6]);
+    const up = ops.addFloor(p, factory.id);
+    expect([p.floors[up]!.elevationM, p.floors[up]!.heightM]).toEqual([28, 18]);
+  });
+
   it('Stockwerk entfernen hebt Platzierungen auf, Maschinen bleiben geplant', () => {
     const gd = gameData();
     const p = newProject();
     const { factory } = firstFactory(p);
     const upper = ops.addFloor(p, factory.id, { name: 'OG' });
-    expect(p.floors[upper]!.elevationM).toBe(12);
+    // Erdgeschoss 0–18 m, Decke 2 m, nächste Ebene ab 20 m
+    expect(p.floors[upper]!.elevationM).toBe(20);
     const id = ops.addBuilding(p, gd, {
       factoryId: factory.id,
       type: 'Build_SmelterMk1_C',

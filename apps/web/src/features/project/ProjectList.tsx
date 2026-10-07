@@ -8,6 +8,7 @@ import { createNew, importFromFile, openById, openRemote, removeProject, uploadL
 import { useUiStore } from '../../state/uiStore';
 import { t } from '../../i18n';
 import { usePrefs } from '../../state/prefsStore';
+import { versionLabel } from '../../version';
 
 export function ProjectList({ onClose }: { onClose?: () => void }) {
   const server = useServer((s) => s.available) === true;
@@ -24,7 +25,9 @@ export function ProjectList({ onClose }: { onClose?: () => void }) {
   return (
     <div className="project-list">
       <header>
-        <h1>Satis Planner</h1>
+        <h1>
+          Satis Planner <span className="dim small-text app-version">{versionLabel()}</span>
+        </h1>
         <p className="dim">
           {server
             ? t('Produktionsberechnung, Fabrikgrundriss und Schienennetze für Satisfactory. Projekte werden auf dem Server gespeichert. Jedes Projekt hat einen eigenen geheimen Link – wer ihn kennt, kann das Projekt öffnen und bearbeiten. Eine Übersicht aller Projekte gibt es nicht.')

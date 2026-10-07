@@ -15,6 +15,7 @@ import {
 } from '@satis/core';
 
 const { add, scale, rotate, sub, normalize, dist, distToSegment, pointInPolygon, cross, dirFromDeg } = geo;
+const scale_ = scale;
 
 export interface RailSceneSegment {
   id: string;
@@ -117,6 +118,26 @@ export function buildRailScene(p: Project, networkId: string): RailScene {
   return { networkId, segments, others, signals, stations, analysis, nodes };
 }
 
+/** Größe des Signalsymbols in Pixeln bei einem Maßstab (px/m). */
+export function signalSymbolPx(scale: number): number {
+  return Math.max(7, Math.min(scale * 2.2, 13));
+}
+
+/**
+ * Lage des gezeichneten Signalsymbols: Kopf (Pfeil) rechts neben dem Gleis und
+ * Mastansatz an der Haltelinie. Zeichnung und Trefferprüfung nutzen dieselbe
+ * Geometrie, damit ein Klick auf das Symbol das Signal trifft.
+ */
+export function signalGlyph(node: geo.Vec2, dir: geo.Vec2, scale: number): { head: geo.Vec2; mastFrom: geo.Vec2; r: number } {
+  const r = signalSymbolPx(scale);
+  const right = rotate(dir, 90);
+  return {
+    head: add(node, scale_(right, r / scale + 3)),
+    mastFrom: add(node, scale_(right, (r * 0.9) / scale)),
+    r,
+  };
+}
+
 export type RailHit =
   | { kind: 'signal'; id: string }
   | { kind: 'node'; id: string }
@@ -125,11 +146,21 @@ export type RailHit =
   | { kind: 'measurement'; id: string }
   | null;
 
-export function railHitTest(scene: RailScene, p: Project, pt: geo.Vec2, tolM: number, opts: { nodes: boolean; segments: boolean; stations: boolean }): RailHit {
+export function railHitTest(
+  scene: RailScene,
+  p: Project,
+  pt: geo.Vec2,
+  tolM: number,
+  opts: { nodes: boolean; segments: boolean; stations: boolean; scale: number; segTolM?: number },
+): RailHit {
   let best: { d: number; hit: RailHit } | null = null;
+  // Signale: Pfeil und Mast wie gezeichnet (vor den Knoten, sonst träfe ein Klick den Knoten darunter)
   for (const s of scene.signals) {
-    const d = dist(pt, s.at);
-    if (d <= Math.max(tolM * 1.2, 2) && (!best || d < best.d)) best = { d, hit: { kind: 'signal', id: s.signal.id } };
+    const g = signalGlyph(s.node, s.dir, opts.scale);
+    const dHead = dist(pt, g.head) - (g.r * 1.3) / opts.scale;
+    const dMast = distToSegment(pt, g.mastFrom, g.head) - 4 / opts.scale;
+    const d = Math.min(dHead, dMast);
+    if (d <= 0 && (!best || d < best.d)) best = { d, hit: { kind: 'signal', id: s.signal.id } };
   }
   if (best) return best.hit;
   if (opts.nodes) {
@@ -143,7 +174,7 @@ export function railHitTest(scene: RailScene, p: Project, pt: geo.Vec2, tolM: nu
     for (const s of scene.segments) {
       for (let i = 1; i < s.points.length; i++) {
         const d = distToSegment(pt, s.points[i - 1]!, s.points[i]!);
-        if (d <= Math.max(tolM, 1.5) && (!best || d < best.d)) best = { d, hit: { kind: 'segment', id: s.id } };
+        if (d <= Math.max(tolM, opts.segTolM ?? 1.5) && (!best || d < best.d)) best = { d, hit: { kind: 'segment', id: s.id } };
       }
     }
     if (best) return best.hit;

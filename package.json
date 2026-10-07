@@ -1,7 +1,7 @@
 {
   "name": "satis-planner",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Planungswerkzeug für Satisfactory: Produktion, Fabrikgrundriss und Schienennetze in einem Projektmodell.",
   "type": "module",
   "workspaces": [

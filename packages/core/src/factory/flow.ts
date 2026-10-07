@@ -30,7 +30,8 @@ import type { GameDataIndex, GdBuilding } from '../gamedata/index.ts';
 import { getLanguage, tr } from '../i18n/index.ts';
 import type { Building, LogisticsLink, Project } from '../model/schema.ts';
 import { machineRates } from '../production/machine.ts';
-import { portDefs, type PortDef } from './ports.ts';
+import { transferCargo, transferInterface } from './geometry.ts';
+import { placedPortDefs, portDefs, type PortDef } from './ports.ts';
 
 export type FlowRole =
   | 'machine'
@@ -87,6 +88,8 @@ export interface FactoryFlow {
   machines: Map<string, FlowMachineResult>;
   /** Fluss in Frachtplattformen (Ausfuhr) bzw. aus ihnen (Einfuhr) je Gebäude. */
   platforms: Map<string, { mode: 'load' | 'unload'; items: ItemRate[] }>;
+  /** Fluss direkter Leitungen zu/von anderen Fabriken je Transportauftrag (mit Kapazitätsgrenze). */
+  direct: Map<string, { dir: 'in' | 'out'; perMin: number; required: number }>;
   assumptions: string[];
 }
 
@@ -97,6 +100,7 @@ export function flowRole(b: Building, def: GdBuilding | undefined, gd: GameDataI
   if (def.extractor) return b.extraction ? 'extractor' : 'none';
   if (b.recipeId && gd.recipe(b.recipeId)) return 'machine';
   if (def.freightPlatform) return b.transfer?.mode === 'load' ? 'platform-load' : 'platform-unload';
+  if (transferInterface(def) && b.transfer) return b.transfer.mode === 'load' ? 'platform-load' : 'platform-unload';
   if (def.nativeClass === 'FGBuildableResourceSink') return 'sink';
   if (def.category === 'power') return 'consumer-unmodeled';
   if (def.category === 'storage') return hasOutLinks ? 'pass' : 'storage-end';
@@ -120,22 +124,57 @@ export function outputPortAssignment(gd: GameDataIndex, def: GdBuilding, outputs
   return map;
 }
 
+/** Direkte Leitung eines Transportauftrags an einem Anschluss dieser Fabrik. */
+interface DirectFlow {
+  orderId: string;
+  buildingId: string;
+  portId: string;
+  itemId: string;
+  /** Höchstmenge: Auftragsmenge bzw. zusätzlich Leitungskapazität. */
+  max: number;
+  maxCapped: number;
+  dir: 'in' | 'out';
+}
+
+/** Direkte Bänder/Rohre zwischen Fabriken, die an dieser Fabrik ankommen bzw. abgehen. */
+function directFlows(p: Project, gd: GameDataIndex, factoryId: string): DirectFlow[] {
+  const out: DirectFlow[] = [];
+  for (const o of Object.values(p.transportOrders)) {
+    if ((o.mode !== 'belt' && o.mode !== 'pipe') || !o.direct || o.ratePerMin <= 0) continue;
+    const tier = gd.building(o.direct.tier);
+    const cap = (o.mode === 'belt' ? (tier?.conveyor?.itemsPerMin ?? 0) : (tier?.pipe?.m3PerMin ?? 0)) * o.direct.lines;
+    const base = { orderId: o.id, itemId: o.itemId, max: o.ratePerMin, maxCapped: Math.min(o.ratePerMin, cap) };
+    if (o.toFactoryId === factoryId && o.direct.to) out.push({ ...base, ...o.direct.to, dir: 'in' });
+    if (o.fromFactoryId === factoryId && o.direct.from) out.push({ ...base, ...o.direct.from, dir: 'out' });
+  }
+  return out;
+}
+
 export interface FlowContext {
   /** Einfuhr je Frachtplattform (Gebäude-ID → Gegenstände mit Rate). Standard: aus den Transportaufträgen. */
   imports?: Map<string, ItemRate[]>;
 }
 
 /**
- * Einfuhr je entladender Frachtplattform aus den Transportaufträgen an die
- * Fabrik. Ein Auftrag mit Zielbahnhof verteilt sich gleichmäßig auf die
- * Plattformen dieses Bahnhofs, sonst auf alle entladenden Plattformen.
+ * Einfuhr je entladender Übergabe aus den Transportaufträgen an die Fabrik:
+ * Zugaufträge an Frachtplattformen (mit Zielbahnhof: an dessen Plattformen,
+ * sonst an alle), Fahrzeugaufträge an LKW- bzw. Tanklaster-Stationen des
+ * passenden Ladeguts. Die Menge verteilt sich gleichmäßig.
  */
-export function platformImports(p: Project, factoryId: string): Map<string, ItemRate[]> {
-  const platforms = Object.values(p.buildings).filter((b) => b.factoryId === factoryId && b.placement && b.transfer?.mode === 'unload');
+export function platformImports(p: Project, factoryId: string, gd?: GameDataIndex): Map<string, ItemRate[]> {
+  const unloading = Object.values(p.buildings).filter((b) => b.factoryId === factoryId && b.placement && b.transfer?.mode === 'unload');
+  const iface = (b: Building) => (gd ? transferInterface(gd.building(b.type)) : 'train');
   const acc = new Map<string, Map<string, number>>();
   for (const o of Object.values(p.transportOrders)) {
-    if (o.toFactoryId !== factoryId || o.ratePerMin <= 0 || platforms.length === 0) continue;
-    let targets = o.toStationId ? platforms.filter((b) => b.transfer?.stationId === o.toStationId) : [];
+    if (o.toFactoryId !== factoryId || o.ratePerMin <= 0) continue;
+    if (o.mode === 'belt' || o.mode === 'pipe') continue;
+    let platforms = unloading.filter((b) => iface(b) === o.mode);
+    if (o.mode === 'vehicle' && gd) {
+      const solid = gd.item(o.itemId)?.form === 'solid';
+      platforms = platforms.filter((b) => (transferCargo(gd.building(b.type)!) === 'solid') === solid);
+    }
+    if (platforms.length === 0) continue;
+    let targets = o.mode === 'train' && o.toStationId ? platforms.filter((b) => b.transfer?.stationId === o.toStationId) : [];
     if (targets.length === 0) targets = platforms.filter((b) => !b.transfer?.stationId);
     if (targets.length === 0) targets = platforms;
     for (const b of targets) {
@@ -167,8 +206,9 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
     tr('Produkte werden den Ausgängen in Rezeptreihenfolge zugeordnet (Anschlusslage schematisch).'),
   ];
   const nodes = new Map<string, Node>();
-  const imports = ctx.imports ?? platformImports(p, factoryId);
+  const imports = ctx.imports ?? platformImports(p, factoryId, gd);
   const links = Object.values(p.links).filter((l) => l.factoryId === factoryId);
+  const direct = directFlows(p, gd, factoryId);
   for (const b of Object.values(p.buildings)) {
     if (b.factoryId !== factoryId || !b.placement) continue;
     const def = gd.building(b.type);
@@ -185,7 +225,7 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
       b,
       def,
       role,
-      ports: def ? portDefs(def) : [],
+      ports: def ? placedPortDefs(def, b.placement) : [],
       inLinks,
       outLinks,
       rates,
@@ -193,6 +233,8 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
     });
   }
   const live = links.filter((l) => nodes.has(l.from.buildingId) && nodes.has(l.to.buildingId));
+  const dIn = direct.filter((d) => d.dir === 'in' && nodes.has(d.buildingId));
+  const dOut = direct.filter((d) => d.dir === 'out' && nodes.has(d.buildingId));
 
   // --- Mögliche Gegenstände je Verbindung: vorwärts (Quelle) ∩ rückwärts (Abnahme) ---
   const fwd = new Map<string, Set<string>>(live.map((l) => [l.id, new Set<string>()]));
@@ -202,7 +244,7 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
       return it ? [it.itemId] : [];
     }
     if (n.role === 'platform-unload') return n.rates.outputs.map((x) => x.itemId);
-    if (n.role === 'pass') return n.inLinks.flatMap((x) => [...(fwd.get(x.id) ?? [])]);
+    if (n.role === 'pass') return [...n.inLinks.flatMap((x) => [...(fwd.get(x.id) ?? [])]), ...dIn.filter((d) => d.buildingId === n.b.id).map((d) => d.itemId)];
     return [];
   };
   for (let changed = true, guard = 0; changed && guard < 200; guard++) {
@@ -223,7 +265,7 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
     if (n.role === 'sink') return new Set(Object.values(gd.data.items).filter((i) => i.form === 'solid').map((i) => i.id));
     if (n.role === 'storage-end' || n.role === 'platform-load' || n.role === 'consumer-unmodeled') return 'all';
     if (n.role === 'pass') {
-      const s = new Set<string>();
+      const s = new Set<string>(dOut.filter((d) => d.buildingId === n.b.id).map((d) => d.itemId));
       for (const o of n.outLinks) {
         const a = bwd.get(o.id);
         if (a === 'all') return 'all';
@@ -281,6 +323,14 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
         if (capped) addCoef(v, `cap:${l.id}`, 1);
       }
     }
+    // Direkte Leitungen zu anderen Fabriken: Zu- bzw. Abfluss am Anschluss, höchstens Auftragsmenge (bzw. Kapazität)
+    for (const d of [...dIn, ...dOut]) {
+      const v = `d:${d.dir}:${d.orderId}`;
+      constraints.set(`dmax:${d.dir}:${d.orderId}`, { max: capped ? d.maxCapped : d.max });
+      addCoef(v, `dmax:${d.dir}:${d.orderId}`, 1);
+      addCoef(v, 'obj', -1e-6);
+    }
+    const dVar = (d: DirectFlow) => `d:${d.dir}:${d.orderId}`;
     for (const n of nodes.values()) {
       const id = n.b.id;
       if (n.role === 'machine' || n.role === 'extractor') {
@@ -293,21 +343,26 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
           constraints.set(c, { equal: 0 });
           addCoef(u, c, -inp.perMin);
           for (const l of n.inLinks) if (candidates.get(l.id)?.includes(inp.itemId)) addCoef(`f:${l.id}:${inp.itemId}`, c, 1);
+          for (const d of dIn) if (d.buildingId === id && d.itemId === inp.itemId) addCoef(dVar(d), c, 1);
         }
         for (const [portId, out] of n.outPorts) {
           const c = `out:${id}:${portId}`;
           constraints.set(c, { equal: 0 });
           addCoef(u, c, -out.perMin);
           for (const l of n.outLinks) if (l.from.portId === portId && candidates.get(l.id)?.includes(out.itemId)) addCoef(`f:${l.id}:${out.itemId}`, c, 1);
+          for (const d of dOut) if (d.buildingId === id && d.portId === portId && d.itemId === out.itemId) addCoef(dVar(d), c, 1);
         }
       } else if (n.role === 'pass') {
         const items = new Set<string>();
         for (const l of [...n.inLinks, ...n.outLinks]) for (const i of candidates.get(l.id) ?? []) items.add(i);
+        for (const d of [...dIn, ...dOut]) if (d.buildingId === id) items.add(d.itemId);
         for (const i of items) {
           const c = `bal:${id}:${i}`;
           constraints.set(c, { equal: 0 });
           for (const l of n.inLinks) if (candidates.get(l.id)?.includes(i)) addCoef(`f:${l.id}:${i}`, c, 1);
           for (const l of n.outLinks) if (candidates.get(l.id)?.includes(i)) addCoef(`f:${l.id}:${i}`, c, -1);
+          for (const d of dIn) if (d.buildingId === id && d.itemId === i) addCoef(dVar(d), c, 1);
+          for (const d of dOut) if (d.buildingId === id && d.itemId === i) addCoef(dVar(d), c, -1);
         }
       } else if (n.role === 'platform-unload') {
         for (const out of n.rates.outputs) {
@@ -317,6 +372,7 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
             addCoef(`f:${l.id}:${out.itemId}`, c, 1);
             // Einfuhr soll abfließen, wo sie gebraucht wird – kein eigener Nutzen, nur ermöglicht.
           }
+          for (const d of dOut) if (d.buildingId === id && d.itemId === out.itemId) addCoef(dVar(d), c, 1);
         }
       }
     }
@@ -334,6 +390,7 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
       links: new Map(),
       machines: new Map(),
       platforms: new Map(),
+      direct: new Map(),
       assumptions,
     };
   }
@@ -374,8 +431,10 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
     const uu = get(uncapped.val, `u:${n.b.id}`);
     const issues: FlowIssue[] = [];
     const inputs = n.rates.inputs.map((inp) => {
-      const received = n.inLinks.reduce((s, l) => s + get(capped.val, `f:${l.id}:${inp.itemId}`), 0);
-      const reachable = n.inLinks.some((l) => candidates.get(l.id)?.includes(inp.itemId));
+      const viaDirect = dIn.filter((d) => d.buildingId === n.b.id && d.itemId === inp.itemId);
+      const received =
+        n.inLinks.reduce((s, l) => s + get(capped.val, `f:${l.id}:${inp.itemId}`), 0) + viaDirect.reduce((s, d) => s + get(capped.val, `d:in:${d.orderId}`), 0);
+      const reachable = viaDirect.length > 0 || n.inLinks.some((l) => candidates.get(l.id)?.includes(inp.itemId));
       if (!reachable) issues.push({ kind: 'input-missing', itemId: inp.itemId });
       else if (uu < 1 - 1e-4) issues.push({ kind: 'input-short', itemId: inp.itemId, need: inp.perMin, got: inp.perMin * uu });
       return { itemId: inp.itemId, nominal: inp.perMin, received };
@@ -383,8 +442,11 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
     const assigned = new Set([...n.outPorts.values()].map((x) => x.itemId));
     const outputs = n.rates.outputs.map((out) => {
       const portId = [...n.outPorts].find(([, v]) => v.itemId === out.itemId)?.[0] ?? null;
-      const removed = n.outLinks.filter((l) => l.from.portId === portId).reduce((s, l) => s + get(capped.val, `f:${l.id}:${out.itemId}`), 0);
-      const carried = portId !== null && n.outLinks.some((l) => l.from.portId === portId && candidates.get(l.id)?.includes(out.itemId));
+      const viaDirect = dOut.filter((d) => d.buildingId === n.b.id && d.portId === portId && d.itemId === out.itemId);
+      const removed =
+        n.outLinks.filter((l) => l.from.portId === portId).reduce((s, l) => s + get(capped.val, `f:${l.id}:${out.itemId}`), 0) +
+        viaDirect.reduce((s, d) => s + get(capped.val, `d:out:${d.orderId}`), 0);
+      const carried = portId !== null && (viaDirect.length > 0 || n.outLinks.some((l) => l.from.portId === portId && candidates.get(l.id)?.includes(out.itemId)));
       if (!assigned.has(out.itemId) || !carried) issues.push({ kind: 'output-blocked', itemId: out.itemId, portId });
       return { itemId: out.itemId, nominal: out.perMin, removed, portId };
     });
@@ -395,7 +457,9 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
     if (u < uu - 1e-4) issues.push({ kind: 'belt-limit' });
     machines.set(n.b.id, { buildingId: n.b.id, role: n.role, utilization: u, utilizationUncapped: uu, inputs, outputs, issues });
   }
-  return { status: 'ok', message: '', links: linkResults, machines, platforms, assumptions };
+  const directResult = new Map<string, { dir: 'in' | 'out'; perMin: number; required: number }>();
+  for (const d of [...dIn, ...dOut]) directResult.set(d.orderId, { dir: d.dir, perMin: get(capped.val, `d:${d.dir}:${d.orderId}`), required: get(uncapped.val, `d:${d.dir}:${d.orderId}`) });
+  return { status: 'ok', message: '', links: linkResults, machines, platforms, direct: directResult, assumptions };
 }
 
 /**
@@ -409,7 +473,7 @@ export function factoryFlowDeps(p: Project, factoryId: string): unknown[] {
   return [
     ...Object.values(p.buildings).filter((b) => b.factoryId === factoryId),
     ...Object.values(p.links).filter((l) => l.factoryId === factoryId),
-    ...Object.values(p.transportOrders).filter((o) => o.toFactoryId === factoryId),
+    ...Object.values(p.transportOrders).filter((o) => o.toFactoryId === factoryId || o.fromFactoryId === factoryId),
   ];
 }
 

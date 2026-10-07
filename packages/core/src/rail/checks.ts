@@ -24,6 +24,7 @@ import {
   RAIL_SIGNAL_SELF_LOOP,
   RAIL_STATION_DEAD_END,
   RAIL_STATION_IN_PATH,
+  RAIL_TRACTION,
   RAIL_TRAIN_LONGER_THAN_STATION,
   RAIL_UNREACHABLE,
   RAIL_WAGON_PLATFORM,
@@ -38,6 +39,7 @@ import {
   type BlockAnalysis,
   type RailGraph,
 } from './topology.ts';
+import { trainTraction } from './traction.ts';
 
 export interface NetworkAnalysis {
   graph: RailGraph;
@@ -321,6 +323,25 @@ export function checkNetwork(p: Project, gd: GameDataIndex, networkId: string): 
           }
         }
       }
+    }
+    const trac = trainTraction(p, gd, t.id, g);
+    if (trac && !trac.ok) {
+      out.push(
+        makeFinding(RAIL_TRACTION, [{ table: 'trains', id: t.id }], {
+          message: tr('{train}: {locos} Lok(s) für {wagons} Wagen bei {grade} % Steigung zu schwach', {
+            train: t.name,
+            locos: trac.locomotives,
+            wagons: trac.wagons,
+            grade: formatNumber(trac.maxGrade * 100, 1),
+          }),
+          explanation: `${tr('Voll beladen wiegt der Zug {mass} t. Je Lok sind bei dieser Steigung höchstens {max} t möglich, also etwa {per} volle Wagen je Lok.', {
+            mass: formatNumber(trac.massFullT, 0),
+            max: formatNumber(trac.maxMassPerLocoT ?? 0, 0),
+            per: trac.wagonsPerLoco ?? 0,
+          })} ${tr(RAIL_TRACTION.description)}`,
+          suggestion: tr('Mindestens {n} Loks einsetzen, Wagen verringern oder die Steigung abflachen.', { n: trac.locosNeeded ?? 1 }),
+        }),
+      );
     }
     if (bidi) {
       reversible ??= canReverseDirection(g);

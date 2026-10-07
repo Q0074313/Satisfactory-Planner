@@ -77,11 +77,57 @@ const FALLBACK: GdClearanceBox = {
 };
 
 /**
+ * Übergabe zwischen Fabrik und Transportauftrag: Frachtplattformen (Zug) und
+ * LKW-/Tanklaster-Stationen (Fahrzeug). `null` = keine Übergabe.
+ */
+export function transferInterface(gd: GdBuilding | undefined): 'train' | 'vehicle' | null {
+  if (!gd) return null;
+  if (gd.freightPlatform) return 'train';
+  if (gd.nativeClass === 'FGBuildableDockingStation') return 'vehicle';
+  return null;
+}
+
+/** Ladegut einer Übergabe: Feststoffe oder Flüssigkeiten. */
+export function transferCargo(gd: GdBuilding): 'solid' | 'liquid' {
+  if (gd.freightPlatform) return gd.freightPlatform.cargo;
+  return (gd.ports?.pipeIn ?? 0) + (gd.ports?.pipeOut ?? 0) > 0 ? 'liquid' : 'solid';
+}
+
+/** Kann das Gebäude senkrecht eingebaut werden? (Pipeline-Pumpen) */
+export function canBeVertical(gd: GdBuilding): boolean {
+  return !!gd.pump && !!gd.bounds;
+}
+
+type Bounds = NonNullable<GdBuilding['bounds']>;
+
+/**
+ * Hülle eines Gebäudes in seiner Einbaulage. Senkrechte Pumpen stehen auf
+ * ihrer Längsachse (lokal x): Der Querschnitt (z × y) wird zum Grundriss, die
+ * Länge zur Höhe ab Unterkante.
+ */
+export function placedBounds(gd: GdBuilding, placement?: Pick<Placement, 'vertical'> | null): Bounds | null {
+  const b = gd.bounds;
+  if (!b) return null;
+  if (!placement?.vertical || !canBeVertical(gd)) return b;
+  return { minX: b.minZ, maxX: b.maxZ, minY: b.minY, maxY: b.maxY, minZ: 0, maxZ: b.maxX - b.minX };
+}
+
+/**
  * Grundrissteile eines platzierten Gebäudes. Feste und weiche Boxen werden
  * getrennt geliefert; ohne Kollisionsdaten wird ein markierter Ersatz genutzt.
  */
 export function buildingFootprint(gd: GdBuilding, placement: Placement, floor: Floor | undefined): FootprintPart[] {
   const baseZ = (floor?.elevationM ?? 0) + placement.zOffsetM;
+  if (placement.vertical && canBeVertical(gd)) {
+    const b = placedBounds(gd, placement)!;
+    const local = [
+      { x: b.minX, y: b.minY },
+      { x: b.maxX, y: b.minY },
+      { x: b.maxX, y: b.maxY },
+      { x: b.minX, y: b.maxY },
+    ];
+    return [{ polygon: local.map((p) => toWorld(p, placement)), zMin: baseZ + b.minZ, zMax: baseZ + b.maxZ, soft: false }];
+  }
   const boxes = gd.clearance.length > 0 ? gd.clearance : [FALLBACK];
   return boxes.map((box) => {
     const s = boxLocalShape(box);
@@ -95,8 +141,8 @@ export function buildingFootprint(gd: GdBuilding, placement: Placement, floor: F
 }
 
 /** Umriss der Gesamthülle (Bounds) als Rechteck in Weltkoordinaten. */
-export function buildingOutline(gd: GdBuilding, placement: Pick<Placement, 'x' | 'y' | 'rotationDeg'>): Vec2[] {
-  const b = gd.bounds ?? { minX: -0.5, maxX: 0.5, minY: -0.5, maxY: 0.5, minZ: 0, maxZ: 1 };
+export function buildingOutline(gd: GdBuilding, placement: Pick<Placement, 'x' | 'y' | 'rotationDeg' | 'vertical'>): Vec2[] {
+  const b = placedBounds(gd, placement) ?? { minX: -0.5, maxX: 0.5, minY: -0.5, maxY: 0.5, minZ: 0, maxZ: 1 };
   return [
     { x: b.minX, y: b.minY },
     { x: b.maxX, y: b.minY },
@@ -105,8 +151,9 @@ export function buildingOutline(gd: GdBuilding, placement: Pick<Placement, 'x' |
   ].map((p) => toWorld(p, placement));
 }
 
-export function buildingHeight(gd: GdBuilding): number {
-  return gd.bounds ? gd.bounds.maxZ - gd.bounds.minZ : 0;
+export function buildingHeight(gd: GdBuilding, placement?: Pick<Placement, 'vertical'> | null): number {
+  const b = placedBounds(gd, placement);
+  return b ? b.maxZ - b.minZ : 0;
 }
 
 export function isPlaced(b: Building): b is Building & { placement: Placement } {

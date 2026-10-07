@@ -1,13 +1,14 @@
 import { create } from 'zustand';
 import type { AreaKind, LinkKind, LinkRouting, ObjectRef } from '@satis/core';
 import { N_ } from '../i18n';
+import { usePrefs } from './prefsStore';
 
 export type Mode = 'factory' | 'rail' | 'production' | 'transport';
 
 export type Tool =
   | { kind: 'select' }
   /** Neues Gebäude eines Typs oder vorhandenes, nicht platziertes Gebäude absetzen. */
-  | { kind: 'place'; type: string; buildingId?: string; recipeId?: string | null; rotationDeg: number }
+  | { kind: 'place'; type: string; buildingId?: string; recipeId?: string | null; rotationDeg: number; vertical?: 'up' | 'down' }
   | { kind: 'paste'; rotationDeg: number }
   | { kind: 'group'; groupId: string; rotationDeg: number }
   | { kind: 'area'; areaKind: AreaKind }
@@ -147,7 +148,11 @@ export const useUiStore = create<UiState>((set) => ({
   setRailTool: (railTool) => set({ railTool }),
   toggleRailLayer: (key) => set((s) => ({ railLayers: { ...s.railLayers, [key]: !s.railLayers[key] } })),
   select: (selection) => set({ selection }),
-  setTool: (tool) => set({ tool }),
+  setTool: (tool) => {
+    // Stufe und Verlegemodus für die nächste Benutzung merken
+    if (tool.kind === 'link') usePrefs.getState().setLinkTool(tool.linkKind, { tier: tool.tier, routing: tool.routing });
+    set({ tool });
+  },
   toggleLayer: (key) => set((s) => ({ layers: { ...s.layers, [key]: !s.layers[key] } })),
   setFactoryView: (factoryView) => set({ factoryView }),
   setBottomTab: (bottomTab) => set({ bottomTab, bottomOpen: true }),

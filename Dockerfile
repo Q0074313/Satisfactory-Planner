@@ -10,6 +10,9 @@ COPY apps/web/package.json apps/web/
 COPY apps/server/package.json apps/server/
 RUN npm ci --no-audit --no-fund
 COPY . .
+# Commit für die Versionsanzeige (.git ist nicht im Build-Kontext)
+ARG GIT_COMMIT=""
+ENV GIT_COMMIT=$GIT_COMMIT
 RUN npm run build
 
 FROM node:24-bookworm-slim AS runtime

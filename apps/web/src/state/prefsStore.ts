@@ -3,7 +3,7 @@
  * Tastenbelegung, Tutorialstand. Gespeichert im localStorage des Browsers.
  */
 import { create } from 'zustand';
-import { setLanguage, type Lang } from '@satis/core';
+import { setLanguage, type Lang, type LinkKind, type LinkRouting } from '@satis/core';
 import { resolveBindings, type Bindings } from './keymap';
 
 export type ThemePref = 'system' | 'dark' | 'light';
@@ -17,6 +17,10 @@ interface Prefs {
   welcomed: boolean;
   /** Animierter Materialfluss auf Förderbändern. */
   animateFlow: boolean;
+  /** Ausführliche Erklärungen in den Touren (Einsteiger). */
+  detailedTours: boolean;
+  /** Zuletzt gewählte Stufe und Verlegemodus je Leitungsart (gilt für die nächste Benutzung des Werkzeugs). */
+  linkTools: Partial<Record<LinkKind, { tier: string; routing: LinkRouting }>>;
 }
 
 interface PrefsState extends Prefs {
@@ -28,6 +32,8 @@ interface PrefsState extends Prefs {
   markTourDone(id: string): void;
   setWelcomed(): void;
   setAnimateFlow(v: boolean): void;
+  setDetailedTours(v: boolean): void;
+  setLinkTool(kind: LinkKind, v: { tier: string; routing: LinkRouting }): void;
 }
 
 const KEY = 'satis-planner:prefs';
@@ -41,7 +47,7 @@ function detectLanguage(): Lang {
 }
 
 function load(): Prefs {
-  const base: Prefs = { language: detectLanguage(), theme: 'system', keymap: {}, toursDone: [], welcomed: false, animateFlow: true };
+  const base: Prefs = { language: detectLanguage(), theme: 'system', keymap: {}, toursDone: [], welcomed: false, animateFlow: true, detailedTours: false, linkTools: {} };
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return base;
@@ -53,6 +59,8 @@ function load(): Prefs {
       toursDone: Array.isArray(v.toursDone) ? v.toursDone : [],
       welcomed: !!v.welcomed,
       animateFlow: v.animateFlow !== false,
+      detailedTours: !!v.detailedTours,
+      linkTools: v.linkTools && typeof v.linkTools === 'object' ? v.linkTools : {},
     };
   } catch {
     return base;
@@ -73,7 +81,16 @@ setLanguage(initial.language);
 export const usePrefs = create<PrefsState>((set, get) => {
   const persist = () => {
     const s = get();
-    save({ language: s.language, theme: s.theme, keymap: s.keymap, toursDone: s.toursDone, welcomed: s.welcomed, animateFlow: s.animateFlow });
+    save({
+      language: s.language,
+      theme: s.theme,
+      keymap: s.keymap,
+      toursDone: s.toursDone,
+      welcomed: s.welcomed,
+      animateFlow: s.animateFlow,
+      detailedTours: s.detailedTours,
+      linkTools: s.linkTools,
+    });
   };
   return {
     ...initial,
@@ -109,6 +126,16 @@ export const usePrefs = create<PrefsState>((set, get) => {
     },
     setAnimateFlow(animateFlow) {
       set({ animateFlow });
+      persist();
+    },
+    setDetailedTours(detailedTours) {
+      set({ detailedTours });
+      persist();
+    },
+    setLinkTool(kind, v) {
+      const cur = get().linkTools[kind];
+      if (cur && cur.tier === v.tier && cur.routing === v.routing) return;
+      set({ linkTools: { ...get().linkTools, [kind]: { ...v } } });
       persist();
     },
   };

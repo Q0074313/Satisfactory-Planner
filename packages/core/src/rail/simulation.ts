@@ -14,10 +14,17 @@
  * - Halte: Umschlagzeit (Wiki 27,08 s) plus Wartezeit des Fahrplans. Lade-
  *   bedingungen („vollständig beladen“) werden nicht simuliert.
  * - Wegwahl: kürzester Weg nach Länge mit 100 m Aufschlag je durchfahrenem
- *   Bahnhof; keine Umleitung bei Belegung. Zweirichtungszüge fahren nur
- *   rückwärts ab, wenn vorwärts kein Weg existiert.
+ *   Bahnhof in Fahrtrichtung, der nicht im Fahrplan steht; bei Gleichstand
+ *   weniger Gleisteile, dann links vor Mitte vor rechts; keine Umleitung bei
+ *   Belegung. Zweirichtungszüge fahren nur rückwärts ab, wenn vorwärts kein
+ *   Weg existiert.
+ * - Wegwahl: wie im Spiel (Wiki „Electric Locomotive – Pathfinding“), siehe
+ *   `routeFromStates`.
  * - Start: Jeder Zug steht zu Beginn an seinem ersten Halt (oder dem nächsten
- *   freien Halt seines Fahrplans).
+ *   freien Halt seines Fahrplans). Sind alle Halte belegt (mehr Züge als
+ *   Bahnhöfe), beginnt er an einer zufälligen freien Stelle im Netz, von der
+ *   aus er seinen ersten Halt erreicht. Der Zufall ist je Zug fest
+ *   (reproduzierbare Läufe).
  *
  * Erkannte Ereignisse: Ankunft, Abfahrt, Warten am Signal, kein Weg,
  * Deadlock (zyklisches Warten) und Kollision (nur ohne Signale möglich).
@@ -29,7 +36,7 @@ import type { Project, RailSignal, Station, TimetableStop, Train } from '../mode
 import type { Vec2 } from '../geometry/index.ts';
 import { segmentPolyline, segmentShape } from './geometry.ts';
 import { analyzeNetwork } from './checks.ts';
-import { arrival, isBidirectional, routeFromStates, type BlockAnalysis, type RailGraph, type TrackState } from './topology.ts';
+import { arrival, isBidirectional, nextStates, routeFromStates, type BlockAnalysis, type RailGraph, type RouteOptions, type TrackState } from './topology.ts';
 import { CROSSING_HEIGHT_TOLERANCE_M } from './geometry.ts';
 
 export interface SimSettings {
@@ -52,9 +59,9 @@ export function simAssumptions(s: SimSettings): string[] {
   return [
     tr('Konstante Durchschnittsgeschwindigkeit {v} km/h (inkl. Anfahren und Bremsen); keine Beschleunigung, Steigung oder Bremswege.', { v: s.speedKmh }),
     tr('Umschlag je Halt {s} s plus Wartezeit laut Fahrplan; Ladebedingungen („vollständig beladen/entladen“) werden nicht simuliert.', { s: s.dockingS }),
-    tr('Kürzester Weg mit {m} m Aufschlag je durchfahrenem Bahnhof; keine Umleitung bei Belegung.', { m: s.passThroughPenaltyM }),
+    tr('Wegwahl wie im Spiel: kürzester Weg mit {m} m Aufschlag je durchfahrenem Bahnhof in Fahrtrichtung (außer Halten des Fahrplans), bei Gleichstand weniger Gleisteile, dann links vor rechts; keine Umleitung bei Belegung.', { m: s.passThroughPenaltyM }),
     tr('Pfadsignale reservieren den Weg bis zum nächsten gewöhnlichen Block; dieser muss frei sein („path in, block out“).'),
-    tr('Jeder Zug beginnt an seinem ersten freien Halt; Zuglänge {l} m je Fahrzeug.', { l: s.vehicleLengthM }),
+    tr('Jeder Zug beginnt an seinem ersten freien Halt; sind alle belegt, an einer zufälligen freien Stelle (je Zug fest). Zuglänge {l} m je Fahrzeug.', { l: s.vehicleLengthM }),
     tr('Ein Durchlauf ohne Deadlock beweist nicht, dass keiner auftreten kann.'),
   ];
 }
@@ -63,7 +70,7 @@ export type SimTrainStatus = 'docked' | 'driving' | 'waiting' | 'no-route' | 'no
 
 export interface SimEvent {
   t: number;
-  kind: 'arrive' | 'depart' | 'wait' | 'no-route' | 'deadlock' | 'collision' | 'no-start';
+  kind: 'arrive' | 'depart' | 'wait' | 'no-route' | 'deadlock' | 'collision' | 'no-start' | 'random-start';
   trainIds: string[];
   message: string;
   stationId?: string;
@@ -81,6 +88,8 @@ export interface SimTrain {
   lengthM: number;
   bidirectional: boolean;
   stops: TimetableStop[];
+  /** Bahnhöfe des Fahrplans (Durchfahrt ohne Wegaufschlag). */
+  scheduled: Set<string>;
   /** Index des aktuellen bzw. angefahrenen Halts. */
   stopIdx: number;
   status: SimTrainStatus;
@@ -160,6 +169,7 @@ export class TrainSimulation {
       lengthM: t.consist.length * this.settings.vehicleLengthM,
       bidirectional: isBidirectional(t),
       stops: tt?.stops.filter((s) => this.p.stations[s.stationId]?.networkId === t.networkId) ?? [],
+      scheduled: new Set(tt?.stops.map((s) => s.stationId) ?? []),
       stopIdx: 0,
       status: 'no-timetable',
       path: [],
@@ -193,8 +203,93 @@ export class TrainSimulation {
       st.blocks.set(this.blockOf(station.segmentId), { entered: true });
       return;
     }
+    if (this.placeRandomly(st)) return;
     st.status = 'no-start';
-    this.events.push({ t: 0, kind: 'no-start', trainIds: [st.id], message: tr('{train}: alle Halte des Fahrplans sind beim Start belegt.', { train: st.name }) });
+    this.events.push({ t: 0, kind: 'no-start', trainIds: [st.id], message: tr('{train}: alle Halte des Fahrplans sind beim Start belegt und es gibt keine freie Stelle im Netz.', { train: st.name }) });
+  }
+
+  private routeOptions(t: SimTrain): RouteOptions {
+    return { passThroughPenaltyM: this.settings.passThroughPenaltyM, scheduledStationIds: t.scheduled };
+  }
+
+  /** Blöcke, die andere Züge belegen oder reserviert haben. */
+  private takenBlocks(self: SimTrain): Set<string> {
+    const out = new Set<string>();
+    for (const o of this.trains) {
+      if (o === self || !o.path.length) continue;
+      for (const b of o.blocks.keys()) out.add(b);
+      for (const b of this.bodyBlocks(o)) out.add(b);
+    }
+    return out;
+  }
+
+  /**
+   * Startplatz für einen Zug, der an keinem Halt Platz findet: zufällige
+   * Stelle auf freiem Gleis (kein Bahnhof, Blöcke frei), Zug passt dahinter
+   * auf das Gleis und erreicht von dort seinen ersten Halt.
+   */
+  private placeRandomly(st: SimTrain): boolean {
+    const goal = this.p.stations[st.stops[0]!.stationId];
+    if (!goal) return false;
+    const stationSegs = new Set(this.g.stations.map((s) => s.segmentId));
+    const taken = this.takenBlocks(st);
+    const occupied = new Set<string>();
+    for (const o of this.trains) if (o !== st) for (const s of this.bodySegIds(o)) occupied.add(s);
+    // Bevorzugt freie Blöcke; ohne Signale ist das ganze Netz ein Block, dann genügt freies Gleis
+    const strict = (segId: string) => !stationSegs.has(segId) && !taken.has(this.blockOf(segId));
+    const loose = (segId: string) => !stationSegs.has(segId) && !occupied.has(segId);
+    const rnd = seededRandom(hashString(`${st.id}|${this.g.network.id}`));
+    for (const usable of [strict, loose]) {
+      const placed = this.tryPlace(st, goal, usable, rnd);
+      if (placed) return placed;
+    }
+    return false;
+  }
+
+  private tryPlace(st: SimTrain, goal: Station, usable: (segId: string) => boolean, rnd: () => number): boolean {
+    const candidates: TrackState[] = [];
+    for (const segId of [...this.g.segments.keys()].sort()) {
+      if (!usable(segId)) continue;
+      candidates.push({ segId, dir: 'ab' }, { segId, dir: 'ba' });
+    }
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j]!, candidates[i]!];
+    }
+    for (const head of candidates) {
+      const body = this.bodyBehind(head, st.lengthM, usable);
+      if (!body) continue;
+      if (!routeFromStates(this.g, [head], goal, this.routeOptions(st))) continue;
+      st.path = body;
+      st.pathIdx = body.length - 1;
+      st.offset = this.segLen(head.segId);
+      for (const b of this.bodyBlocks(st)) st.blocks.set(b, { entered: true });
+      st.stopIdx = st.stops.length - 1;
+      st.status = 'driving';
+      this.events.push({ t: 0, kind: 'random-start', trainIds: [st.id], message: tr('{train}: alle Halte belegt – Start an einer zufälligen freien Stelle.', { train: st.name }) });
+      this.planNextLeg(st);
+      return st.status === 'driving';
+    }
+    return false;
+  }
+
+  /** Fahrzustände unter einem Zug, dessen Kopf am Ende von `head` steht (vom Ende zum Kopf). */
+  private bodyBehind(head: TrackState, lengthM: number, usable: (segId: string) => boolean): TrackState[] | null {
+    const out: TrackState[] = [head];
+    const flip = (s: TrackState): TrackState => ({ segId: s.segId, dir: s.dir === 'ab' ? 'ba' : 'ab' });
+    let covered = this.segLen(head.segId);
+    let cur = head;
+    while (covered < lengthM) {
+      // Vorgänger: Zustände, von denen aus der Zug regulär (Signale beachtet) nach `cur` fährt
+      const prev = nextStates(this.g, flip(cur), { ignoreSignals: true })
+        .map(flip)
+        .find((q) => usable(q.segId) && !out.some((o) => o.segId === q.segId) && nextStates(this.g, q).some((x) => x.segId === cur.segId && x.dir === cur.dir));
+      if (!prev) return null;
+      out.unshift(prev);
+      covered += this.segLen(prev.segId);
+      cur = prev;
+    }
+    return out;
   }
 
   private blockOf(segId: string): string {
@@ -303,7 +398,7 @@ export class TrainSimulation {
     const goal = this.p.stations[t.stops[nextStop]!.stationId];
     if (!goal) return;
     const head = t.path[t.pathIdx]!;
-    let route = routeFromStates(this.g, [head], goal, this.settings.passThroughPenaltyM);
+    let route = routeFromStates(this.g, [head], goal, this.routeOptions(t));
     let reversed = false;
     if (!route && t.bidirectional) {
       // Rückwärts: Kopf wechselt an das Zugende
@@ -311,7 +406,7 @@ export class TrainSimulation {
       const tail = body.at(-1)!;
       const flipped: TrackState[] = body.map((b) => ({ segId: t.path[b.idx]!.segId, dir: t.path[b.idx]!.dir === 'ab' ? 'ba' : 'ab' }) as TrackState);
       const newHead = flipped.at(-1)!;
-      route = routeFromStates(this.g, [newHead], goal, this.settings.passThroughPenaltyM);
+      route = routeFromStates(this.g, [newHead], goal, this.routeOptions(t));
       if (route) {
         reversed = true;
         t.path = flipped;
@@ -518,4 +613,22 @@ export class TrainSimulation {
       };
     });
   }
+}
+
+/** Einfacher Hash für reproduzierbare Zufallszahlen. */
+function hashString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+/** Pseudozufall (Mulberry32) mit festem Startwert. */
+function seededRandom(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }

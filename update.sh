@@ -54,7 +54,7 @@ else
 fi
 
 step "3/4 docker compose up -d --build"
-docker compose up -d --build
+GIT_COMMIT="$after" docker compose up -d --build
 
 step "4/4 Prüfe $HEALTH_URL (bis ${HEALTH_TIMEOUT}s)"
 probe() {

@@ -26,6 +26,18 @@ export const TRN_TIMETABLE_MISSES_STATION = defineRule({
   sources: [PLAN],
 });
 
+export const TRN_STOP_EXCLUDES_ITEM = defineRule({
+  id: 'TRN-010',
+  title: 'Halt schließt den Gegenstand vom Umschlag aus',
+  domain: 'transport',
+  kind: 'game-rule',
+  certainty: 'static',
+  severity: 'error',
+  description:
+    'Der Zug hält am Lade- bzw. Entladebahnhof, aber der Halt schlägt dort nichts oder nur andere Gegenstände um (Halteeinstellung „nichts“ bzw. „nur bestimmte Gegenstände“). Der Gegenstand des Auftrags wird dort weder geladen noch entladen.',
+  sources: [{ label: 'Satisfactory Wiki – Electric Locomotive (Stop settings)', url: 'https://satisfactory.wiki.gg/wiki/Electric_Locomotive' }],
+});
+
 export const TRN_CAPACITY = defineRule({
   id: 'TRN-003',
   title: 'Geschätzte Zugkapazität reicht nicht',
@@ -104,5 +116,67 @@ export const TRN_NO_PLATFORM = defineRule({
   severity: 'info',
   description:
     'Für den Auftrag gibt es in der Fabrik keine Frachtplattform im passenden Modus (Beladen beim Absender, Entladen beim Empfänger). Im Durchsatzmodell der Fabrik fehlt damit die Schnittstelle zum Zug.',
+  sources: [PLAN],
+});
+
+const VEHICLES = { label: 'Satisfactory Docs (mInventorySize) und Wiki „Truck“, „Tractor“, „Explorer“', url: 'https://satisfactory.wiki.gg/wiki/Truck' };
+const TRUCK_STATION = { label: 'Satisfactory Wiki – Truck Station', url: 'https://satisfactory.wiki.gg/wiki/Truck_Station' };
+const LOGISTICS = { label: 'Spieldaten: Band- und Rohrstufen (mSpeed, mFlowLimit)' };
+
+export const TRN_MODE_MISMATCH = defineRule({
+  id: 'TRN-011',
+  title: 'Transportmittel passt nicht zum Gegenstand',
+  domain: 'transport',
+  kind: 'game-rule',
+  certainty: 'static',
+  severity: 'error',
+  description:
+    'Feststoffe fahren auf Förderbändern und in Fahrzeugen mit Laderaum (Schlepper, Lkw, Explorer), Flüssigkeiten und Gase in Rohren und im Tanklaster.',
+  sources: [VEHICLES, LOGISTICS],
+});
+
+export const TRN_NO_VEHICLE = defineRule({
+  id: 'TRN-012',
+  title: 'Fahrzeugauftrag ohne Fahrzeug',
+  domain: 'transport',
+  kind: 'recommendation',
+  certainty: 'static',
+  severity: 'warning',
+  description: 'Für den Auftrag sind 0 Fahrzeuge eingeplant. Die Menge wird erwartet, aber von niemandem befördert.',
+  sources: [PLAN],
+});
+
+export const TRN_VEHICLE_CAPACITY = defineRule({
+  id: 'TRN-013',
+  title: 'Geschätzte Fahrzeugkapazität reicht nicht',
+  domain: 'transport',
+  kind: 'recommendation',
+  certainty: 'dynamic',
+  severity: 'warning',
+  description:
+    'Laderaum je Fahrt × Anzahl Fahrzeuge geteilt durch die Umlaufzeit liegt unter der Auftragsmenge. Umlauf = 2 × Strecke / Geschwindigkeit + 2 × 8 s Andocken; ohne eigene Angabe mit Höchstgeschwindigkeit, also eher zu günstig geschätzt.',
+  sources: [VEHICLES, TRUCK_STATION],
+});
+
+export const TRN_DIRECT_CAPACITY = defineRule({
+  id: 'TRN-014',
+  title: 'Leitungen zwischen den Fabriken zu klein',
+  domain: 'transport',
+  kind: 'game-rule',
+  certainty: 'static',
+  severity: 'warning',
+  description: 'Die Auftragsmenge ist größer als die Kapazität der gewählten Band- bzw. Rohrstufe mal Anzahl paralleler Leitungen.',
+  sources: [LOGISTICS],
+});
+
+export const TRN_NO_INTERFACE = defineRule({
+  id: 'TRN-015',
+  title: 'Keine Übergabe im Grundriss',
+  domain: 'transport',
+  kind: 'recommendation',
+  certainty: 'static',
+  severity: 'info',
+  description:
+    'Für Fahrzeugaufträge fehlt in der Fabrik eine Lkw- bzw. Tanklaster-Station im passenden Modus (Beladen beim Absender, Entladen beim Empfänger). Bei direkten Bändern und Rohren ist kein Übergabeanschluss gewählt. Dem Durchsatzmodell der Fabrik fehlt damit die Schnittstelle.',
   sources: [PLAN],
 });

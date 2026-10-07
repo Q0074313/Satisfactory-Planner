@@ -26,6 +26,7 @@ import { SettingsDialog } from '../features/settings/SettingsDialog';
 import { HelpMenu, TourOverlay, WelcomeCard } from '../features/tutorial/Tour';
 import { ProjectLinkBar, ProjectLinkButton, useLinkBar } from '../features/link/ProjectLink';
 import { TextField } from '../ui/fields';
+import { versionLabel } from '../version';
 
 setNotifier((m, k) => useUiStore.getState().toast(m, k));
 
@@ -201,6 +202,9 @@ function Workspace({ onOpenList }: { onOpenList: () => void }) {
         <button className="brand" onClick={onOpenList} title={t('Projektliste')}>
           Satis Planner
         </button>
+        <span className="dim small-text app-version" title={t('Softwareversion')}>
+          {versionLabel()}
+        </span>
         <span className="project-name">
           <TextField value={project.name} onCommit={(name) => apply(t('Projekt umbenennen'), (d) => void (d.name = name))} />
         </span>

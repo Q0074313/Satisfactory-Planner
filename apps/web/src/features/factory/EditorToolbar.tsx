@@ -3,10 +3,12 @@ import { formatM } from '../../canvas/draw';
 import { N_, t } from '../../i18n';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
+import { ROUTING_ORDER, tiersOf } from '../../state/linkTool';
+import { localName } from '@satis/core';
 import { Segmented } from '../../ui/fields';
 
 export const ROUTING_LABELS: Record<LinkRouting, string> = { direct: N_('Normal'), straight: N_('Gerade'), curved: N_('Kurve') };
-export const ROUTING_ORDER: LinkRouting[] = ['direct', 'straight', 'curved'];
+export { ROUTING_ORDER };
 const SNAP_PRESETS = [8, 4, 2, 1, 0.5, 0];
 
 /** Werkzeugleiste über dem Editor: Ansicht, Fangraster, Verlegemodus. */
@@ -16,6 +18,7 @@ export function EditorToolbar() {
   const tool = useUiStore((s) => s.tool);
   const setTool = useUiStore((s) => s.setTool);
   const snap = useProjectStore((s) => s.project?.settings.snapM ?? 1);
+  const gd = useProjectStore((s) => s.gd);
   const apply = useProjectStore((s) => s.apply);
   return (
     <div className="editor-toolbar" data-tour="editor-toolbar">
@@ -49,11 +52,23 @@ export function EditorToolbar() {
         <Segmented
           value={tool.routing}
           onChange={(routing) => setTool({ ...tool, routing })}
-          title={t('Verlegemodus (Taste N)')}
+          title={tool.linkKind === 'belt' ? t('Verlegemodus (Taste B erneut drücken)') : t('Verlegemodus (Taste P erneut drücken)')}
           options={ROUTING_ORDER.map((r) => ({ value: r, label: t(ROUTING_LABELS[r]) }))}
+        />
+      )}
+      {view === 'plan' && tool.kind === 'link' && gd && (
+        <Segmented
+          value={tool.tier}
+          onChange={(tier) => setTool({ ...tool, tier })}
+          title={t('Stufe (Taste N)')}
+          options={tiersOf(gd, tool.linkKind).map((x) => ({ value: x.id, label: tierShort(localName(x.name)), title: localName(x.name) }))}
         />
       )}
     </div>
   );
 }
 
+/** Kurzform einer Stufe, z. B. „Förderband Mk.3“ → „Mk.3“. */
+export function tierShort(name: string): string {
+  return /Mk\.?\s*\d+/i.exec(name)?.[0] ?? name;
+}

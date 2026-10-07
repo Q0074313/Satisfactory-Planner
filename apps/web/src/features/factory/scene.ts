@@ -41,6 +41,8 @@ export interface FactoryScene {
   links: SceneLink[];
   areas: PlanArea[];
   connectedPorts: Set<string>;
+  /** Übergabeanschlüsse direkter Bänder/Rohre zu anderen Fabriken. */
+  external: { orderId: string; buildingId: string; port: WorldPort; dir: 'in' | 'out'; otherFactoryId: string }[];
 }
 
 export const portKey = (buildingId: string, portId: string) => `${buildingId}/${portId}`;
@@ -82,8 +84,22 @@ export function buildScene(p: Project, gd: GameDataIndex, factoryId: string, flo
       visibleOnFloor: a.onActiveFloor || b.onActiveFloor,
     });
   }
+  const external: FactoryScene['external'] = [];
+  for (const o of Object.values(p.transportOrders)) {
+    if ((o.mode !== 'belt' && o.mode !== 'pipe') || !o.direct) continue;
+    for (const [end, dir, here, other] of [
+      [o.direct.from, 'out', o.fromFactoryId, o.toFactoryId],
+      [o.direct.to, 'in', o.toFactoryId, o.fromFactoryId],
+    ] as const) {
+      if (!end || here !== factoryId) continue;
+      const port = byId.get(end.buildingId)?.ports.find((x) => x.id === end.portId);
+      if (!port) continue;
+      connectedPorts.add(portKey(end.buildingId, end.portId));
+      external.push({ orderId: o.id, buildingId: end.buildingId, port, dir, otherFactoryId: other });
+    }
+  }
   const areas = Object.values(p.areas).filter((a) => a.factoryId === factoryId && a.floorId === floorId);
-  return { buildings, byId, links, areas, connectedPorts };
+  return { buildings, byId, links, areas, connectedPorts, external };
 }
 
 export type Hit =

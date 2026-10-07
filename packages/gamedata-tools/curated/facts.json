@@ -106,6 +106,51 @@
     "resource.worldMaxPerMin.Desc_OreUranium_C": { "value": 2100, "unit": "/min", "description": "Weltweites Maximum Uran.", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } },
     "resource.worldMaxPerMin.Desc_OreBauxite_C": { "value": 12300, "unit": "/min", "description": "Weltweites Maximum Bauxit.", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } },
     "resource.worldMaxPerMin.Desc_SAM_C": { "value": 10200, "unit": "/min", "description": "Weltweites Maximum SAM.", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } },
-    "resource.worldMaxPerMin.Desc_LiquidOil_C": { "value": 12600, "unit": "m³/min", "description": "Weltweites Maximum Rohöl (Vorkommen + Quellen).", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } }
+    "resource.worldMaxPerMin.Desc_LiquidOil_C": { "value": 12600, "unit": "m³/min", "description": "Weltweites Maximum Rohöl (Vorkommen + Quellen).", "sourceRef": { "source": "wiki", "detail": "Resource_node#Types", "confidence": "documented" } },
+    "rail.locomotive.massT": {
+      "value": 300, "unit": "t",
+      "description": "Masse einer Elektrolokomotive.",
+      "sourceRef": { "source": "wiki", "detail": "Electric_Locomotive#Power_and_mass", "confidence": "documented" }
+    },
+    "rail.freightCar.emptyMassT": {
+      "value": 30, "unit": "t",
+      "description": "Masse eines leeren Güterwagens.",
+      "sourceRef": { "source": "wiki", "detail": "Freight_Car#Weight", "confidence": "documented" }
+    },
+    "rail.freightCar.fullMassT": {
+      "value": 100, "unit": "t",
+      "description": "Masse eines voll beladenen Güterwagens (Feststoffe oder Flüssigkeit).",
+      "sourceRef": { "source": "wiki", "detail": "Freight_Car#Weight", "confidence": "documented" }
+    },
+    "rail.locomotive.maxTrainMassT.ramp1m": {
+      "value": 1644, "unit": "t",
+      "description": "Höchste Zugmasse je Lok (inkl. Lok) auf einer 1-m-Rampe (12,5 % Steigung).",
+      "sourceRef": { "source": "wiki", "detail": "Freight_Car#Weight (Tabelle Locomotive-to-Freight-Car ratio)", "confidence": "documented" }
+    },
+    "rail.locomotive.maxTrainMassT.ramp2m": {
+      "value": 800, "unit": "t",
+      "description": "Höchste Zugmasse je Lok (inkl. Lok) auf einer 2-m-Rampe (25 % Steigung).",
+      "sourceRef": { "source": "wiki", "detail": "Freight_Car#Weight (Tabelle Locomotive-to-Freight-Car ratio)", "confidence": "documented" }
+    },
+    "rail.locomotive.maxTrainMassT.ramp4m": {
+      "value": 580, "unit": "t",
+      "description": "Höchste Zugmasse je Lok (inkl. Lok) auf einer 4-m-Rampe (50 % Steigung).",
+      "sourceRef": { "source": "wiki", "detail": "Freight_Car#Weight (Tabelle Locomotive-to-Freight-Car ratio)", "confidence": "documented" }
+    },
+    "fluid.headLiftM.Build_WaterPump_C": { "value": 10, "unit": "m", "description": "Empfohlene Förderhöhe ab Ausgang: Wasserextraktor (tatsächlicher Wert laut Wiki etwas höher).", "sourceRef": { "source": "wiki", "detail": "Head_lift (Tabelle Recommended, Actual and Maximum Head Lift)", "confidence": "documented" } },
+    "fluid.headLiftM.Build_OilPump_C": { "value": 10, "unit": "m", "description": "Empfohlene Förderhöhe ab Ausgang: Ölextraktor (tatsächlicher Wert laut Wiki etwas höher).", "sourceRef": { "source": "wiki", "detail": "Head_lift (Tabelle Recommended, Actual and Maximum Head Lift)", "confidence": "documented" } },
+    "fluid.headLiftM.Build_FrackingExtractor_C": { "value": 10, "unit": "m", "description": "Empfohlene Förderhöhe ab Ausgang: Quellenextraktor (tatsächlicher Wert laut Wiki etwas höher).", "sourceRef": { "source": "wiki", "detail": "Head_lift (Tabelle Recommended, Actual and Maximum Head Lift)", "confidence": "documented" } },
+    "fluid.headLiftM.Build_OilRefinery_C": { "value": 10, "unit": "m", "description": "Empfohlene Förderhöhe ab Ausgang: Raffinerie (tatsächlicher Wert laut Wiki etwas höher).", "sourceRef": { "source": "wiki", "detail": "Head_lift (Tabelle Recommended, Actual and Maximum Head Lift)", "confidence": "documented" } },
+    "fluid.headLiftM.Build_Packager_C": { "value": 10, "unit": "m", "description": "Empfohlene Förderhöhe ab Ausgang: Umfüllanlage (tatsächlicher Wert laut Wiki etwas höher).", "sourceRef": { "source": "wiki", "detail": "Head_lift (Tabelle Recommended, Actual and Maximum Head Lift)", "confidence": "documented" } },
+    "fluid.headLiftM.Build_Blender_C": { "value": 10, "unit": "m", "description": "Empfohlene Förderhöhe ab Ausgang: Mixer (tatsächlicher Wert laut Wiki etwas höher).", "sourceRef": { "source": "wiki", "detail": "Head_lift (Tabelle Recommended, Actual and Maximum Head Lift)", "confidence": "documented" } },
+    "fluid.headLiftM.Build_TrainDockingStationLiquid_C": { "value": 10, "unit": "m", "description": "Empfohlene Förderhöhe ab Ausgang: Frachtplattform für Flüssigkeiten (tatsächlicher Wert laut Wiki etwas höher).", "sourceRef": { "source": "wiki", "detail": "Head_lift (Tabelle Recommended, Actual and Maximum Head Lift)", "confidence": "documented" } },
+    "fluid.headLiftM.Build_PipeStorageTank_C": { "value": 8, "unit": "m", "description": "Empfohlene Förderhöhe ab Ausgang: Flüssigkeitsspeicher (tatsächlicher Wert laut Wiki etwas höher).", "sourceRef": { "source": "wiki", "detail": "Head_lift (Tabelle Recommended, Actual and Maximum Head Lift)", "confidence": "documented" } },
+    "fluid.headLiftM.Build_IndustrialTank_C": { "value": 12, "unit": "m", "description": "Empfohlene Förderhöhe ab Ausgang: Industrieller Flüssigkeitsspeicher (tatsächlicher Wert laut Wiki etwas höher).", "sourceRef": { "source": "wiki", "detail": "Head_lift (Tabelle Recommended, Actual and Maximum Head Lift)", "confidence": "documented" } },
+    "vehicle.Desc_Tractor_C.maxSpeedKmh": { "value": 69, "unit": "km/h", "description": "Höchstgeschwindigkeit des Traktors auf ebener Strecke.", "sourceRef": { "source": "wiki", "detail": "Tractor (Infobox maxSpeed)", "confidence": "documented" } },
+    "vehicle.Desc_Truck_C.maxSpeedKmh": { "value": 89, "unit": "km/h", "description": "Höchstgeschwindigkeit des LKW.", "sourceRef": { "source": "wiki", "detail": "Truck (Infobox Solid, maxSpeed)", "confidence": "documented" } },
+    "vehicle.Desc_FluidTruck_C.maxSpeedKmh": { "value": 89, "unit": "km/h", "description": "Höchstgeschwindigkeit des Tanklasters.", "sourceRef": { "source": "wiki", "detail": "Truck (Infobox Fluid, maxSpeed)", "confidence": "documented" } },
+    "vehicle.Desc_FluidTruck_C.fluidM3": { "value": 3200, "unit": "m³", "description": "Tankinhalt des Tanklasters.", "sourceRef": { "source": "wiki", "detail": "Truck (Infobox Fluid, inventorySize)", "confidence": "documented" } },
+    "vehicle.Desc_Explorer_C.maxSpeedKmh": { "value": 107, "unit": "km/h", "description": "Höchstgeschwindigkeit des Explorers.", "sourceRef": { "source": "wiki", "detail": "Explorer (Infobox maxSpeed)", "confidence": "documented" } },
+    "vehicle.docking.durationS": { "value": 8, "unit": "s", "description": "Andockzeit an LKW- und Tanklaster-Stationen für jedes Fahrzeug (Be- bzw. Entladen).", "sourceRef": { "source": "wiki", "detail": "Truck_Station", "confidence": "documented" } }
   }
 }

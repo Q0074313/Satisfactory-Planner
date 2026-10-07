@@ -11,6 +11,7 @@ import { usePrefs, type ThemePref } from '../../state/prefsStore';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
 import { Badge, Dialog, Row, Section, Segmented } from '../../ui/fields';
+import { APP_BUILT, APP_COMMIT, APP_VERSION } from '../../version';
 
 type Tab = 'general' | 'keys' | 'data';
 
@@ -65,7 +66,18 @@ function GeneralTab() {
         <input type="checkbox" checked={prefs.animateFlow} onChange={(e) => prefs.setAnimateFlow(e.target.checked)} />
         {t('Materialfluss auf Förderbändern animieren')}
       </label>
+      <label className="check-row">
+        <input type="checkbox" data-testid="detailed-tours" checked={prefs.detailedTours} onChange={(e) => prefs.setDetailedTours(e.target.checked)} />
+        {t('Tutorial: ausführliche Erklärungen für Einsteiger')}
+      </label>
       <p className="dim small-text">{t('Diese Einstellungen gelten für diesen Browser und werden nicht im Projekt gespeichert. Dokumentation und Spielregel-Quellen sind auf Deutsch.')}</p>
+      <Row label={t('Softwareversion')}>
+        <span data-testid="app-version">
+          {APP_VERSION}
+          {APP_COMMIT && <span className="dim"> · Commit {APP_COMMIT}</span>}
+          {APP_BUILT && <span className="dim"> · {t('erstellt am {date}', { date: APP_BUILT })}</span>}
+        </span>
+      </Row>
     </Section>
   );
 }

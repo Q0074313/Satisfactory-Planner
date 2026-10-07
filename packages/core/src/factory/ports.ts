@@ -9,8 +9,8 @@
 import { add, rotate, type Vec2 } from '../geometry/index.ts';
 import { tr } from '../i18n/index.ts';
 import type { GdBuilding, GdPortCounts } from '../gamedata/types.ts';
-import type { Building, Floor, PortRef } from '../model/schema.ts';
-import { toWorld } from './geometry.ts';
+import type { Building, Floor, Placement, PortRef } from '../model/schema.ts';
+import { canBeVertical, placedBounds, toWorld } from './geometry.ts';
 
 export type PortDirection = 'in' | 'out' | 'any';
 
@@ -26,6 +26,10 @@ export interface PortDef {
   z: number;
   /** Immer false: Lage nicht aus Spieldaten belegt. */
   positionVerified: false;
+  /** Besondere Aufgabe des Anschlusses (z. B. Treibstoff an LKW-Stationen). */
+  role?: 'fuel';
+  /** Senkrechter Anschluss (senkrechte Pumpe): Austritt nach oben (1) bzw. unten (−1). */
+  vertical?: 1 | -1;
 }
 
 const cache = new WeakMap<GdBuilding, PortDef[]>();
@@ -92,6 +96,14 @@ function computePortDefs(counts: GdPortCounts | null, gd: GdBuilding): PortDef[]
     return ports;
   }
 
+  // Weltraumlift: sechs Bandeingänge, je drei auf gegenüberliegenden Seiten
+  if (gd.nativeClass === 'FGBuildableSpaceElevator' && counts.beltIn === 6 && counts.beltOut + counts.pipeIn + counts.pipeOut === 0) {
+    const xs = spread(3, b.minX, b.maxX);
+    xs.forEach((x, i) => push('belt', 'in', i, { x, y: b.minY }, back));
+    xs.forEach((x, i) => push('belt', 'in', i + 3, { x, y: b.maxY }, front));
+    return ports;
+  }
+
   // Allgemein: Eingänge hinten (−y), Ausgänge vorn (+y), Bänder vor Rohren.
   const inKinds: ('belt' | 'pipe')[] = [...Array(counts.beltIn).fill('belt'), ...Array(counts.pipeIn).fill('pipe')];
   const outKinds: ('belt' | 'pipe')[] = [...Array(counts.beltOut).fill('belt'), ...Array(counts.pipeOut).fill('pipe')];
@@ -102,7 +114,50 @@ function computePortDefs(counts: GdPortCounts | null, gd: GdBuilding): PortDef[]
   idx.belt = 0;
   idx.pipe = 0;
   outKinds.forEach((k, i) => push(k, 'out', idx[k]++, { x: outX[i]!, y: b.maxY }, front));
+  // LKW- und Tanklaster-Station: Der äußerste Bandeingang füllt nur den
+  // Treibstoffplatz (Wiki „Truck Station“). Er liegt hier als erster Eingang außen.
+  if (gd.nativeClass === 'FGBuildableDockingStation' && counts.beltIn > 0) {
+    const fuel = ports.find((p) => p.id === portId('belt', 'in', 0));
+    if (fuel) fuel.role = 'fuel';
+  }
   return ports;
+}
+
+const verticalCache = new WeakMap<GdBuilding, Record<'up' | 'down', PortDef[]>>();
+
+/**
+ * Anschlüsse einer senkrecht eingebauten Pumpe: Eingang unten, Ausgang oben
+ * (Förderrichtung „up“) bzw. umgekehrt. Im Grundriss liegen beide leicht
+ * versetzt, damit sie einzeln anklickbar sind.
+ */
+function verticalPortDefs(gd: GdBuilding, dir: 'up' | 'down'): PortDef[] {
+  let c = verticalCache.get(gd);
+  if (!c) {
+    const b = placedBounds(gd, { vertical: 'up' })!;
+    const top = b.maxZ;
+    const make = (direction: 'in' | 'out', atTop: boolean, y: number): PortDef => ({
+      id: portId('pipe', direction, 0),
+      kind: 'pipe',
+      direction,
+      local: { x: 0, y },
+      normal: { x: 0, y: 0 },
+      z: atTop ? top : 0,
+      positionVerified: false,
+      vertical: atTop ? 1 : -1,
+    });
+    const off = Math.min(0.3, (b.maxY - b.minY) / 4);
+    c = {
+      up: [make('in', false, -off), make('out', true, off)],
+      down: [make('in', true, -off), make('out', false, off)],
+    };
+    verticalCache.set(gd, c);
+  }
+  return c[dir];
+}
+
+/** Anschlüsse eines Gebäudes in seiner Einbaulage. */
+export function placedPortDefs(gd: GdBuilding, placement: Pick<Placement, 'vertical'> | null | undefined): PortDef[] {
+  return placement?.vertical && canBeVertical(gd) ? verticalPortDefs(gd, placement.vertical) : portDefs(gd);
 }
 
 export interface WorldPort extends PortDef {
@@ -115,7 +170,7 @@ export function worldPorts(building: Building, gd: GdBuilding, floor: Floor | un
   if (!building.placement) return [];
   const p = building.placement;
   const baseZ = (floor?.elevationM ?? 0) + p.zOffsetM;
-  return portDefs(gd).map((d) => {
+  return placedPortDefs(gd, p).map((d) => {
     const w = toWorld(d.local, p);
     return {
       ...d,
@@ -133,6 +188,11 @@ export function findPort(gd: GdBuilding, ref: PortRef): PortDef | undefined {
 /** Punkt kurz vor dem Anschluss (für Leitungsführung). */
 export function portStub(port: WorldPort, distance = 1): Vec2 {
   return add({ x: port.world.x, y: port.world.y }, { x: port.worldNormal.x * distance, y: port.worldNormal.y * distance });
+}
+
+/** Höhe des ersten Leitungspunkts vor dem Anschluss (senkrechte Anschlüsse: darüber bzw. darunter). */
+export function portStubZ(port: Pick<WorldPort, 'world' | 'vertical'>, distance = 1): number {
+  return port.world.z + (port.vertical ?? 0) * distance;
 }
 
 /** Können zwei Anschlüsse verbunden werden? Liefert Fehlertext oder null. */

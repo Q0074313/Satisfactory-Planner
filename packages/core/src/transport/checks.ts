@@ -3,17 +3,24 @@
  */
 import type { GameDataIndex } from '../gamedata/index.ts';
 import { formatNumber, tr } from '../i18n/index.ts';
-import type { ObjectRef, Project } from '../model/schema.ts';
+import type { ObjectRef, Project, TransportOrder } from '../model/schema.ts';
+import { transferCargo, transferInterface } from '../factory/geometry.ts';
 import { makeFinding } from '../validation/registry.ts';
 import type { Finding } from '../validation/types.ts';
 import { cargoKind, estimateOrder, factoryTrade } from './estimate.ts';
 import {
   TRN_CAPACITY,
+  TRN_DIRECT_CAPACITY,
   TRN_ESTIMATE,
+  TRN_MODE_MISMATCH,
+  TRN_NO_INTERFACE,
+  TRN_NO_VEHICLE,
+  TRN_VEHICLE_CAPACITY,
   TRN_IMPORT_GAP,
   TRN_NO_PLATFORM,
   TRN_NO_TRAIN,
   TRN_STATION_FACTORY,
+  TRN_STOP_EXCLUDES_ITEM,
   TRN_SUPPLIER_SHORT,
   TRN_TIMETABLE_MISSES_STATION,
   TRN_WRONG_WAGON,
@@ -29,6 +36,10 @@ export function checkTransport(p: Project, gd: GameDataIndex): Finding[] {
     const fromF = p.factories[o.fromFactoryId]?.name ?? '?';
     const toF = p.factories[o.toFactoryId]?.name ?? '?';
     const label = `${o.name || gd.name(o.itemId)} (${fromF} → ${toF})`;
+    if (o.mode !== 'train') {
+      out.push(...checkOtherMode(p, gd, o, ref, label));
+      continue;
+    }
     if (o.trainIds.length === 0) {
       out.push(
         makeFinding(TRN_NO_TRAIN, [ref], {
@@ -75,13 +86,26 @@ export function checkTransport(p: Project, gd: GameDataIndex): Finding[] {
           }),
         );
       }
-      if (!te.servesFrom || !te.servesTo) {
+      if (te.excludedFrom || te.excludedTo) {
+        out.push(
+          makeFinding(TRN_STOP_EXCLUDES_ITEM, [ref, tref, ...(t.timetableId ? [{ table: 'timetables', id: t.timetableId } as ObjectRef] : [])], {
+            message: te.excludedFrom
+              ? tr('{train} hält am Ladebahnhof, lädt {item} dort aber nicht', { train: t.name, item: gd.name(o.itemId) })
+              : tr('{train} hält am Entladebahnhof, entlädt {item} dort aber nicht', { train: t.name, item: gd.name(o.itemId) }),
+            explanation: tr(TRN_STOP_EXCLUDES_ITEM.description),
+            suggestion: tr('Im Fahrplan beim Halt „Umschlag: alles“ wählen oder den Gegenstand in die Auswahl aufnehmen.'),
+          }),
+        );
+      }
+      if ((!te.servesFrom && !te.excludedFrom) || (!te.servesTo && !te.excludedTo)) {
+        const missFrom = !te.servesFrom && !te.excludedFrom;
+        const missTo = !te.servesTo && !te.excludedTo;
         out.push(
           makeFinding(TRN_TIMETABLE_MISSES_STATION, [ref, tref], {
             message:
-              !te.servesFrom && !te.servesTo
+              missFrom && missTo
                 ? tr('{train} hält weder am Lade- noch am Entladebahnhof', { train: t.name })
-                : !te.servesFrom
+                : missFrom
                   ? tr('{train} hält nicht am Ladebahnhof', { train: t.name })
                   : tr('{train} hält nicht am Entladebahnhof', { train: t.name }),
             explanation: tr(TRN_TIMETABLE_MISSES_STATION.description),
@@ -117,7 +141,9 @@ export function checkTransport(p: Project, gd: GameDataIndex): Finding[] {
       [o.fromFactoryId, 'load'],
       [o.toFactoryId, 'unload'],
     ] as const) {
-      const has = Object.values(p.buildings).some((b) => b.factoryId === factoryId && b.placement && b.transfer?.mode === mode);
+      const has = Object.values(p.buildings).some(
+        (b) => b.factoryId === factoryId && b.placement && b.transfer?.mode === mode && transferInterface(gd.building(b.type)) === 'train',
+      );
       if (!has) {
         out.push(
           makeFinding(
@@ -181,13 +207,137 @@ export function checkTransport(p: Project, gd: GameDataIndex): Finding[] {
       }
     }
   }
-  if (orders.some((o) => o.trainIds.length > 0)) {
+  const trainOrders = orders.filter((o) => o.mode === 'train' && o.trainIds.length > 0);
+  if (trainOrders.length) {
     out.push(
-      makeFinding(TRN_ESTIMATE, orders.filter((o) => o.trainIds.length).map((o) => ({ table: 'transportOrders', id: o.id }) as ObjectRef), {
+      makeFinding(TRN_ESTIMATE, trainOrders.map((o) => ({ table: 'transportOrders', id: o.id }) as ObjectRef), {
         message: tr('Zugdurchsatz beruht auf Schätzungen'),
         explanation: tr(TRN_ESTIMATE.description),
         suggestion: tr('Annahmen in der Ansicht „Transport“ anpassen oder Umlaufzeiten mit der Simulation messen.'),
       }),
+    );
+  }
+  return out;
+}
+
+/** Prüfungen für Fahrzeugaufträge und direkte Bänder/Rohre. */
+function checkOtherMode(p: Project, gd: GameDataIndex, o: TransportOrder, ref: ObjectRef, label: string): Finding[] {
+  const out: Finding[] = [];
+  const est = estimateOrder(p, gd, o);
+  const u = unit(gd, o.itemId);
+  const fname = (id: string) => p.factories[id]?.name ?? '?';
+  if (o.mode === 'vehicle') {
+    const v = est.vehicle;
+    if (v && !v.kindOk) {
+      out.push(
+        makeFinding(TRN_MODE_MISMATCH, [ref], {
+          message: tr('{order}: {vehicle} kann {item} nicht befördern', { order: label, vehicle: gd.name(v.vehicleId), item: gd.name(o.itemId) }),
+          explanation: tr(TRN_MODE_MISMATCH.description),
+          suggestion: cargoKind(gd, o.itemId) === 'solid' ? tr('Schlepper, Lkw oder Explorer wählen.') : tr('Tanklaster wählen.'),
+        }),
+      );
+    } else if (v && v.count === 0) {
+      out.push(
+        makeFinding(TRN_NO_VEHICLE, [ref], {
+          message: tr('{order}: kein Fahrzeug eingeplant', { order: label }),
+          explanation: tr(TRN_NO_VEHICLE.description),
+          suggestion: tr('Anzahl der Fahrzeuge im Auftrag festlegen.'),
+        }),
+      );
+    } else if (v && !est.ok) {
+      out.push(
+        makeFinding(TRN_VEHICLE_CAPACITY, [ref], {
+          message: tr('{order}: geschätzt {have} statt {need}', { order: label, have: `${formatNumber(est.perMin, 1)} ${u}`, need: `${formatNumber(o.ratePerMin, 1)} ${u}` }),
+          explanation: `${tr('{n} × {vehicle}: {cap} je Fahrt, Umlauf {cycle}.', {
+            n: v.count,
+            vehicle: gd.name(v.vehicleId),
+            cap: `${formatNumber(v.capacityPerTrip, 0)} ${cargoKind(gd, o.itemId) === 'solid' ? tr('Stück') : 'm³'}`,
+            cycle: v.cycleS ? `${formatNumber(v.cycleS, 0)} s` : '–',
+          })} ${tr(TRN_VEHICLE_CAPACITY.description)}`,
+          suggestion: tr('Mindestens {n} Fahrzeuge einsetzen, ein größeres Fahrzeug wählen oder die Strecke verkürzen.', {
+            n: v.capacityPerTrip > 0 && v.cycleS ? Math.ceil((o.ratePerMin * v.cycleS) / (60 * v.capacityPerTrip)) : '?',
+          }),
+        }),
+      );
+    }
+    // LKW- bzw. Tanklaster-Station im passenden Modus
+    const solid = cargoKind(gd, o.itemId) === 'solid';
+    for (const [factoryId, mode] of [
+      [o.fromFactoryId, 'load'],
+      [o.toFactoryId, 'unload'],
+    ] as const) {
+      const has = Object.values(p.buildings).some((b) => {
+        const def = gd.building(b.type);
+        return b.factoryId === factoryId && b.placement && b.transfer?.mode === mode && transferInterface(def) === 'vehicle' && (transferCargo(def!) === 'solid') === solid;
+      });
+      if (!has) {
+        out.push(
+          makeFinding(
+            TRN_NO_INTERFACE,
+            [ref, { table: 'factories', id: factoryId }],
+            {
+              message:
+                mode === 'load'
+                  ? tr('{factory}: keine beladende {station} im Grundriss', { factory: fname(factoryId), station: gd.name(solid ? 'Build_TruckStation_C' : 'Build_FluidTruckStation_C') })
+                  : tr('{factory}: keine entladende {station} im Grundriss', { factory: fname(factoryId), station: gd.name(solid ? 'Build_TruckStation_C' : 'Build_FluidTruckStation_C') }),
+              explanation: tr(TRN_NO_INTERFACE.description),
+              suggestion: tr('Station im Grundriss platzieren und in den Eigenschaften Be- bzw. Entladen wählen.'),
+            },
+            { keyExtra: mode },
+          ),
+        );
+      }
+    }
+    return out;
+  }
+  // Direkte Bänder und Rohre
+  const d = est.direct;
+  if (d && !d.kindOk) {
+    out.push(
+      makeFinding(TRN_MODE_MISMATCH, [ref], {
+        message:
+          o.mode === 'belt'
+            ? tr('{order}: {item} passt nicht auf ein Förderband', { order: label, item: gd.name(o.itemId) })
+            : tr('{order}: {item} passt nicht in ein Rohr', { order: label, item: gd.name(o.itemId) }),
+        explanation: tr(TRN_MODE_MISMATCH.description),
+        suggestion: o.mode === 'belt' ? tr('Rohr wählen.') : tr('Förderband wählen.'),
+      }),
+    );
+  } else if (d && !est.ok) {
+    const per = d.lines > 0 ? d.capacity / d.lines : 0;
+    out.push(
+      makeFinding(TRN_DIRECT_CAPACITY, [ref], {
+        message: tr('{order}: {lines} × {tier} schaffen {have}, benötigt {need}', {
+          order: label,
+          lines: d.lines,
+          tier: gd.name(d.tier),
+          have: `${formatNumber(d.capacity, 0)} ${u}`,
+          need: `${formatNumber(o.ratePerMin, 1)} ${u}`,
+        }),
+        explanation: tr(TRN_DIRECT_CAPACITY.description),
+        suggestion: tr('Höhere Stufe wählen oder mindestens {n} parallele Leitungen verlegen.', { n: per > 0 ? Math.ceil(o.ratePerMin / per - 1e-9) : '?' }),
+      }),
+    );
+  }
+  for (const [end, factoryId, role] of [
+    [o.direct?.from, o.fromFactoryId, 'from'],
+    [o.direct?.to, o.toFactoryId, 'to'],
+  ] as const) {
+    if (end) continue;
+    out.push(
+      makeFinding(
+        TRN_NO_INTERFACE,
+        [ref, { table: 'factories', id: factoryId }],
+        {
+          message:
+            role === 'from'
+              ? tr('{factory}: kein Ausgang für die Leitung zu {other} gewählt', { factory: fname(factoryId), other: fname(o.toFactoryId) })
+              : tr('{factory}: kein Eingang für die Leitung von {other} gewählt', { factory: fname(factoryId), other: fname(o.fromFactoryId) }),
+          explanation: tr(TRN_NO_INTERFACE.description),
+          suggestion: tr('Im Transportauftrag den Übergabeanschluss in beiden Fabriken wählen.'),
+        },
+        { keyExtra: role },
+      ),
     );
   }
   return out;

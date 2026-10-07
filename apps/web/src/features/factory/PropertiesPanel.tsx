@@ -2,6 +2,11 @@ import { useMemo } from 'react';
 import {
   buildingHeight,
   cachedFactoryFlow,
+  canBeVertical,
+  pipeHeads,
+  transferInterface,
+  placedBounds,
+  placedPortDefs,
   factoryOps as ops,
   geo,
   getLanguage,
@@ -9,7 +14,6 @@ import {
   localName,
   machineRates,
   pathLength,
-  portDefs,
   type Building,
   type FloorKind,
   type GameDataIndex,
@@ -84,7 +88,15 @@ function FactoryProps({ factoryId }: { factoryId: string }) {
             <TextField value={fl.name} onCommit={(name) => apply(t('Stockwerk umbenennen'), (d) => ops.updateFloor(d, fl.id, { name }))} />
           </Row>
           <Row label={t('Art')} hint={t('Physisches Stockwerk; Logistikebenen liegen z. B. unter einer Produktionsebene.')}>
-            <select value={fl.kind} onChange={(e) => apply(t('Stockwerksart'), (d) => ops.updateFloor(d, fl.id, { kind: e.target.value as FloorKind }))}>
+            <select
+              value={fl.kind}
+              onChange={(e) => {
+                const kind = e.target.value as FloorKind;
+                // Standardhöhe der alten Art → Standardhöhe der neuen Art
+                const heightM = fl.heightM === ops.DEFAULT_FLOOR_HEIGHT_M[fl.kind] ? ops.DEFAULT_FLOOR_HEIGHT_M[kind] : fl.heightM;
+                apply(t('Stockwerksart'), (d) => ops.updateFloor(d, fl.id, { kind, heightM }));
+              }}
+            >
               <option value="production">{t('Produktion')}</option>
               <option value="logistics">{t('Logistik')}</option>
               <option value="other">{t('Sonstiges')}</option>
@@ -93,8 +105,11 @@ function FactoryProps({ factoryId }: { factoryId: string }) {
           <Row label={t('Höhe (Boden)')}>
             <NumberField value={fl.elevationM} suffix="m" onCommit={(v) => apply(t('Stockwerkshöhe'), (d) => ops.updateFloor(d, fl.id, { elevationM: v }))} />
           </Row>
-          <Row label={t('Lichte Höhe')}>
+          <Row label={t('Lichte Höhe')} hint={t('Standard: Produktion 18 m, Logistik 6 m; zwischen zwei Ebenen 2 m Decke. Frei änderbar.')}>
             <NumberField value={fl.heightM} min={0.5} suffix="m" onCommit={(v) => apply(t('Lichte Höhe'), (d) => ops.updateFloor(d, fl.id, { heightM: v }))} />
+          </Row>
+          <Row label={t('Bereich')}>
+            {fmtNum(fl.elevationM, 2)} m – {fmtNum(fl.elevationM + fl.heightM, 2)} m
           </Row>
         </Section>
       )}
@@ -161,7 +176,7 @@ function BuildingProps({ building: b }: { building: Building }) {
   const fm = flow.machines.get(b.id);
   const upd = (label: string, patch: ops.BuildingPatch) => apply(label, (d, g) => ops.updateBuildings(d, g, [b.id], patch));
   if (!def) return <Section title={t('Unbekanntes Gebäude')}>{b.type}</Section>;
-  const bb = def.bounds;
+  const bb = placedBounds(def, b.placement);
   const links = Object.values(project.links).filter((l) => l.from.buildingId === b.id || l.to.buildingId === b.id);
   const maxClock = (gd.fact('production.clock.maxWithShards') ?? 2.5) * 100;
   const stations = Object.values(project.stations);
@@ -174,7 +189,7 @@ function BuildingProps({ building: b }: { building: Building }) {
         </Row>
         {bb && (
           <Row label={t('Maße (B × T × H)')}>
-            {fmtNum(bb.maxX - bb.minX)} × {fmtNum(bb.maxY - bb.minY)} × {fmtNum(buildingHeight(def))} m{' '}
+            {fmtNum(bb.maxX - bb.minX)} × {fmtNum(bb.maxY - bb.minY)} × {fmtNum(buildingHeight(def, b.placement))} m{' '}
             {def.boundsSource && <ConfidenceBadge confidence={def.boundsSource.confidence} detail={def.boundsSource.detail} />}
           </Row>
         )}
@@ -223,14 +238,15 @@ function BuildingProps({ building: b }: { building: Building }) {
             )}
           </>
         )}
-        {def.freightPlatform && (
+        {transferInterface(def) && (
           <>
-            <Row label={t('Umschlag')}>
+            <Row label={t('Umschlag')} hint={t('Übergabe für Transportaufträge: Zugaufträge nutzen Frachtplattformen, Fahrzeugaufträge Lkw- bzw. Tanklaster-Stationen.')}>
               <select value={b.transfer?.mode ?? 'unload'} onChange={(e) => upd(t('Umschlag'), { transfer: { mode: e.target.value as 'load' | 'unload', stationId: b.transfer?.stationId ?? null } })}>
                 <option value="unload">{t('Entladen (Einfuhr in die Fabrik)')}</option>
                 <option value="load">{t('Beladen (Ausfuhr aus der Fabrik)')}</option>
               </select>
             </Row>
+            {def.freightPlatform && (
             <Row label={t('Bahnhof')} hint={t('Zuordnung zu einem Bahnhof im Schienennetz; Einfuhren eines Transportauftrags verteilen sich auf die Plattformen dieses Bahnhofs.')}>
               <select value={b.transfer?.stationId ?? ''} onChange={(e) => upd(t('Bahnhof'), { transfer: { mode: b.transfer?.mode ?? 'unload', stationId: e.target.value || null } })}>
                 <option value="">{t('– beliebig –')}</option>
@@ -241,6 +257,7 @@ function BuildingProps({ building: b }: { building: Building }) {
                 ))}
               </select>
             </Row>
+            )}
           </>
         )}
         {def.clock && (
@@ -321,6 +338,19 @@ function BuildingProps({ building: b }: { building: Building }) {
             <Row label={t('Drehung')}>
               <NumberField value={b.placement.rotationDeg} suffix="°" step={90} onCommit={(v) => apply(t('Drehen'), (d) => ops.rotateBuildings(d, [b.id], geo.normalizeDeg(v) - b.placement!.rotationDeg))} />
             </Row>
+            {canBeVertical(def) && (
+              <Row label={t('Einbaulage')} hint={t('Pumpen lassen sich auch senkrecht in ein senkrechtes Rohr setzen (Taste O). Die Förderhöhe zählt ab dem Eingang.')} plain>
+                <Segmented<'level' | 'up' | 'down'>
+                  value={b.placement.vertical ?? 'level'}
+                  onChange={(v) => apply(t('Einbaulage ändern'), (d, g) => ops.setVertical(d, g, [b.id], v === 'level' ? null : v))}
+                  options={[
+                    { value: 'level', label: t('waagrecht') },
+                    { value: 'up', label: t('senkrecht ▲'), title: t('Förderrichtung nach oben') },
+                    { value: 'down', label: t('senkrecht ▼'), title: t('Förderrichtung nach unten') },
+                  ]}
+                />
+              </Row>
+            )}
             <div className="button-row">
               <button onClick={() => apply(t('Aufstellung aufheben'), (d) => ops.unplaceBuildings(d, [b.id]))}>{t('Aufstellung aufheben')}</button>
             </div>
@@ -398,7 +428,7 @@ function PortsSection({ building: b }: { building: Building }) {
   const gd = useProjectStore((s) => s.gd)!;
   const def = gd.building(b.type);
   if (!def?.ports) return null;
-  const ports = portDefs(def);
+  const ports = placedPortDefs(def, b.placement);
   if (ports.length === 0) return null;
   const label = (id: string) => {
     const [kind, dir, idx] = id.split('-');
@@ -418,7 +448,7 @@ function PortsSection({ building: b }: { building: Building }) {
         const link = Object.values(project.links).find((l) => (l.from.buildingId === b.id && l.from.portId === p.id) || (l.to.buildingId === b.id && l.to.portId === p.id));
         const other = link && project.buildings[link.from.buildingId === b.id ? link.to.buildingId : link.from.buildingId];
         return (
-          <Row key={p.id} label={label(p.id)}>
+          <Row key={p.id} label={p.role === 'fuel' ? `${label(p.id)} · ${t('Treibstoff')}` : label(p.id)}>
             {link ? (
               <a
                 href="#"
@@ -539,6 +569,7 @@ function LinkProps({ id }: { id: string }) {
   const path = linkPath(project, gd, l);
   const len = path ? pathLength(path) : null;
   const fr = flow?.links.get(id);
+  const head = l.kind === 'pipe' && flow ? pipeHeads(project, gd, l.factoryId, flow).get(id) : undefined;
   const anyPorts = l.from.portId.includes('-any-') && l.to.portId.includes('-any-');
   return (
     <Section title={l.kind === 'belt' ? t('Förderband') : t('Rohrleitung')}>
@@ -583,8 +614,24 @@ function LinkProps({ id }: { id: string }) {
         </Row>
       )}
       <Row label={t('Zwischenpunkte')}>{l.waypoints.length}</Row>
+      {head && (
+        <Row label={t('Förderhöhe')} hint={t('Erreichbare Höhe = Anschluss der Quelle + Förderhöhe (Wiki „Head lift“). Rohrkreuzungen geben die höchste ankommende Förderhöhe weiter.')}>
+          {head.gas ? (
+            t('Gas – keine Förderhöhe nötig')
+          ) : head.reachZ === null ? (
+            <>
+              {t('höchster Punkt {z} m', { z: fmtNum(head.maxZ, 1) })} · <Badge kind="muted">{t('Quelle ohne bekannte Förderhöhe')}</Badge>
+            </>
+          ) : (
+            <>
+              {t('bis {reach} m möglich, höchster Punkt {z} m', { reach: fmtNum(head.reachZ, 1), z: fmtNum(head.maxZ, 1) })}{' '}
+              {head.maxZ > head.reachZ + 0.05 ? <Badge kind="warn">{t('reicht nicht')}</Badge> : <Badge kind="ok">{t('reicht')}</Badge>}
+            </>
+          )}
+        </Row>
+      )}
       <p className="small-text">
-        <Badge kind="warn">{t('nicht geprüft')}</Badge> {t('Kurvenradien, Mindestlängen, Kollisionen und Förderhöhe werden nicht geprüft.')}
+        <Badge kind="warn">{t('nicht geprüft')}</Badge> {t('Kurvenradien, Mindestlängen und Kollisionen werden nicht geprüft.')}
       </p>
       <div className="button-row">
         {l.waypoints.length > 0 && <button onClick={() => apply(t('Zwischenpunkte entfernen'), (d, g) => ops.updateLink(d, g, id, { waypoints: [] }))}>{t('Zwischenpunkte entfernen')}</button>}

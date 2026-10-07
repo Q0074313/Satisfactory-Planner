@@ -43,6 +43,8 @@ export function NumberField({
   suffix,
   disabled,
   digits = 3,
+  placeholder,
+  allowEmpty,
 }: {
   value: number;
   onCommit: (v: number) => void;
@@ -52,12 +54,19 @@ export function NumberField({
   suffix?: string;
   disabled?: boolean;
   digits?: number;
+  placeholder?: string;
+  /** Leeres Feld übernimmt NaN (z. B. „Standardwert verwenden“). */
+  allowEmpty?: boolean;
 }) {
   const dec = numberLocale() === 'de-DE' ? ',' : '.';
   const fmt = (v: number) => (Number.isFinite(v) ? String(+v.toFixed(digits)).replace('.', dec) : '');
   const [text, setText] = useState(fmt(value));
   useEffect(() => setText(fmt(value)), [value]); // eslint-disable-line react-hooks/exhaustive-deps
   const commit = () => {
+    if (allowEmpty && text.trim() === '') {
+      if (Number.isFinite(value)) onCommit(NaN);
+      return;
+    }
     const v = Number.parseFloat(text.replace(',', '.'));
     if (!Number.isFinite(v)) return setText(fmt(value));
     let c = v;
@@ -72,6 +81,7 @@ export function NumberField({
         type="text"
         inputMode="decimal"
         value={text}
+        placeholder={placeholder}
         disabled={disabled}
         onChange={(e) => setText(e.target.value)}
         onBlur={commit}

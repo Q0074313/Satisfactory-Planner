@@ -1042,3 +1042,76 @@ g.fn-shortfall rect {
   padding: 2px 0;
   border-top: 1px solid var(--border);
 }
+
+/* Gegenstandsauswahl (Fahrplan) */
+.item-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 4px 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+  font-size: 12px;
+}
+.chip-add {
+  border-style: dashed;
+}
+.picker-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.picker-results li {
+  padding: 3px 6px;
+  cursor: pointer;
+}
+.picker-results li:hover {
+  background: var(--panel-2);
+}
+.section-actions {
+  display: flex;
+  gap: 4px;
+}
+.app-version {
+  font-weight: normal;
+  white-space: nowrap;
+}
+
+/* Tutorial: ausführliche Erklärungen */
+.tour-pop.tour-pop-wide {
+  width: 440px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
+.tour-detail {
+  margin: 6px 0;
+  padding: 6px 8px;
+  border-left: 3px solid var(--accent-2);
+  background: var(--panel-2);
+  border-radius: 4px;
+}
+.tour-detail p {
+  margin: 4px 0 0;
+}
+.menu-check {
+  padding: 6px 8px 2px;
+}
+.menu-version {
+  margin: 4px 8px 2px;
+}

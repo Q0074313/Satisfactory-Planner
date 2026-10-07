@@ -4,6 +4,8 @@ const SIGNALS = { label: 'Satisfactory Wiki – Train Signals', url: 'https://sa
 const RAILWAY = { label: 'Satisfactory Wiki – Railway', url: 'https://satisfactory.wiki.gg/wiki/Railway' };
 const STATION = { label: 'Satisfactory Wiki – Train Station', url: 'https://satisfactory.wiki.gg/wiki/Train_Station' };
 const PLATFORM = { label: 'Satisfactory Wiki – Freight Platform', url: 'https://satisfactory.wiki.gg/wiki/Freight_Platform' };
+const FREIGHT_CAR = { label: 'Satisfactory Wiki – Freight Car (Weight)', url: 'https://satisfactory.wiki.gg/wiki/Freight_Car' };
+const LOCOMOTIVE = { label: 'Satisfactory Wiki – Electric Locomotive', url: 'https://satisfactory.wiki.gg/wiki/Electric_Locomotive' };
 
 export const RAIL_SIGNAL_DANGLING = defineRule({
   id: 'RAIL-001',
@@ -215,6 +217,18 @@ export const RAIL_BIDIRECTIONAL_LOOP = defineRule({
   description:
     'Laut Wiki kann ein Zweirichtungszug seine Fahrtrichtung über eine Schleife umkehren. Dann stehen die Wagen an den Bahnhöfen in umgekehrter Reihenfolge und falsche Waren werden umgeschlagen.',
   sources: [STATION],
+});
+
+export const RAIL_TRACTION = defineRule({
+  id: 'RAIL-025',
+  title: 'Zu wenige Loks für Steigung und Zuglast',
+  domain: 'rail',
+  kind: 'recommendation',
+  certainty: 'dynamic',
+  severity: 'warning',
+  description:
+    'Laut Wiki zieht eine Lok (300 t) auf einer 1-m-Rampe (12,5 %) einen Zug von höchstens 1644 t, auf einer 2-m-Rampe (25 %) 800 t und auf einer 4-m-Rampe (50 %) 580 t, ohne stark langsamer zu werden. Ein voll beladener Wagen wiegt 100 t, ein leerer 30 t. Geprüft wird der voll beladene Zug auf der steilsten Steigung seiner Fahrwege. Annahme: Mehrere Loks ziehen zusammen entsprechend mehr.',
+  sources: [FREIGHT_CAR, LOCOMOTIVE],
 });
 
 export const RAIL_DEADLOCK_UNCHECKED = defineRule({

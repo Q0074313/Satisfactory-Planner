@@ -7,11 +7,12 @@ import {
   closestT,
   factoryOps,
   geo,
+  lengthAtT,
   outward,
   railOps as ops,
-  segmentLength,
   segmentPolyline,
   segmentShape,
+  tAtLength,
   type ObjectRef,
   type Project,
   type Vec3,
@@ -26,7 +27,7 @@ import { usePrefs } from '../../state/prefsStore';
 import { useProjectStore } from '../../state/projectStore';
 import { useSimStore } from '../../state/simStore';
 import { useUiStore, type RailTool } from '../../state/uiStore';
-import { buildRailScene, railHitTest, sceneCrossings, stationGeometry, type RailHit } from './scene';
+import { buildRailScene, railHitTest, sceneCrossings, signalGlyph, stationGeometry, type RailHit } from './scene';
 
 const BLOCK_COLORS = ['#e8a33d', '#4fc3ff', '#9be7a1', '#ff8a8a', '#c49bff', '#ffe08a', '#7fe0d6', '#ff9fd2', '#b3c7ff', '#d6ff8a'];
 
@@ -49,7 +50,12 @@ interface Interaction {
 /** Ziel des Signalwerkzeugs unter dem Mauszeiger. */
 type SignalTarget =
   | { kind: 'node'; nodeId: string; pos: geo.Vec2; dir: geo.Vec2; facing: 'forward' | 'backward' }
-  | { kind: 'segment'; segId: string; t: number; pos: geo.Vec2; dir: geo.Vec2; facing: 'forward' | 'backward' };
+  | { kind: 'segment'; segId: string; t: number; pos: geo.Vec2; dir: geo.Vec2; facing: 'forward' | 'backward'; fromA: number; toB: number };
+
+/** Fangbereich des Signalwerkzeugs seitlich neben dem Gleis (m). */
+const SIGNAL_CAPTURE_M = 3;
+/** Raster für Signale auf freiem Gleis entlang des Gleises (m). */
+const SIGNAL_STEP_M = 1;
 
 const isTyping = () => {
   const el = document.activeElement;
@@ -69,11 +75,11 @@ function drawSignalSymbol(
   opts: { selected?: boolean; mark?: 'error' | 'warning'; ghost?: boolean },
 ) {
   const color = kind === 'path' ? COLORS.pathSignal : COLORS.blockSignal;
-  const r = Math.max(7, Math.min(vp.scale * 2.2, 13));
+  const glyph = signalGlyph(node, dir, vp.scale);
+  const r = glyph.r;
   const right = rightOf(dir);
   const n = vp.toScreen(node);
-  const off = r / vp.scale + 3; // Abstand neben dem Gleis (m)
-  const head = vp.toScreen(geo.add(node, geo.scale(right, off)));
+  const head = vp.toScreen(glyph.head);
   const sd = { x: dir.x, y: dir.y };
   const sr = { x: right.x, y: right.y };
   ctx.globalAlpha = opts.ghost ? 0.6 : 1;
@@ -181,8 +187,8 @@ export function RailEditor() {
   const snapStep = () => live.current.project.settings.snapM;
   const snapPt = (p: geo.Vec2, free: boolean) => (free || snapStep() <= 0 ? p : { x: geo.snap(p.x, snapStep()), y: geo.snap(p.y, snapStep()) });
 
-  function hit(pt: geo.Vec2): RailHit {
-    return railHitTest(live.current.scene, live.current.project, pt, tolM(), { nodes: true, segments: true, stations: true });
+  function hit(pt: geo.Vec2, segTolM?: number): RailHit {
+    return railHitTest(live.current.scene, live.current.project, pt, tolM(), { nodes: true, segments: true, stations: true, scale: viewport.scale, segTolM });
   }
 
   /** Endpunkt für das Gleiswerkzeug unter dem Mauszeiger. */
@@ -204,7 +210,7 @@ export function RailEditor() {
     if (it.current.shift && from?.kind === 'node') {
       const n = L.project.railNodes[from.nodeId];
       if (n) {
-        const side = ops.sideTowards(n, pt);
+        const side = ops.continueSide(L.project, n, pt);
         const d = outward(n, side);
         const along = Math.max(1, geo.dot(geo.sub(pt, n.position), d));
         p = geo.add(n.position, geo.scale(d, along));
@@ -216,12 +222,14 @@ export function RailEditor() {
   /**
    * Ziel des Signalwerkzeugs: Knoten oder Stelle auf einem Segment. Die Seite
    * des Mauszeigers neben dem Gleis bestimmt die Fahrtrichtung (Signal steht
-   * rechts der Fahrtrichtung). Auf Segmenten gilt der Mindestabstand zum
-   * Segmentende (Wiki: 12 m); näher am Ende wird der Knoten verwendet.
+   * rechts der Fahrtrichtung); der Mauszeiger darf bis 3 m neben dem Gleis
+   * stehen. Auf Segmenten rastet die Stelle in 1-m-Schritten (Alt: frei), und
+   * es gilt der Mindestabstand zum Segmentende (Wiki: 12 m); näher am Ende wird
+   * der Knoten verwendet.
    */
   function signalTarget(pt: geo.Vec2): SignalTarget | null {
     const L = live.current;
-    const h = hit(pt);
+    const h = hit(pt, SIGNAL_CAPTURE_M);
     const facingFor = (pos: geo.Vec2, dir: geo.Vec2) => (geo.dot(geo.sub(pt, pos), rightOf(dir)) >= 0 ? 'forward' : 'backward');
     const nodeTarget = (nodeId: string): SignalTarget | null => {
       const n = L.project.railNodes[nodeId];
@@ -236,15 +244,18 @@ export function RailEditor() {
     const shape = seg && segmentShape(L.project, seg);
     if (!seg || !shape) return null;
     const c = closestT(shape, pt);
-    const len = segmentLength(shape);
+    const len = lengthAtT(shape, 1);
     const minD = L.gd.fact('rail.signal.minDistanceFromSegmentEndM') ?? 12;
     if (seg.stationId) return nodeTarget(c.t < 0.5 ? seg.a.nodeId : seg.b.nodeId);
-    if (c.t * len < minD) return nodeTarget(seg.a.nodeId);
-    if ((1 - c.t) * len < minD) return nodeTarget(seg.b.nodeId);
-    const pos = geo.bezierPoint(shape.curve, c.t);
-    const tan = geo.normalize(geo.bezierDerivative(shape.curve, c.t));
+    let along = lengthAtT(shape, c.t);
+    if (!it.current.alt) along = Math.round(along / SIGNAL_STEP_M) * SIGNAL_STEP_M;
+    if (along < minD) return nodeTarget(seg.a.nodeId);
+    if (len - along < minD) return nodeTarget(seg.b.nodeId);
+    const t = tAtLength(shape, along);
+    const pos = geo.bezierPoint(shape.curve, t);
+    const tan = geo.normalize(geo.bezierDerivative(shape.curve, t));
     const facing = facingFor(pos, tan);
-    return { kind: 'segment', segId: seg.id, t: c.t, pos, dir: facing === 'forward' ? tan : geo.scale(tan, -1), facing };
+    return { kind: 'segment', segId: seg.id, t, pos, dir: facing === 'forward' ? tan : geo.scale(tan, -1), facing, fromA: along, toB: len - along };
   }
 
   // ------------------------------------------------------------------ Zeichnen
@@ -411,24 +422,68 @@ export function RailEditor() {
   function drawTrains(ctx: CanvasRenderingContext2D, vp: Viewport) {
     const s = useSimStore.getState();
     if (!s.sim || s.networkId !== live.current.networkId) return;
-    const w = Math.max(5, Math.min(vp.scale * 3, 18));
+    const w = Math.max(6, Math.min(vp.scale * 3.2, 20));
+    const vehicleM = live.current.gd.fact('rail.freightCar.lengthM') ?? 16;
     for (const tr of s.sim.trains) {
       const pts = s.sim.trainPolyline(tr);
       if (pts.length < 2) continue;
+      // Kontrast zu Blockfarben und Bahnhöfen: Abstand in Hintergrundfarbe,
+      // kräftige Kontur in Textfarbe, darin die Zugfarbe
       ctx.lineCap = 'butt';
       ctx.lineJoin = 'round';
-      ctx.strokeStyle = COLORS.signalInk;
-      ctx.lineWidth = w + 3;
+      ctx.strokeStyle = COLORS.bg;
+      ctx.lineWidth = w + 8;
+      pathPolyline(ctx, vp, pts);
+      ctx.stroke();
+      ctx.strokeStyle = COLORS.text;
+      ctx.lineWidth = w + 4;
       pathPolyline(ctx, vp, pts);
       ctx.stroke();
       ctx.strokeStyle = tr.color;
       ctx.lineWidth = w;
       pathPolyline(ctx, vp, pts);
       ctx.stroke();
+      // Dunkler Mittelstreifen: Zug unterscheidet sich auch bei gleicher Farbe vom Gleis
+      ctx.strokeStyle = COLORS.bg;
+      ctx.lineWidth = Math.max(1.5, w * 0.28);
+      pathPolyline(ctx, vp, pts);
+      ctx.stroke();
+      // Fahrzeuggrenzen alle 16 m
+      ctx.strokeStyle = COLORS.text;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      let acc = 0;
+      let next = vehicleM;
+      for (let k = 1; k < pts.length; k++) {
+        const a = pts[k - 1]!;
+        const b = pts[k]!;
+        const len = geo.dist(a, b);
+        while (len > 1e-9 && acc + len >= next - 1e-6 && next < tr.lengthM - 1e-6) {
+          const q = geo.add(a, geo.scale(geo.sub(b, a), (next - acc) / len));
+          const n = geo.rotate(geo.normalize(geo.sub(b, a)), 90);
+          const p1 = vp.toScreen(geo.add(q, geo.scale(n, w / 2 / vp.scale)));
+          const p2 = vp.toScreen(geo.add(q, geo.scale(n, -w / 2 / vp.scale)));
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          next += vehicleM;
+        }
+        acc += len;
+      }
+      ctx.stroke();
+      // Zugspitze als Pfeil in Fahrtrichtung
       const head = vp.toScreen(pts[0]!);
+      const behind = vp.toScreen(pts[1]!);
+      const dx = head.x - behind.x;
+      const dy = head.y - behind.y;
+      const dl = Math.hypot(dx, dy) || 1;
+      const ux = dx / dl;
+      const uy = dy / dl;
       ctx.fillStyle = COLORS.text;
       ctx.beginPath();
-      ctx.arc(head.x, head.y, w * 0.45, 0, Math.PI * 2);
+      ctx.moveTo(head.x + ux * w * 0.9, head.y + uy * w * 0.9);
+      ctx.lineTo(head.x - uy * w * 0.75, head.y + ux * w * 0.75);
+      ctx.lineTo(head.x + uy * w * 0.75, head.y - ux * w * 0.75);
+      ctx.closePath();
       ctx.fill();
       const status =
         tr.status === 'waiting' ? ` ⏸ ${t('wartet')}` : tr.status === 'docked' ? ` ⛁ ${Math.max(0, Math.ceil(tr.dockRemaining))} s` : tr.status === 'no-route' ? ` ⚠ ${t('kein Weg')}` : '';
@@ -491,7 +546,7 @@ export function RailEditor() {
         drawSignalSymbol(ctx, vp, target.pos, target.dir, tl.signalKind, { ghost: true, selected: true });
         const s = vp.toScreen(geo.add(target.pos, geo.scale(rightOf(target.dir), 8 / vp.scale + 6)));
         const what = tl.signalKind === 'path' ? t('Pfadsignal') : t('Blocksignal');
-        const where = target.kind === 'segment' ? t('teilt das Gleis') : t('am Knoten');
+        const where = target.kind === 'segment' ? `${t('teilt das Gleis')} (${formatM(target.fromA)} | ${formatM(target.toB)})` : t('am Knoten');
         drawLabel(ctx, `${what} · ${where} · ${t('Fahrt in Pfeilrichtung')}`, s.x + 8, s.y, { align: 'left', bg: COLORS.labelBg, size: 10 });
       }
     }
@@ -707,7 +762,7 @@ export function RailEditor() {
       if (r.maxX - r.minX < tolM() && r.maxY - r.minY < tolM()) return;
       const refs: ObjectRef[] = [];
       for (const s of L.scene.segments) if (s.points.every((q) => geo.rectContains(r, q))) refs.push({ table: 'railSegments', id: s.id });
-      for (const sg of L.scene.signals) if (geo.rectContains(r, sg.at)) refs.push({ table: 'railSignals', id: sg.signal.id });
+      for (const sg of L.scene.signals) if (geo.rectContains(r, signalGlyph(sg.node, sg.dir, viewport.scale).head)) refs.push({ table: 'railSignals', id: sg.signal.id });
       useUiStore.getState().select(refs);
     }
   }
@@ -833,7 +888,7 @@ function railHint(tl: RailTool): string {
     case 'track':
       return t('Klicken: Start/nächster Punkt (tangentialer Bogen) · Knoten/Gleis anklicken: verbinden bzw. abzweigen · Umschalt: gerade · Alt: ohne Fangen · Esc: Zug beenden');
     case 'signal':
-      return t('Auf ein Gleis oder einen Knoten klicken – Seite neben dem Gleis = Fahrtrichtung (Signal steht rechts, Pfeil zeigt die Fahrt) · erneut klicken: entfernen bzw. Typ wechseln');
+      return t('Auf ein Gleis (bis 3 m daneben) oder einen Knoten klicken – Seite neben dem Gleis = Fahrtrichtung (Signal steht rechts, Pfeil zeigt die Fahrt) · auf freiem Gleis in 1-m-Schritten, Alt: stufenlos · erneut klicken: entfernen bzw. Typ wechseln');
     case 'station':
       return t('Klicken: Bahnhof setzen (auf freien Knoten: anschließen) · R: drehen · Fahrtrichtung beim Halten = Pfeil');
     case 'measure':

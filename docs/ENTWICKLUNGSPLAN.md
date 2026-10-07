@@ -139,3 +139,46 @@ Ersetzt Konten, PostgreSQL und Freigabelinks aus Etappe 7 durch Projekt-Links oh
 - Wer den Link hat, kann das Projekt bearbeiten; es gibt keinen schreibgeschützten Link und kein Löschen über die Oberfläche (Datei auf dem Server löschen).
 - Rate-Limit nur im Speicher des Prozesses (nach Neustart zurückgesetzt).
 - Keine Live-Synchronisation: Ein anderes Gerät sieht Änderungen nach dem Neuladen; gleichzeitige Änderungen führen zu einer Rückfrage.
+
+## Version 0.3 – Rückmeldung nach Etappe 8 ✅
+
+Umgesetzt aus „zukünftige Pläne bzw. Änderungen“ (Abschnitt „nächste Version“; die Ideen sind bewusst noch offen).
+
+**Schienennetz**
+- [x] Signale lassen sich per Klick auf Pfeil oder Mast auswählen; Zeichnung und Trefferprüfung nutzen dieselbe Geometrie (vorher traf ein Klick den Knoten darunter). *(E2E)*
+- [x] Mehr Züge als Bahnhöfe: Züge ohne freien Halt starten an einer zufälligen freien Stelle (kein Bahnhofsgleis, möglichst freier Block, erster Halt erreichbar); je Zug reproduzierbar. *(Unit-Test)*
+- [x] Züge mit Abstand in Hintergrundfarbe, heller Kontur, dunklem Mittelstreifen, Wagengrenzen und Pfeilspitze; neue Züge bekommen Farben, die sich von Netz- und Blockfarben abheben.
+- [x] Fahrpläne: „nur bestimmte Gegenstände“ mit Suchfeld, Auswahl als Chips, Vorschlägen aus Transportaufträgen und Filter nach Bahnsteigart; Transportschätzung und Befund TRN-010 berücksichtigen die Auswahl. *(Unit- und E2E-Test)*
+- [x] Keine spitzen Rückläufe beim Gleisbau: Vom Gleisende aus geht es auf der freien Seite weiter, auch für eine Kehre; Zusammenführungen bleiben möglich. *(Unit-Test)*
+- [x] Signale auf freiem Gleis rasten in 1-m-Schritten (Alt: stufenlos); Anzeige der Abstände zu beiden Segmentenden. *(Unit-Test)*
+- [x] Fangbereich des Signalwerkzeugs bis 3 m neben dem Gleis.
+- [x] Zugkraft und Zuglänge: Masse, steilste Steigung der Fahrwege, nötige Loks, volle Wagen je Lok und Maximallänge am kürzesten Bahnhof; Befund RAIL-025. *(Unit-Test)*
+- [x] Wegwahl wie im Spiel: kürzester Weg, Aufschlag nur für fremde Bahnhöfe in Fahrtrichtung, bei Gleichstand weniger Gleisteile, dann links vor rechts. *(Unit-Tests)*
+
+**Fabrikplanung**
+- [x] LKW- und Tanklaster-Station: Treibstoffeingang farbig (pink) und in der Anschlussliste benannt. *(Unit-Test)*
+- [x] Weltraumlift: je drei Eingänge auf gegenüberliegenden Seiten. *(Unit-Test)*
+- [x] Förderband-/Rohrwerkzeug: erneutes B bzw. P wechselt den Verlegemodus, N die Stufe (Mk.1–Mk.6 bzw. Mk.1–Mk.2); Auswahl bleibt bis zur Änderung gespeichert. *(E2E)*
+- [x] Stockwerke: neue Produktionsebene 18 m, Logistikebene 6 m, 2 m Decke dazwischen; Liste zeigt den Bereich (z. B. „0 m – 18 m“); Höhen bleiben frei änderbar. *(Unit- und E2E-Test)*
+- [x] Förderhöhe von Flüssigkeiten: erreichbare Höhe je Rohr aus Quelle bzw. Pumpe, Weitergabe über Rohrkreuzungen und Ventile; Befund FAB-019, Anzeige an der Leitung. *(Unit-Test)*
+- [x] Pipeline-Pumpen senkrecht (▲/▼) einbaubar (Taste O, Eigenschaften); in den Seitenansichten x und y lassen sich Gebäude seitlich und in der Höhe verschieben. *(Unit-Test)*
+- [x] Stufen optisch unterscheidbar: Bänder Mk.1–Mk.6 mit eigener Farbe und Breite, Rohr Mk.2 breiter mit Mittellinie; Stufe an der Leitung beschriftet.
+- [x] Animation der Förderrichtung korrigiert: Pfeile wandern jetzt in Förderrichtung.
+
+**Transport zwischen Fabriken**
+- [x] Transportaufträge per Zug, Fahrzeug (Schlepper, Lkw, Tanklaster, Explorer), Förderband oder Rohr; Fahrzeugdaten aus den Docs bzw. Wiki im Datensatz. *(Unit-Test)*
+- [x] Fahrzeuge: Typ, Anzahl, Strecke, Geschwindigkeit; Schätzung aus Laderaum und Umlauf (2 × 8 s Andocken); Lkw- und Tanklaster-Stationen mit Be-/Entladen als Übergabe im Durchsatzmodell. *(Unit- und E2E-Test)*
+- [x] Direkte Bänder und Rohre: Stufe, parallele Leitungen, Länge, Übergabeanschluss in beiden Fabriken; im Durchsatzmodell beider Fabriken wirksam, im Grundriss als Stummel „→ Fabrik“ dargestellt; Anschlüsse werden beim Löschen bzw. Fabrikwechsel gelöst. *(Unit- und E2E-Test)*
+- [x] Befunde TRN-011 … TRN-015 (falsches Transportmittel, kein Fahrzeug, Fahrzeugkapazität, Leitung zu klein, keine Übergabe). *(Unit-Tests)*
+
+**Allgemein**
+- [x] Softwareversion (package.json, Commit, Build-Datum) in Kopfzeile, Startseite, Hilfemenü und Einstellungen; im Docker-Build über `GIT_COMMIT` (setzt `update.sh`). *(E2E)*
+- [x] Tutorial-Schalter „ausführliche Erklärungen für Einsteiger“ (Hilfemenü, Einstellungen, Begrüßung, in jeder Tour umschaltbar): zu jedem Schritt eine Erklärung in einfacher Sprache mit Beispiel. *(E2E)*
+
+**Vereinfachungen / bekannte Grenzen**
+- Zugkraft: Grenzwerte nur für die drei Rampenklassen der Wiki-Tabelle; Steigungen dazwischen werden der nächststeileren Klasse zugeordnet. Mehrere Loks werden linear addiert (Annahme).
+- Förderhöhe mit empfohlenen Wiki-Werten (vorsichtig); unbekannte Quellen (z. B. Kraftwerke, Konverter) melden weiterhin nur FAB-016. Druck und Durchfluss werden nicht simuliert.
+- Lage des Treibstoffeingangs schematisch (erster Bandeingang); die Docs enthalten keine Anschlusspositionen.
+- Wegwahl: Bogenlängen sind Näherungen; Längenunterschiede unter 5 cm gelten als gleich.
+- Fahrzeuge: keine Wegplanung und keine Simulation; Strecke und Durchschnittsgeschwindigkeit sind Angaben des Nutzers. Treibstoffverbrauch wird nicht geschätzt.
+- Direkte Leitungen: Förderhöhe zwischen Fabriken und Baubarkeit der Strecke werden nicht geprüft.

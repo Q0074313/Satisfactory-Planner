@@ -65,7 +65,7 @@ export function makeFactory(project: Project, name: string): { factory: Factory;
     name: tr('Erdgeschoss'),
     kind: 'production',
     elevationM: 0,
-    heightM: 12,
+    heightM: 18,
   };
   const color = FACTORY_COLORS[Object.keys(project.factories).length % FACTORY_COLORS.length]!;
   return { factory: { id: factoryId, name, color, floorIds: [floor.id], notes: '' }, floor };

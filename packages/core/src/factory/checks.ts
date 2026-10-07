@@ -8,7 +8,8 @@ import { convexOverlap, polygonArea, rectOf, rectsOverlap, type Rect, type Vec2 
 import type { Building, ObjectRef, Project } from '../model/schema.ts';
 import { makeFinding } from '../validation/registry.ts';
 import type { Finding } from '../validation/types.ts';
-import { computeFactoryFlow, type FactoryFlow } from './flow.ts';
+import { cachedFactoryFlow, computeFactoryFlow, type FactoryFlow } from './flow.ts';
+import { pipeHeads } from './headLift.ts';
 import { buildingFootprint, buildingHeight, type FootprintPart } from './geometry.ts';
 import { linkPath, verticalSections } from './linkPath.ts';
 import {
@@ -23,6 +24,7 @@ import {
   FAB_OUTSIDE_AREA,
   FAB_OVER_CAPACITY,
   FAB_PIPE_HEAD,
+  FAB_PIPE_HEAD_SHORT,
   FAB_PORTS_UNVERIFIED,
   FAB_SOFT_OVERLAP,
   FAB_TALLER_THAN_FLOOR,
@@ -248,13 +250,13 @@ export function checkFactory(p: Project, gd: GameDataIndex, factoryId: string, o
         );
       }
       const def = gd.building(s.building.type);
-      if (def && buildingHeight(def) + pl.zOffsetM > floor.heightM + 1e-6 && f.floorIds.some((id) => p.floors[id]!.elevationM > floor.elevationM)) {
+      if (def && buildingHeight(def, pl) + pl.zOffsetM > floor.heightM + 1e-6 && f.floorIds.some((id) => p.floors[id]!.elevationM > floor.elevationM)) {
         findings.push(
           makeFinding(
             FAB_TALLER_THAN_FLOOR,
             [ref(s.building)],
             {
-              message: tr('{name} ({h} m) ist höher als „{floor}“ ({fh} m)', { name, h: formatNumber(buildingHeight(def), 1), floor: floor.name, fh: formatNumber(floor.heightM, 1) }),
+              message: tr('{name} ({h} m) ist höher als „{floor}“ ({fh} m)', { name, h: formatNumber(buildingHeight(def, pl), 1), floor: floor.name, fh: formatNumber(floor.heightM, 1) }),
               explanation: tr('Das Gebäude ragt in das darüberliegende Stockwerk.'),
               suggestion: tr('Stockwerkshöhe erhöhen oder die Decke an dieser Stelle aussparen.'),
             },
@@ -432,6 +434,7 @@ export function checkHeights(p: Project, gd: GameDataIndex, factoryId: string): 
   const f = p.factories[factoryId];
   if (!f) return out;
   const floors = f.floorIds.map((id) => p.floors[id]!).filter(Boolean);
+  const heads = pipeHeads(p, gd, factoryId, cachedFactoryFlow(p, gd, factoryId));
   for (const l of Object.values(p.links)) {
     if (l.factoryId !== factoryId) continue;
     const path = linkPath(p, gd, l);
@@ -467,21 +470,36 @@ export function checkHeights(p: Project, gd: GameDataIndex, factoryId: string): 
         }, { location: loc }),
       );
     }
-    if (l.kind === 'pipe') {
-      let rise = 0;
-      let minZ = path[0]!.z;
-      for (const pt of path) {
-        minZ = Math.min(minZ, pt.z);
-        rise = Math.max(rise, pt.z - minZ);
-      }
-      if (rise > 0.5) {
-        out.push(
-          makeFinding(FAB_PIPE_HEAD, [{ table: 'links', id: l.id }], {
-            message: tr('Rohr steigt um {h} m', { h: formatNumber(rise, 1) }),
-            explanation: tr(FAB_PIPE_HEAD.description),
-            suggestion: tr('Förderhöhe im Spiel prüfen und bei Bedarf eine Pipeline-Pumpe einplanen.'),
-          }, { location: loc }),
-        );
+    const head = l.kind === 'pipe' ? heads.get(l.id) : undefined;
+    if (head && !head.gas) {
+      if (head.reachZ !== null) {
+        if (head.maxZ > head.reachZ + 0.05) {
+          const src = head.sourceId ? p.buildings[head.sourceId] : undefined;
+          const srcName = src ? src.label || gd.name(src.type) : '?';
+          out.push(
+            makeFinding(FAB_PIPE_HEAD_SHORT, [{ table: 'links', id: l.id }, ...(src ? [ref(src)] : [])], {
+              message: tr('Förderhöhe reicht nicht: Rohr steigt bis {z} m, möglich sind {reach} m', { z: formatNumber(head.maxZ, 1), reach: formatNumber(head.reachZ, 1) }),
+              explanation: `${tr('{source} hebt Flüssigkeiten {lift} m über den Anschluss.', { source: srcName, lift: formatNumber(head.liftM ?? 0, 0) })} ${tr(FAB_PIPE_HEAD_SHORT.description)}`,
+              suggestion: tr('Eine Pipeline-Pumpe vor dem Anstieg einsetzen (Mk.1: 20 m, Mk.2: 50 m) oder die Leitung tiefer führen.'),
+            }, { location: loc }),
+          );
+        }
+      } else {
+        let rise = 0;
+        let minZ = path[0]!.z;
+        for (const pt of path) {
+          minZ = Math.min(minZ, pt.z);
+          rise = Math.max(rise, pt.z - minZ);
+        }
+        if (rise > 0.5) {
+          out.push(
+            makeFinding(FAB_PIPE_HEAD, [{ table: 'links', id: l.id }], {
+              message: tr('Rohr steigt um {h} m', { h: formatNumber(rise, 1) }),
+              explanation: tr(FAB_PIPE_HEAD.description),
+              suggestion: tr('Förderhöhe im Spiel prüfen und bei Bedarf eine Pipeline-Pumpe einplanen.'),
+            }, { location: loc }),
+          );
+        }
       }
     }
   }

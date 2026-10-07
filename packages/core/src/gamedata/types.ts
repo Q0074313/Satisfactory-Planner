@@ -184,6 +184,21 @@ export interface GdBuilding {
   freightPlatform?: { cargo: 'solid' | 'liquid'; loadTimeS: number; unloadTimeS: number };
 }
 
+/**
+ * Straßenfahrzeug für LKW-Stationen (Traktor, LKW, Tanklaster, Explorer).
+ * Laderaum aus den Docs (`mInventorySize`), Geschwindigkeit und
+ * Tankinhalt aus dem Wiki (kuratierte Fakten).
+ */
+export interface GdVehicle {
+  id: string;
+  name: LocalizedName;
+  /** Laderaum: Inventarplätze (Feststoffe) bzw. m³ (Tank). */
+  cargo: { kind: 'solid'; slots: number } | { kind: 'liquid'; m3: number };
+  /** Höchstgeschwindigkeit auf ebener Strecke (km/h). */
+  maxSpeedKmh: number;
+  sourceRef: SourceRef;
+}
+
 /** Kuratierter Einzelwert mit Quelle (z. B. Zuglängen, Kurvenradien). */
 export interface GdFact {
   value: number;
@@ -198,4 +213,6 @@ export interface GameData {
   recipes: Record<RecipeId, GdRecipe>;
   buildings: Record<BuildingId, GdBuilding>;
   facts: Record<string, GdFact>;
+  /** Straßenfahrzeuge (ab Datensätzen mit Fahrzeugdaten; fehlt in älteren). */
+  vehicles?: Record<string, GdVehicle>;
 }

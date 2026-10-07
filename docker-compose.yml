@@ -5,7 +5,11 @@
 # Optionale Einstellungen in .env (Vorlage: .env.example).
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        # Commit für die Versionsanzeige (setzt update.sh)
+        GIT_COMMIT: ${GIT_COMMIT:-}
     image: satis-planner:latest
     restart: unless-stopped
     environment:

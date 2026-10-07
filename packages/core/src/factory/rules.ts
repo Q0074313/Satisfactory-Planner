@@ -181,6 +181,8 @@ export const FAB_FLOW_ASSUMPTIONS = defineRule({
   sources: [FLOW],
 });
 
+const HEAD_LIFT = { label: 'Satisfactory Wiki – Head lift', url: 'https://satisfactory.wiki.gg/wiki/Head_lift' };
+
 export const FAB_PIPE_HEAD = defineRule({
   id: 'FAB-016',
   title: 'Förderhöhe von Rohren nicht geprüft',
@@ -189,8 +191,20 @@ export const FAB_PIPE_HEAD = defineRule({
   certainty: 'static',
   severity: 'info',
   description:
-    'Ein Rohr steigt an. Wie hoch Flüssigkeiten ohne Pumpe steigen, hängt vom einspeisenden Gebäude ab und steht nicht in den Spieldaten. Pumpen schaffen laut Docs 20 m (Mk.1) bzw. 50 m (Mk.2) Förderhöhe (mDesignPressure).',
-  sources: [{ label: 'Satisfactory Docs: mDesignPressure der Pipeline-Pumpen' }],
+    'Ein Rohr steigt an, und für das einspeisende Gebäude ist keine Förderhöhe bekannt. Das Wiki nennt sie nur für Extraktoren, Raffinerie, Umfüllanlage, Mixer, Flüssigkeits-Frachtplattform, Speicher und Pumpen. Pumpen schaffen laut Docs 20 m (Mk.1) bzw. 50 m (Mk.2) Förderhöhe (mDesignPressure).',
+  sources: [{ label: 'Satisfactory Docs: mDesignPressure der Pipeline-Pumpen' }, HEAD_LIFT],
+});
+
+export const FAB_PIPE_HEAD_SHORT = defineRule({
+  id: 'FAB-019',
+  title: 'Förderhöhe reicht nicht',
+  domain: 'factory',
+  kind: 'game-rule',
+  certainty: 'static',
+  severity: 'warning',
+  description:
+    'Flüssigkeiten steigen nur so hoch, wie die Förderhöhe der Quelle reicht: Extraktoren, Raffinerie, Umfüllanlage, Mixer und Flüssigkeits-Frachtplattform 10 m, Flüssigkeitsspeicher 8 m, Industrieller Flüssigkeitsspeicher 12 m, Pumpe Mk.1 20 m, Mk.2 50 m (empfohlene Werte laut Wiki, tatsächlich etwas mehr). Rohrkreuzungen geben die höchste ankommende Förderhöhe weiter. Gase sind ausgenommen.',
+  sources: [HEAD_LIFT, { label: 'Satisfactory Wiki – Pipeline Pump', url: 'https://satisfactory.wiki.gg/wiki/Pipeline_Pump' }],
 });
 
 export const FAB_LIFT_THROUGH_FLOOR = defineRule({

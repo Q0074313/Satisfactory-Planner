@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { factoryOps as ops, getLanguage, localName, type BuildingCategory, type GdBuilding } from '@satis/core';
 import { N_, t } from '../../i18n';
 import { keyLabel } from '../../state/keymap';
+import { linkToolFor } from '../../state/linkTool';
 import { usePrefs } from '../../state/prefsStore';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore, type Tool } from '../../state/uiStore';
@@ -76,12 +77,7 @@ export function LeftPanel() {
     return [...map.values()];
   }, [project.buildings, factoryId]);
 
-  const linkTool = (kind: 'belt' | 'pipe'): Tool => ({
-    kind: 'link',
-    linkKind: kind,
-    tier: tool.kind === 'link' && tool.linkKind === kind ? tool.tier : ((kind === 'belt' ? gd.beltTiers[0]?.id : gd.pipeTiers[0]?.id) ?? ''),
-    routing: tool.kind === 'link' ? tool.routing : 'direct',
-  });
+  const linkTool = (kind: 'belt' | 'pipe'): Tool => (tool.kind === 'link' && tool.linkKind === kind ? tool : linkToolFor(gd, kind));
   const isActive = (tl: Tool) => tl.kind === tool.kind && (tl.kind !== 'area' || (tool.kind === 'area' && tool.areaKind === tl.areaKind));
 
   return (
@@ -121,20 +117,34 @@ export function LeftPanel() {
         <Section
           title={t('Stockwerke')}
           actions={
-            <button className="small" onClick={() => apply(t('Stockwerk hinzufügen'), (d) => ops.addFloor(d, factoryId))} title={t('Stockwerk oben hinzufügen')}>
-              +
-            </button>
+            <span className="section-actions">
+              <button
+                className="small"
+                onClick={() => apply(t('Stockwerk hinzufügen'), (d) => ops.addFloor(d, factoryId))}
+                title={t('Produktionsebene oben hinzufügen (18 m hoch, 2 m Decke)')}
+              >
+                + {t('Ebene')}
+              </button>
+              <button
+                className="small"
+                onClick={() => apply(t('Stockwerk hinzufügen'), (d) => ops.addFloor(d, factoryId, { kind: 'logistics' }))}
+                title={t('Logistikebene oben hinzufügen (6 m hoch, 2 m Decke)')}
+              >
+                + {t('Logistik')}
+              </button>
+            </span>
           }
         >
           <ul className="floor-list" data-tour="floors">
             {[...factory.floorIds].reverse().map((id) => {
               const fl = project.floors[id]!;
+              const m = (v: number) => v.toLocaleString(lang === 'de' ? 'de-DE' : 'en-US', { maximumFractionDigits: 2 });
               return (
-                <li key={id} className={id === floorId ? 'active' : ''} onClick={() => setFloor(id)}>
+                <li key={id} className={id === floorId ? 'active' : ''} onClick={() => setFloor(id)} title={t('Boden bei {a} m, lichte Höhe {h} m', { a: m(fl.elevationM), h: m(fl.heightM) })}>
                   <span>{fl.name}</span>
                   <span className="dim">
                     {fl.kind === 'logistics' ? `${t('Logistik')} · ` : ''}
-                    {fl.elevationM.toLocaleString(lang === 'de' ? 'de-DE' : 'en-US')} m
+                    {m(fl.elevationM)} m – {m(fl.elevationM + fl.heightM)} m
                   </span>
                 </li>
               );

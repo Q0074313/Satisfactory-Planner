@@ -7,6 +7,8 @@
  * Projekt unverändert.
  */
 import type { GameDataIndex } from '../../gamedata/index.ts';
+import { canBeVertical, transferInterface } from '../../factory/geometry.ts';
+import { releaseEndpoints } from './transport.ts';
 import { findPort, orientPorts, portDefs } from '../../factory/ports.ts';
 import { rotate, type Vec2 } from '../../geometry/index.ts';
 import { tr } from '../../i18n/index.ts';
@@ -18,6 +20,7 @@ import type {
   BuildingGroup,
   Extraction,
   Floor,
+  FloorKind,
   LinkKind,
   LinkRouting,
   LogisticsLink,
@@ -67,6 +70,11 @@ export function removeFactory(p: Project, id: string): void {
   delete p.factories[id];
 }
 
+/** Standardhöhe (lichte Höhe) einer neuen Ebene je Art. */
+export const DEFAULT_FLOOR_HEIGHT_M: Record<FloorKind, number> = { production: 18, logistics: 6, other: 18 };
+/** Deckenstärke zwischen zwei Ebenen (Standard beim Anlegen). */
+export const FLOOR_SLAB_M = 2;
+
 export function addFloor(
   p: Project,
   factoryId: string,
@@ -75,13 +83,15 @@ export function addFloor(
   const f = must(p.factories[factoryId], tr('Fabrik'));
   const floors = f.floorIds.map((id) => p.floors[id]!).filter(Boolean);
   const top = floors.reduce<Floor | undefined>((acc, fl) => (!acc || fl.elevationM > acc.elevationM ? fl : acc), undefined);
+  const kind = init.kind ?? 'production';
   const floor: Floor = {
     id: newId('floor'),
     factoryId,
-    name: init.name ?? tr('Ebene {n}', { n: floors.length + 1 }),
-    kind: init.kind ?? 'production',
-    elevationM: init.elevationM ?? (top ? top.elevationM + top.heightM : 0),
-    heightM: init.heightM ?? 12,
+    name: init.name ?? (kind === 'logistics' ? tr('Logistikebene {n}', { n: floors.length + 1 }) : tr('Ebene {n}', { n: floors.length + 1 })),
+    kind,
+    // Neue Ebene über der obersten, getrennt durch die Decke
+    elevationM: init.elevationM ?? (top ? top.elevationM + top.heightM + FLOOR_SLAB_M : 0),
+    heightM: init.heightM ?? DEFAULT_FLOOR_HEIGHT_M[kind],
   };
   p.floors[floor.id] = floor;
   f.floorIds.push(floor.id);
@@ -233,7 +243,7 @@ function checkExtraction(gd: GameDataIndex, type: string, ex: Extraction): void 
 }
 
 function checkTransfer(p: Project, gd: GameDataIndex, type: string, t: Transfer): void {
-  if (!gd.building(type)?.freightPlatform) throw new OpError(tr('Be- und Entladen ist nur an Frachtplattformen möglich.'));
+  if (!transferInterface(gd.building(type))) throw new OpError(tr('Be- und Entladen ist nur an Frachtplattformen und Lkw-Stationen möglich.'));
   if (t.stationId && !p.stations[t.stationId]) throw new OpError(tr('{what} nicht gefunden.', { what: tr('Bahnhof') }));
 }
 
@@ -251,7 +261,7 @@ export function addBuilding(p: Project, gd: GameDataIndex, nb: NewBuilding): str
     placement: nb.placement ? { ...nb.placement } : null,
     groupInstance: null,
     extraction: nb.extraction ?? defaultExtraction(gd, nb.type),
-    transfer: nb.transfer ?? (def.freightPlatform ? { mode: 'unload', stationId: null } : null),
+    transfer: nb.transfer ?? (transferInterface(def) ? { mode: 'unload', stationId: null } : null),
     notes: '',
   };
   p.buildings[b.id] = b;
@@ -298,7 +308,7 @@ export function updateBuildings(p: Project, gd: GameDataIndex, ids: string[], pa
     if (!def?.clock) b.clock = 1;
     if ((def?.somersloopSlots ?? 0) < b.somersloops) b.somersloops = 0;
     if (!def?.extractor) b.extraction = null;
-    if (!def?.freightPlatform) b.transfer = null;
+    if (!transferInterface(def)) b.transfer = null;
   }
 }
 
@@ -358,9 +368,28 @@ export function rotateBuildings(p: Project, ids: string[], deltaDeg: number, piv
   }
 }
 
+/**
+ * Einbaulage von Pipeline-Pumpen: waagrecht (`null`) oder senkrecht mit
+ * Förderrichtung nach oben bzw. unten. Andere Gebäude bleiben unverändert.
+ * Liefert die Zahl der geänderten Gebäude.
+ */
+export function setVertical(p: Project, gd: GameDataIndex, ids: string[], vertical: 'up' | 'down' | null): number {
+  let n = 0;
+  for (const id of ids) {
+    const b = must(p.buildings[id], tr('Gebäude'));
+    const def = gd.building(b.type);
+    if (!b.placement || !def || !canBeVertical(def)) continue;
+    if (vertical) b.placement.vertical = vertical;
+    else delete b.placement.vertical;
+    n++;
+  }
+  return n;
+}
+
 /** Hebt die Platzierung auf: Maschine bleibt geplant, Verbindungen werden entfernt. */
 export function unplaceBuildings(p: Project, ids: string[]): void {
   const set = new Set(ids);
+  releaseEndpoints(p, ids);
   for (const id of ids) {
     const b = must(p.buildings[id], tr('Gebäude'));
     b.placement = null;
@@ -370,6 +399,7 @@ export function unplaceBuildings(p: Project, ids: string[]): void {
 
 export function removeBuildings(p: Project, ids: string[]): void {
   const set = new Set(ids);
+  releaseEndpoints(p, ids);
   for (const id of ids) {
     must(p.buildings[id], tr('Gebäude'));
     delete p.buildings[id];
@@ -557,6 +587,7 @@ function groupFromBuildings(p: Project, members: Building[], origin: { x: number
         y: l.y,
         zOffsetM: b.placement!.zOffsetM + (floorIds.size > 1 ? fl.elevationM - baseFloor.elevationM : 0),
         rotationDeg: (((b.placement!.rotationDeg - origin.rotationDeg) % 360) + 360) % 360,
+        ...(b.placement!.vertical ? { vertical: b.placement!.vertical } : {}),
         extraction: b.extraction ? { ...b.extraction } : null,
       };
     }),
@@ -629,10 +660,11 @@ export function instantiateGroup(
         y: at.y + r.y,
         zOffsetM: m.zOffsetM,
         rotationDeg: (((m.rotationDeg + at.rotationDeg) % 360) + 360) % 360,
+        ...(m.vertical ? { vertical: m.vertical } : {}),
       },
       groupInstance: { groupId, instanceId, memberKey: m.key },
       extraction: m.extraction ? { ...m.extraction } : null,
-      transfer: def.freightPlatform ? { mode: 'unload', stationId: null } : null,
+      transfer: transferInterface(def) ? { mode: 'unload', stationId: null } : null,
       notes: '',
     };
     ids.set(m.key, id);

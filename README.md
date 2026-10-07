@@ -165,7 +165,10 @@ Alle Kürzel lassen sich unter ⚙ → Tastenkürzel ändern. Standardbelegung:
 | Taste | Funktion |
 |---|---|
 | V / M / A / B / P | Auswahl / Messen / Baufläche / Förderband / Rohr |
-| N | Verlegemodus Normal → Gerade → Kurve (beim Zeichnen oder für gewählte Leitungen) |
+| B bzw. P erneut | Verlegemodus Normal → Gerade → Kurve (bei aktivem Förderband- bzw. Rohrwerkzeug) |
+| N | Stufe Mk.1 → … → Mk.6 (Bänder) bzw. Mk.1 ↔ Mk.2 (Rohre), beim Zeichnen oder für gewählte Leitungen; Stufe und Verlegemodus bleiben für die nächste Benutzung gespeichert |
+| Umschalt+N | Verlegemodus gewählter Leitungen |
+| O | Pipeline-Pumpe waagrecht → senkrecht ▲ → senkrecht ▼ (beim Setzen und für gewählte Pumpen, auch in der Seitenansicht) |
 | R, Umschalt+R | drehen |
 | Strg+C / Strg+V / Strg+D | kopieren / einfügen / duplizieren |
 | Strg+A | alles auf dem Stockwerk auswählen |

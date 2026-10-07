@@ -7,7 +7,7 @@
  * anderen (A → B = „vorwärts“ entlang der Knotenachse).
  */
 import type { NodeSide, Project, RailNetwork, RailSegment, RailSignal, Station, Train } from '../model/schema.ts';
-import { CROSSING_HEIGHT_TOLERANCE_M, findCrossings, otherSide, segmentLength, segmentShape, type Crossing } from './geometry.ts';
+import { CROSSING_HEIGHT_TOLERANCE_M, findCrossings, otherSide, outward, pointOnSegment, segmentLength, segmentShape, type Crossing } from './geometry.ts';
 
 export type Dir = 'ab' | 'ba';
 export interface SegEnd {
@@ -30,6 +30,8 @@ export interface RailGraph {
   stations: Station[];
   trains: Train[];
   lengths: Map<string, number>;
+  /** Rang der Abzweige an Weichen (links = 0), siehe {@link routeFromStates}. */
+  branchRank?: Map<string, number>;
 }
 
 export function buildGraph(p: Project, networkId: string): RailGraph {
@@ -51,7 +53,7 @@ export function buildGraph(p: Project, networkId: string): RailGraph {
     if (sig.networkId !== networkId) continue;
     signals.set(sig.nodeId, [...(signals.get(sig.nodeId) ?? []), sig]);
   }
-  return {
+  const g: RailGraph = {
     network,
     segments,
     sides,
@@ -60,6 +62,8 @@ export function buildGraph(p: Project, networkId: string): RailGraph {
     trains: Object.values(p.trains).filter((t) => t.networkId === networkId),
     lengths,
   };
+  g.branchRank = branchRanks(p, g);
+  return g;
 }
 
 /** Knoten, an dem ein Zug im Zustand `s` ankommt, und die Ankunftsseite. */
@@ -304,34 +308,35 @@ export interface WeightedRoute {
 }
 
 class MinHeap<T> {
-  private a: { k: number; v: T }[] = [];
+  private a: T[] = [];
+  constructor(private readonly less: (x: T, y: T) => boolean) {}
   get size() {
     return this.a.length;
   }
-  push(k: number, v: T) {
+  push(v: T) {
     const a = this.a;
-    a.push({ k, v });
+    a.push(v);
     let i = a.length - 1;
     while (i > 0) {
       const p = (i - 1) >> 1;
-      if (a[p]!.k <= a[i]!.k) break;
+      if (!this.less(a[i]!, a[p]!)) break;
       [a[p], a[i]] = [a[i]!, a[p]!];
       i = p;
     }
   }
-  pop(): { k: number; v: T } | undefined {
+  pop(): T | undefined {
     const a = this.a;
     const top = a[0];
     const last = a.pop();
-    if (a.length && last) {
+    if (a.length && last !== undefined) {
       a[0] = last;
       let i = 0;
       for (;;) {
         const l = 2 * i + 1;
         const r = l + 1;
         let m = i;
-        if (l < a.length && a[l]!.k < a[m]!.k) m = l;
-        if (r < a.length && a[r]!.k < a[m]!.k) m = r;
+        if (l < a.length && this.less(a[l]!, a[m]!)) m = l;
+        if (r < a.length && this.less(a[r]!, a[m]!)) m = r;
         if (m === i) break;
         [a[m], a[i]] = [a[i]!, a[m]!];
         i = m;
@@ -342,45 +347,128 @@ class MinHeap<T> {
 }
 
 /**
+ * Längen gelten unterhalb dieser Differenz als gleich. Die Bogenlängen sind
+ * Näherungen (Polylinie), geplante gleich lange Wege weichen um Millimeter ab.
+ */
+const LENGTH_EPS_M = 0.05;
+
+/**
+ * Wegkosten wie im Spiel (Wiki „Electric Locomotive – Pathfinding“):
+ * 1. kürzeste Länge (+100 m je durchfahrenem Bahnhof in Fahrtrichtung, der
+ *    nicht im Fahrplan steht),
+ * 2. bei gleicher Länge weniger Gleisteile; führt der Weg durch einen solchen
+ *    Bahnhof, zählen seine Gleisteile als 0,
+ * 3. danach entscheidet die Weiche: links vor Mitte vor rechts.
+ */
+interface RouteLabel {
+  state: TrackState;
+  passed: boolean;
+  len: number;
+  parts: number;
+  /** Rang je Weichenentscheidung (0 = ganz links). */
+  choices: number[];
+  prev: RouteLabel | null;
+}
+
+const effParts = (l: RouteLabel) => (l.passed ? 0 : l.parts);
+
+function labelLess(x: RouteLabel, y: RouteLabel): boolean {
+  if (Math.abs(x.len - y.len) > LENGTH_EPS_M) return x.len < y.len;
+  if (effParts(x) !== effParts(y)) return effParts(x) < effParts(y);
+  const n = Math.min(x.choices.length, y.choices.length);
+  for (let i = 0; i < n; i++) if (x.choices[i] !== y.choices[i]) return x.choices[i]! < y.choices[i]!;
+  return x.choices.length < y.choices.length;
+}
+
+/**
+ * Rang der Abzweige an einer Weiche von links nach rechts in Fahrtrichtung.
+ * Schlüssel: `Knoten|Seite|Segment` (Seite, über die das Segment den Knoten verlässt).
+ */
+function branchRanks(p: Project, g: RailGraph): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const [nodeId, sides] of g.sides) {
+    const node = p.railNodes[nodeId];
+    if (!node) continue;
+    for (const side of ['A', 'B'] as const) {
+      const list = sides[side];
+      if (list.length < 2) continue;
+      const d = outward(node, side);
+      // Rechts der Fahrtrichtung (y nach unten): Drehung um +90°
+      const right = { x: -d.y, y: d.x };
+      const lateral = list.map((e) => {
+        const seg = g.segments.get(e.segId)!;
+        const shape = segmentShape(p, seg);
+        if (!shape) return { e, v: 0 };
+        const q = pointOnSegment(shape, 0.5);
+        return { e, v: (q.x - node.position.x) * right.x + (q.y - node.position.y) * right.y };
+      });
+      lateral.sort((a, b) => a.v - b.v);
+      lateral.forEach((x, i) => out.set(`${nodeId}|${side}|${x.e.segId}`, i));
+    }
+  }
+  return out;
+}
+
+export interface RouteOptions {
+  /** Aufschlag je durchfahrenem Bahnhof in Fahrtrichtung (Wiki: 100 m). */
+  passThroughPenaltyM?: number;
+  /** Bahnhöfe des Fahrplans: Durchfahrt ohne Aufschlag. */
+  scheduledStationIds?: Set<string>;
+}
+
+/**
  * Kürzester Weg von einem oder mehreren Startzuständen bis zum Zielbahnhof
  * (Einfahrt in Halterichtung). Die Länge des Startsegments zählt nicht mit.
+ * Wegwahl wie im Spiel, siehe {@link RouteLabel}.
  */
 export function routeFromStates(
   g: RailGraph,
   starts: TrackState[],
   goal: Station,
-  passThroughPenaltyM = 100,
+  opts: RouteOptions = {},
 ): { states: TrackState[]; lengthM: number; start: TrackState } | null {
-  const stationSegs = new Set(g.stations.map((s) => s.segmentId));
-  const dist = new Map<string, number>();
-  const prev = new Map<string, TrackState | null>();
-  const heap = new MinHeap<TrackState>();
+  const penalty = opts.passThroughPenaltyM ?? 100;
+  const stationOfSeg = new Map(g.stations.map((s) => [s.segmentId, s.id]));
+  const best = new Map<string, RouteLabel>();
+  const heap = new MinHeap<RouteLabel>(labelLess);
+  const keyOf = (l: Pick<RouteLabel, 'state' | 'passed'>) => `${stateKey(l.state)}|${l.passed ? 1 : 0}`;
   for (const s of starts) {
-    dist.set(stateKey(s), 0);
-    prev.set(stateKey(s), null);
-    heap.push(0, s);
+    const l: RouteLabel = { state: s, passed: false, len: 0, parts: 0, choices: [], prev: null };
+    best.set(keyOf(l), l);
+    heap.push(l);
   }
   while (heap.size) {
-    const { k, v: cur } = heap.pop()!;
-    if (k > (dist.get(stateKey(cur)) ?? Infinity)) continue;
-    if (cur.segId === goal.segmentId && cur.dir === 'ab' && prev.get(stateKey(cur)) !== null) {
+    const cur = heap.pop()!;
+    if (best.get(keyOf(cur)) !== cur) continue;
+    if (cur.state.segId === goal.segmentId && cur.state.dir === 'ab' && cur.prev) {
       const states: TrackState[] = [];
-      let c: TrackState | null = cur;
-      while (c && prev.get(stateKey(c)) !== null) {
-        states.unshift(c);
-        c = prev.get(stateKey(c)) ?? null;
+      let c: RouteLabel | null = cur;
+      while (c?.prev) {
+        states.unshift(c.state);
+        c = c.prev;
       }
-      return { states, lengthM: k, start: c! };
+      return { states, lengthM: cur.len, start: c!.state };
     }
-    for (const nx of nextStates(g, cur)) {
-      const len = g.lengths.get(nx.segId) ?? 0;
-      const extra = stationSegs.has(nx.segId) && nx.segId !== goal.segmentId ? passThroughPenaltyM : 0;
-      const nd = k + len + extra;
-      const key = stateKey(nx);
-      if (nd < (dist.get(key) ?? Infinity)) {
-        dist.set(key, nd);
-        prev.set(key, cur);
-        heap.push(nd, nx);
+    const next = nextStates(g, cur.state);
+    const arr = next.length > 1 ? arrival(g, cur.state) : null;
+    for (const nx of next) {
+      const stationId = stationOfSeg.get(nx.segId);
+      const passing = !!stationId && nx.segId !== goal.segmentId && !opts.scheduledStationIds?.has(stationId);
+      const facing = passing && nx.dir === 'ab';
+      const choices = arr ? [...cur.choices, g.branchRank?.get(`${arr.nodeId}|${otherSide(arr.side)}|${nx.segId}`) ?? 0] : cur.choices;
+      const l: RouteLabel = {
+        state: nx,
+        passed: cur.passed || passing,
+        len: cur.len + (g.lengths.get(nx.segId) ?? 0) + (facing ? penalty : 0),
+        parts: cur.parts + 1,
+        choices,
+        prev: cur,
+      };
+      const k = keyOf(l);
+      const old = best.get(k);
+      if (!old || labelLess(l, old)) {
+        best.set(k, l);
+        heap.push(l);
       }
     }
   }
@@ -389,21 +477,22 @@ export function routeFromStates(
 
 /**
  * Kürzester Weg zwischen zwei Bahnhöfen nach Länge. Durchfahrene Bahnhöfe
- * kosten wie im Spiel einen Aufschlag (Wiki: 100 m). Signale werden wie in
+ * kosten wie im Spiel einen Aufschlag (Wiki: 100 m), Gleichstände wie in
+ * {@link routeFromStates}. Signale werden wie in
  * {@link findRoute} beachtet. Zweirichtungszüge fahren nur dann rückwärts ab,
  * wenn vorwärts kein Weg existiert (Wiki „Train Station“).
  */
 export function shortestRoute(
   p: Project,
   g: RailGraph,
-  q: { fromStationId: string; toStationId: string; bidirectional: boolean; passThroughPenaltyM?: number },
+  q: { fromStationId: string; toStationId: string; bidirectional: boolean } & RouteOptions,
 ): WeightedRoute | null {
   const from = p.stations[q.fromStationId];
   const to = p.stations[q.toStationId];
   if (!from || !to) return null;
-  const fwd = routeFromStates(g, [{ segId: from.segmentId, dir: 'ab' }], to, q.passThroughPenaltyM);
+  const fwd = routeFromStates(g, [{ segId: from.segmentId, dir: 'ab' }], to, q);
   if (fwd) return { states: fwd.states, lengthM: fwd.lengthM, reversedStart: false };
   if (!q.bidirectional) return null;
-  const rev = routeFromStates(g, [{ segId: from.segmentId, dir: 'ba' }], to, q.passThroughPenaltyM);
+  const rev = routeFromStates(g, [{ segId: from.segmentId, dir: 'ba' }], to, q);
   return rev ? { states: rev.states, lengthM: rev.lengthM, reversedStart: true } : null;
 }
