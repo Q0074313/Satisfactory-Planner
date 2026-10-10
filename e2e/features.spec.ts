@@ -88,8 +88,9 @@ test('Signal auf freiem Gleis teilt das Segment; Richtung nach Klickseite', asyn
   await page.getByRole('button', { name: 'Schienennetz' }).click();
   await page.locator('[data-tour="add-network"]').click();
   await page.keyboard.press('g');
-  await railClick(page, -60, 0);
-  await railClick(page, 60, 0);
+  // 90 m (Gleisstücke höchstens 100 m)
+  await railClick(page, -45, 0);
+  await railClick(page, 45, 0);
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   expect(await state<number>(page, '(p) => Object.keys(p.railSegments).length')).toBe(1);

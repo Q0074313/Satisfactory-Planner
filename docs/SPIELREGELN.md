@@ -27,6 +27,10 @@ Kennzeichnung der Verlässlichkeit:
 | Weltweite Rohstoffmaxima | z. B. Eisenerz 92.100/min | Wiki „Resource node“ (Standardgewichtung im Solver) |
 | Förderrate Gewinnung | Menge je Zyklus · 60 / Zykluszeit · Takt · Reinheit (Miner Mk.1/2/3 normal: 60/120/240 /min; Wasser- und Ölextraktor 120 m³/min; Quellenextraktor 60 m³/min) | Spieldaten (`mItemsPerCycle`, `mExtractCycleTime`, Flüssigkeiten Liter → m³), Reinheit Wiki |
 | Maschine bei vollem Ausgang | hält an, auch wenn nur ein Nebenprodukt nicht abfließt | Spielverhalten (nicht aus den Docs belegt) – Grundlage von FAB-013 |
+| Kraftwerke (Brennstoff) | Brennstoff/min = Leistung · 60 / Energiewert (Flüssigkeiten je m³ = Docs-Wert je Liter · 1000); Wasser m³/min = Leistung · `mSupplementalToPowerRatio` · 60 / 1000; Nebenprodukt = Brennstoff/min · `mByproductAmount` (z. B. Kohle 75 MW: 15 Kohle + 45 m³ Wasser; Uranbrennstab 2500 MW: 0,2 Stäbe + 240 m³ Wasser → 10 Atommüll) | Spieldaten (`mFuel`, `mPowerProduction`, `mSupplementalToPowerRatio`, `mEnergyValue`); im Datensatz als abgeleitete Rezepte `Power_<Kraftwerk>_<Brennstoff>` |
+| Kraftwerke bei Takt | Leistung und Brennstoffverbrauch linear zum Takt | Wiki „Clock speed“ („Generators … Over- and Underclock completely linear“) |
+| Kraftwerke im Produktionsplan | Kraftwerk, Brennstoff und Anzahl werden vorgegeben (bei 100 % Takt); der Solver plant Brennstoff und Wasser wie jede Zulieferung. Der Strombedarf der Maschinen wird nicht gegengerechnet. Reicht begrenzter Brennstoff nicht, erscheint ein Engpass statt „unlösbar“. Erdwärme nicht (braucht Geysir-Vorkommen, mit der Karte in 0.6) | abgeleitet |
+| Alternativrezepte vorschlagen | Lösung mit allen Alternativen; jede dort genutzte, noch nicht freigeschaltete Alternative einzeln nachgerechnet; dazu eine Kombination aus höchstens 4 Rezepten, schrittweise aus den besten Ergänzungen. Maß: gewichteter Rohstoffbedarf (wie im Solver) bzw. Skalierung beim Maximieren; Vorschlag ab 0,5 % Verbesserung | abgeleitet |
 
 ## 2. Logistik
 
@@ -110,8 +114,9 @@ Spalten: **Art** (Spielregel / Empfehlung / nicht geprüft), **Gewissheit** (sta
 | FAB-017 | Senkrechte Leitung durchquert ein Stockwerk | Empfehlung | statisch | Hinweis | eigene Vorgabe |
 | FAB-018 | Höhenwechsel ohne senkrechten Abschnitt | nicht geprüft | statisch | Hinweis | Einschränkung des Planers |
 | FAB-019 | Förderhöhe reicht nicht | Spielregel | statisch | Warnung | Wiki „Head lift“, „Pipeline Pump“ |
+| FAB-020 | Überschuss im AWESOME-Schredder (zählt als Überschuss, nicht als Fehler) | Empfehlung | statisch | Hinweis | eigene Vorgabe, Durchsatzmodell |
 
-**Durchsatzmodell (Etappe 5):** lineares Programm je Fabrik über die eingezeichneten Verbindungen. Maschinen laufen mit einer Auslastung 0…1; Zutaten fließen im Rezeptverhältnis zu; jeder Ausgang muss vollständig abfließen; Splitter, Zusammenführungen, Rohrkreuzungen, Pumpen, Ventile und Lager mit Abgang erhalten die Menge je Gegenstand. Es wird einmal ohne und einmal mit Kapazitätsgrenzen gerechnet. **Annahmen:** bestmögliche Verteilung an Splittern (im Spiel gleichmäßig mit Überlauf), keine Filter, Rohrfluss in Zeichenrichtung, keine Förderhöhe, Kraftwerksverbrauch nicht modelliert, Zuordnung der Produkte zu Ausgängen in Rezeptreihenfolge.
+**Durchsatzmodell (Etappe 5):** lineares Programm je Fabrik über die eingezeichneten Verbindungen. Maschinen laufen mit einer Auslastung 0…1; Zutaten fließen im Rezeptverhältnis zu; jeder Ausgang muss vollständig abfließen; Splitter, Zusammenführungen, Rohrkreuzungen, Pumpen, Ventile und Lager mit Abgang erhalten die Menge je Gegenstand. Es wird einmal ohne und einmal mit Kapazitätsgrenzen gerechnet. **Annahmen:** bestmögliche Verteilung an Splittern (im Spiel gleichmäßig mit Überlauf), keine Filter, Rohrfluss in Zeichenrichtung, keine Förderhöhe, Kraftwerke ohne Brennstoffwahl ohne modellierten Verbrauch (mit Brennstoffwahl wie Maschinen), Zuordnung der Produkte zu Ausgängen in Rezeptreihenfolge.
 
 ### Schiene (Etappe 3)
 
@@ -137,6 +142,7 @@ Spalten: **Art** (Spielregel / Empfehlung / nicht geprüft), **Gewissheit** (sta
 | RAIL-023 | Zweirichtungszug in Netz mit Wendemöglichkeit | Empfehlung | möglich | Warnung | 11 |
 | RAIL-024 | Deadlocks statisch nicht ausschließbar | nicht geprüft | möglich | Hinweis | Einschränkung |
 | RAIL-025 | Zu wenige Loks für Steigung und Zuglast (voll beladen, steilste Steigung der Fahrwege) | Empfehlung | möglich | Warnung | 15 |
+| RAIL-026 | Viele Pfadsignale hintereinander (ab 3 Pfadblöcken auf dem Fahrweg eines Zuges) | Empfehlung | möglich | Warnung | 5, 7 |
 
 Die Regeln RAIL-020 bis RAIL-024 werden ausdrücklich als **mögliche** Probleme ausgewiesen. Sie sind kein Nachweis eines Fehlers.
 
@@ -163,7 +169,7 @@ Konstante Durchschnittsgeschwindigkeit (Annahme, einstellbar), Blocksignal: Einf
 
 Schätzung: Kapazität je Umlauf = Wagen × 32 Stapel × Stapelgröße (Feststoffe) bzw. Wagen × 2400 m³; Umlaufzeit = Summe der kürzesten Wege des Fahrplans / Ø-Geschwindigkeit + je Halt Umschlag (27,08 s) + Wartezeit. Gemessene Umlaufzeiten aus der Simulation oder ein manueller Wert ersetzen die Schätzung.
 
-**Transportmittel:** Jeder Auftrag fährt per Zug, Fahrzeug oder direkter Leitung. TRN-001 bis TRN-010 gelten für Zugaufträge.
+**Transportmittel:** Jeder Auftrag fährt per Zug, Fahrzeug, Drohne oder direkter Leitung. TRN-001 bis TRN-010 gelten für Zugaufträge.
 
 | Mechanik | Wert | Quelle |
 |---|---|---|
@@ -172,6 +178,10 @@ Schätzung: Kapazität je Umlauf = Wagen × 32 Stapel × Stapelgröße (Feststof
 | Andocken an Lkw-/Tanklaster-Station | 8 s je Fahrzeug | Wiki „Truck Station“ |
 | Fahrzeugschätzung | Laderaum × Anzahl je Umlauf; Umlauf = 2 × Strecke / Geschwindigkeit + 2 × 8 s; ohne eigene Angabe Höchstgeschwindigkeit (optimistisch) | abgeleitet |
 | Direkte Leitung | Kapazität = Stufe × Anzahl paralleler Leitungen; im Durchsatzmodell als Zu- bzw. Abfluss am gewählten Anschluss | Spieldaten (Band-/Rohrstufen) |
+| Drohne: Laderaum | 9 Stapel, nur Feststoffe | Spieldaten (`Desc_DroneTransport_C.mInventorySize`) |
+| Drohne: Geschwindigkeit | Batterie 75, abgefüllter Treibstoff 50, Turbotreibstoff 60, Raketentreibstoff 75, ionisierter Treibstoff 100, Uranbrennstab 90, Plutoniumbrennstab 100 m/s (ungefähr) | Wiki „Drone“ (Fuel table) |
+| Drohne: Start und Landung | je 51 s; Umlauf = 2 × (Entfernung / Geschwindigkeit + 2 × 51 s) | Wiki „Drone“ („102 seconds to move items“ zwischen benachbarten Häfen) |
+| Drohne: Brennstoff | je Umlauf (24 000 MJ + 6 MJ/m × Entfernung) / Energiewert; mit Batterien 4 + 1 je km. Ob die Entfernung einfach oder doppelt zählt, ist nicht belegt – **Annahme: einfach**. Brennstoff wird am Heimathafen genommen (hier: Absender) | Spieldaten (`mTripPowerCost`, `mTripPowerPerMeterCost`), Wiki „Drone“ (Patch 0.4.0.11) |
 
 | ID | Titel | Art | Gewissheit | Schwere | Quelle |
 |---|---|---|---|---|---|
@@ -179,9 +189,11 @@ Schätzung: Kapazität je Umlauf = Wagen × 32 Stapel × Stapelgröße (Feststof
 | TRN-012 | Fahrzeugauftrag ohne Fahrzeug | Empfehlung | statisch | Warnung | Planungskonsistenz |
 | TRN-013 | Geschätzte Fahrzeugkapazität reicht nicht | Empfehlung | möglich | Warnung | Spieldaten, Wiki „Truck Station“ |
 | TRN-014 | Leitungen zwischen den Fabriken zu klein | Spielregel | statisch | Warnung | Spieldaten |
-| TRN-015 | Keine Übergabe im Grundriss (Lkw-Station bzw. Übergabeanschluss) | Empfehlung | statisch | Hinweis | Planungskonsistenz |
+| TRN-015 | Keine Übergabe im Grundriss (Lkw-Station, Drohnenhafen bzw. Übergabeanschluss) | Empfehlung | statisch | Hinweis | Planungskonsistenz |
+| TRN-016 | Geschätzte Drohnenkapazität reicht nicht | Empfehlung | möglich | Warnung | Spieldaten, Wiki „Drone“ |
+| TRN-017 | Brennstoff für Drohnen fehlt beim Absender | Empfehlung | statisch | Warnung | Spieldaten, Wiki „Drone“ |
 
-*Nicht berechnet:* Treibstoffverbrauch der Fahrzeuge, Förderhöhe von Rohren zwischen Fabriken, Fahrwege der Fahrzeuge (die Strecke wird angegeben).
+*Nicht berechnet:* Treibstoffverbrauch der Fahrzeuge (Drohnen schon), gleichzeitiger Rücktransport einer Drohne (ein Hafen ist im Planer entweder beladend oder entladend), Förderhöhe von Rohren zwischen Fabriken, Fahrwege der Fahrzeuge (die Strecke wird angegeben).
 
 ### Produktion (umgesetzt)
 

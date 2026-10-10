@@ -8,8 +8,8 @@ import { placedPortDefs } from '../../factory/ports.ts';
 import type { PortRef, Project, TransportMode, TransportOrder } from '../../model/schema.ts';
 import { OpError } from '../errors.ts';
 
-export type OrderInit = Omit<TransportOrder, 'id' | 'mode' | 'vehicle' | 'direct'> &
-  Partial<Pick<TransportOrder, 'mode' | 'vehicle' | 'direct'>> & { id?: string };
+export type OrderInit = Omit<TransportOrder, 'id' | 'mode' | 'vehicle' | 'drone' | 'direct'> &
+  Partial<Pick<TransportOrder, 'mode' | 'vehicle' | 'drone' | 'direct'>> & { id?: string };
 export type OrderPatch = Partial<Omit<TransportOrder, 'id'>>;
 
 /** Prüft einen Übergabeanschluss einer direkten Leitung. */
@@ -25,17 +25,26 @@ function checkEndpoint(p: Project, gd: GameDataIndex, ref: PortRef, factoryId: s
 }
 
 /** Standardangaben je Transportmittel (beim Wechsel des Transportmittels). */
-export function defaultsFor(gd: GameDataIndex, mode: TransportMode, itemId: string): Pick<TransportOrder, 'vehicle' | 'direct'> {
+export function defaultsFor(gd: GameDataIndex, mode: TransportMode, itemId: string): Pick<TransportOrder, 'vehicle' | 'drone' | 'direct'> {
   const solid = gd.item(itemId)?.form === 'solid';
   if (mode === 'vehicle') {
     const v = gd.vehicles.filter((x) => (x.cargo.kind === 'solid') === solid).at(-1) ?? gd.vehicles[0];
-    return { vehicle: { type: v?.id ?? '', count: 1, distanceM: 1000, speedKmh: null }, direct: null };
+    return { vehicle: { type: v?.id ?? '', count: 1, distanceM: 1000, speedKmh: null }, drone: null, direct: null };
   }
+  if (mode === 'drone') return { vehicle: null, drone: { count: 1, distanceM: 1000, fuelId: 'Desc_Battery_C' }, direct: null };
   if (mode === 'belt' || mode === 'pipe') {
     const tiers = mode === 'belt' ? gd.beltTiers : gd.pipeTiers;
-    return { vehicle: null, direct: { tier: tiers[0]?.id ?? '', lines: 1, lengthM: 0, from: null, to: null } };
+    return { vehicle: null, drone: null, direct: { tier: tiers[0]?.id ?? '', lines: 1, lengthM: 0, from: null, to: null } };
   }
-  return { vehicle: null, direct: null };
+  return { vehicle: null, drone: null, direct: null };
+}
+
+/** Brennstoffe für Drohnen (mit belegter Geschwindigkeit). */
+export function droneFuels(gd: GameDataIndex): string[] {
+  return Object.keys(gd.data.facts)
+    .filter((k) => k.startsWith('drone.speedMps.'))
+    .map((k) => k.slice('drone.speedMps.'.length))
+    .filter((id) => gd.item(id));
 }
 
 function validate(p: Project, gd: GameDataIndex, o: Omit<TransportOrder, 'id'>): void {
@@ -52,6 +61,12 @@ function validate(p: Project, gd: GameDataIndex, o: Omit<TransportOrder, 'id'>):
     if (!gd.vehicle(o.vehicle.type)) throw new OpError(tr('{what} nicht gefunden.', { what: tr('Fahrzeug') }));
     if (!(o.vehicle.count >= 0) || !Number.isInteger(o.vehicle.count)) throw new OpError(tr('Die Anzahl muss eine ganze Zahl ab 0 sein.'));
     if (!(o.vehicle.distanceM >= 0)) throw new OpError(tr('Die Strecke darf nicht negativ sein.'));
+  }
+  if (o.mode === 'drone') {
+    if (!o.drone) throw new OpError(tr('Drohnenangaben fehlen.'));
+    if (!droneFuels(gd).includes(o.drone.fuelId)) throw new OpError(tr('Dieser Brennstoff ist für Drohnen nicht zulässig.'));
+    if (!(o.drone.count >= 0) || !Number.isInteger(o.drone.count)) throw new OpError(tr('Die Anzahl muss eine ganze Zahl ab 0 sein.'));
+    if (!(o.drone.distanceM >= 0)) throw new OpError(tr('Die Strecke darf nicht negativ sein.'));
   }
   if (o.mode === 'belt' || o.mode === 'pipe') {
     const d = o.direct;

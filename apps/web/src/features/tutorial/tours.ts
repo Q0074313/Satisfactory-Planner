@@ -132,18 +132,29 @@ export const TOURS: Tour[] = [
         mode: 'factory',
       },
       {
+        title: N_('Etwas stimmt nicht?'),
+        body: N_(
+          'Läuft etwas nicht, obwohl keine Befunde angezeigt werden, hilft „🩺 Etwas stimmt nicht?“: erst eine erweiterte Prüfung mit allen Hinweisen, dann die geführte Suche („Maschine steht“, „Gegenstand kommt nicht an“), die den Fluss bis zur Ursache zurückverfolgt.',
+        ),
+        detail: N_(
+          'Wähle die Maschine, die nicht läuft, oder den Gegenstand, der fehlt. Der Planer geht dann Schritt für Schritt rückwärts: Kommt genug an? Ist ein Band voll? Läuft die Maschine davor selbst nicht voll – und warum? Ein Klick auf eine Zeile zeigt das Objekt im Grundriss. Am Ende stehen Ursachen, die der Planer nicht prüfen kann, etwa ein falsch angeschlossenes Band im Spiel.',
+        ),
+        target: '[data-testid="diagnose-open"]',
+        mode: 'factory',
+      },
+      {
         title: N_('Speichern, Hilfe, Einstellungen'),
         body: N_(
           'Das Projekt wird automatisch im Browser gespeichert. Export und Import sichern es als JSON-Datei. Über „?“ startest du weitere Führungen, über ⚙ stellst du Sprache, Hell/Dunkel und die Tastenbelegung ein.',
         ),
         detail: N_(
-          'Du musst nie selbst speichern – der Planer sichert jede Änderung nach kurzer Zeit. Arbeitest du mit einem Projekt-Link vom Server, kannst du das Projekt auf jedem Gerät mit diesem Link öffnen. Hebe den Link gut auf (Lesezeichen)! Über „Exportieren“ bekommst du eine Datei als Sicherheitskopie.',
+          'Du musst nie selbst speichern – der Planer sichert jede Änderung nach kurzer Zeit. Arbeitest du mit einem Projekt-Link vom Server, kannst du das Projekt auf jedem Gerät mit diesem Link öffnen. Die Adresszeile zeigt den Link nicht, damit ihn z. B. bei einem Stream niemand abschreiben kann: Kopiere ihn über „🔗 Link“ → „Kopieren“ und hebe ihn gut auf (Lesezeichen)! Für Streams gibt es in den Einstellungen den Streamer-Modus, der den Link auch in der Oberfläche verdeckt. Über „Exportieren“ bekommst du eine Datei als Sicherheitskopie.',
         ),
         target: '[data-tour="topbar-actions"]',
       },
       {
         title: N_('Fertig'),
-        body: N_('Weitere Führungen zu Fabrikgrundriss, Produktion, Schienennetz und Transport findest du jederzeit im Hilfemenü (?) oben rechts oder mit F1.'),
+        body: N_('Weitere Führungen zu Fabrikgrundriss, Produktion, Schienennetz und Transport findest du jederzeit im Hilfemenü (?) oben rechts oder mit F1. Dort kannst du auch ein Beispielprojekt öffnen und selbst ausprobieren.'),
         detail: N_(
           'Tipp für den Anfang: Starte mit der Führung „Produktion“. Rechne dort ein kleines Ziel aus, z. B. 30 Eisenplatten pro Minute, übernimm die Maschinen in die Fabrik und stelle sie danach in der Führung „Fabrikgrundriss“ auf.',
         ),
@@ -199,19 +210,19 @@ export const TOURS: Tour[] = [
       {
         title: N_('Durchsatz'),
         body: N_(
-          'Der Planer berechnet, was über die gezeichneten Bänder fließt und wie weit die Maschinen dadurch laufen. Überlastete Bänder werden rot, die Auslastung steht auf den Gebäuden. Die Bilanz unten vergleicht geplant, platziert und tatsächlich erreicht.',
+          'Der Planer berechnet, was über die gezeichneten Bänder fließt und wie weit die Maschinen dadurch laufen. Überlastete Bänder werden rot, die Auslastung steht auf den Gebäuden. Die Bilanz unten vergleicht geplant, platziert und tatsächlich erreicht. Was in einen AWESOME-Schredder fließt, gilt als abgeführt, zählt aber als Überschuss („davon Schredder“).',
         ),
         detail: N_(
-          'Beispiel: Ein Schmelzofen schafft 30 Eisenbarren pro Minute. Hängt er an einem Mk.1-Band (60 pro Minute), passt alles. Laufen aber vier Öfen auf ein Mk.1-Band, kommen 120 pro Minute zusammen, und das Band wird rot. Dann brauchst du ein schnelleres Band oder ein zweites. Die Prozentzahl auf einer Maschine zeigt, wie viel sie wirklich arbeiten kann.',
+          'Beispiel: Ein Schmelzofen schafft 30 Eisenbarren pro Minute. Hängt er an einem Mk.1-Band (60 pro Minute), passt alles. Laufen aber vier Öfen auf ein Mk.1-Band, kommen 120 pro Minute zusammen, und das Band wird rot. Dann brauchst du ein schnelleres Band oder ein zweites. Die Prozentzahl auf einer Maschine zeigt, wie viel sie wirklich arbeiten kann. Übrig gebliebene Produkte kannst du in einen AWESOME-Schredder leiten: Dann staut sich nichts, und die Bilanz zeigt dir trotzdem, wie viel du übrig hast – vielleicht braucht es eine andere Fabrik.',
         ),
         target: '[data-tour="bottom"]',
         mode: 'factory',
       },
       {
         title: N_('Stockwerke und Seitenansicht'),
-        body: N_('Mit „+ Ebene“ (18 m) bzw. „+ Logistik“ (6 m) legst du Stockwerke an, Bild↑/Bild↓ wechselt sie. Zeichnest du ein Band über Stockwerke, entsteht ein Lift. Die Seitenansicht zeigt alle Ebenen, Gebäudehöhen und Lifte.'),
+        body: N_('Mit „+ Ebene“ (18 m) bzw. „+ Logistik“ (6 m) legst du Stockwerke an, Bild↑/Bild↓ wechselt sie. Zeichnest du ein Band über Stockwerke, entsteht ein Lift. Die Seitenansicht zeigt alle Ebenen, Gebäudehöhen und Lifte. Dort setzt „Pumpe aufs Rohr setzen“ eine Pipeline-Pumpe direkt in ein Rohr.'),
         detail: N_(
-          'Große Fabriken baut man im Spiel oft in mehreren Etagen. Eine Produktionsebene ist hier standardmäßig 18 m hoch, eine Logistikebene für Bänder 6 m, dazwischen liegt eine Decke von 2 m. Die Liste zeigt den Bereich jeder Ebene, z. B. „0 m – 18 m“. Du kannst die Höhen jederzeit rechts ändern. Rohre haben eine begrenzte Förderhöhe: Steigt ein Rohr zu hoch, meldet der Planer, dass du eine Pumpe brauchst.',
+          'Große Fabriken baut man im Spiel oft in mehreren Etagen. Eine Produktionsebene ist hier standardmäßig 18 m hoch, eine Logistikebene für Bänder 6 m, dazwischen liegt eine Decke von 2 m. Die Liste zeigt den Bereich jeder Ebene, z. B. „0 m – 18 m“. Du kannst die Höhen jederzeit rechts ändern. Rohre haben eine begrenzte Förderhöhe: Steigt ein Rohr zu hoch, meldet der Planer, dass du eine Pumpe brauchst. Wechsle dann in die Seitenansicht („Seite x“ oder „Seite y“), wähle oben links eine Pumpe und klicke auf das Rohr: Die Pumpe wird in Flussrichtung eingesetzt, auf einem senkrechten Rohrstück auch senkrecht. Ein gelbes Kreuz markiert die Stelle, ab der die Förderhöhe nicht mehr reicht; dort rastet die Pumpe ein.',
         ),
         target: '[data-tour="floors"]',
         mode: 'factory',
@@ -254,6 +265,28 @@ export const TOURS: Tour[] = [
         mode: 'production',
       },
       {
+        title: N_('Strom erzeugen'),
+        body: N_(
+          'Unter „Kraftwerke“ gibst du an, welche Kraftwerke mit welchem Brennstoff du bauen willst und wie viele. Der Plan berechnet dann Brennstoff und Wasser wie jede andere Zulieferung; Atommüll erscheint als Überschuss. Den Strombedarf der Maschinen rechnet der Plan nicht gegen.',
+        ),
+        detail: N_(
+          'Beispiel: 16 Kohlegeneratoren mit Kohle brauchen 240 Kohle und 720 m³ Wasser pro Minute und liefern 1200 MW. Wählst du verdichtete Kohle oder Treibstoff, plant der Solver auch deren Herstellung. Im Grundriss wählst du beim Kraftwerk den Brennstoff wie ein Rezept; dann rechnet auch das Durchsatzmodell mit seinem Verbrauch.',
+        ),
+        target: '[data-testid="power-add"]',
+        mode: 'production',
+      },
+      {
+        title: N_('Alternativrezepte vorschlagen'),
+        body: N_(
+          '„Alternativrezepte vorschlagen“ zeigt Alternativen, die Rohstoffe sparen – einzeln und zusammen, mit der Änderung je Rohstoff. „übernehmen“ schaltet sie im Plan frei.',
+        ),
+        detail: N_(
+          'Alternativrezepte schaltest du im Spiel über Festplatten frei. Der Planer rechnet für jede Alternative, wie viel Rohstoff sie spart (gewichtet nach Seltenheit). So siehst du, welche Festplatte sich für deinen Plan lohnt.',
+        ),
+        target: '[data-tour="production-left"]',
+        mode: 'production',
+      },
+      {
         title: N_('Maschinen in die Fabrik übernehmen'),
         body: N_('„Maschinen in Fabrik anlegen“ erzeugt die Maschinen als noch nicht platziert. Im Grundriss findest du sie links unter „Nicht platziert“. Der Abgleich zeigt Soll, Geplant, Platziert, Angeschlossen und Durchsatz.'),
         detail: N_(
@@ -280,9 +313,9 @@ export const TOURS: Tour[] = [
       },
       {
         title: N_('Gleise zeichnen'),
-        body: N_('Wähle „Gleis“ (G) und klicke Punkte in die Fläche; vom zweiten Punkt an entstehen tangentiale Bögen. Klick auf ein Gleis teilt es für eine Weiche. Esc beendet den Gleiszug.'),
+        body: N_('Wähle „Gleis“ (G) und klicke Punkte in die Fläche; vom zweiten Punkt an entstehen tangentiale Bögen. Das Mausrad dreht die Richtung am Gleisende in 15°-Stufen zum Raster. Punkte rasten im Gleisraster (oben links: 4 m oder 1 m). Klick auf ein Gleis teilt es für eine Weiche. Esc beendet den Gleiszug.'),
         detail: N_(
-          'Klicke einmal in die Fläche (Startpunkt) und dann ein Stück weiter (Endpunkt) – schon liegt ein gerades Gleis. Klickst du danach weiter, geht das Gleis vom Ende aus weiter, auch in einer Kurve. Ein Gleis endet nie spitz in sich selbst: Auch für eine Kehre läuft der Bogen vom Gleisende nach vorn weiter. Halte Umschalt gedrückt für eine gerade Verlängerung.',
+          'Klicke einmal in die Fläche (Startpunkt) und dann ein Stück weiter (Endpunkt) – schon liegt ein gerades Gleis. Klickst du danach weiter, geht das Gleis vom Ende aus weiter, auch in einer Kurve. Ein Gleis endet nie spitz in sich selbst: Auch für eine Kehre läuft der Bogen vom Gleisende nach vorn weiter. Halte Umschalt gedrückt für eine gerade Verlängerung. Wie im Spiel ist ein Gleisstück mindestens 12 m und höchstens 100 m lang, und Kurven brauchen mindestens 17 m Radius; die Vorschau wird sonst rot. Das 4-m-Raster trifft im Fundamentraster Ecken, Kantenmitten und Mitten der Fundamente – so liegen Gleise leicht mittig über einer Fundamentreihe. Mehrere Gleise wählst du mit einem Rahmen aus und ziehst sie gemeinsam an eine neue Stelle.',
         ),
         target: '[data-tour="rail-tools"]',
         mode: 'rail',
@@ -299,12 +332,23 @@ export const TOURS: Tour[] = [
         until: ({ p, base }) => counts(p).stations > base.stations,
       },
       {
-        title: N_('Signale'),
+        title: N_('Signale setzen'),
         body: N_(
           'Block- (B) und Pfadsignale (P) setzt du auf ein Gleis oder an einen Knoten. Die Seite, auf die du klickst, bestimmt die Fahrtrichtung: Das Signal steht rechts neben dem Gleis, der Pfeil zeigt die Fahrt, die Querlinie die Haltestelle.',
         ),
         detail: N_(
-          'Signale teilen das Netz in Abschnitte („Blöcke“), damit mehrere Züge fahren können, ohne zusammenzustoßen. In jedem Block darf nur ein Zug sein. Blocksignale nimmt man auf freier Strecke, Pfadsignale vor Weichen und Kreuzungen. Du musst nicht genau auf das Gleis treffen – bis 3 m daneben reicht. Auf freiem Gleis rastet das Signal in 1-m-Schritten.',
+          'Signale teilen das Netz in Abschnitte („Blöcke“), damit mehrere Züge fahren können, ohne zusammenzustoßen. Du musst nicht genau auf das Gleis treffen – bis 3 m daneben reicht. Auf freiem Gleis rastet das Signal in 1-m-Schritten. Ein Signal gilt nur für eine Fahrtrichtung; für Gegenverkehr auf demselben Gleis brauchst du ein zweites Signal in die andere Richtung.',
+        ),
+        target: '[data-tour="rail-canvas"]',
+        mode: 'rail',
+      },
+      {
+        title: N_('Blocksignal oder Pfadsignal?'),
+        body: N_(
+          'Blocksignal (grün, B): lässt einen Zug erst in den nächsten Block, wenn dieser ganz frei ist – für freie Strecken. Pfadsignal (lila, P): lässt einen Zug in einen belegten Block, solange sein eigener Weg frei ist – für Weichen und Kreuzungen. Merksatz: „Pfad hinein, Block hinaus“.',
+        ),
+        detail: N_(
+          'Blocksignal: Teilt eine lange Strecke in Abschnitte, damit Züge hintereinander fahren können. Im Block dahinter darf immer nur ein Zug sein. Abstand mindestens eine Zuglänge, sonst passt ein wartender Zug nicht hinein. Pfadsignal: Steht vor einer Weiche oder Kreuzung. Zwei Züge dürfen den Bereich gleichzeitig befahren, wenn sich ihre Wege nicht kreuzen. Ein Zug fährt aber nur ein, wenn er hinter der Weiche ganz in einen freien Block passt – deshalb steht nach der Weiche ein Blocksignal. Setze nicht viele Pfadsignale hintereinander: Der Zug reserviert dann die ganze Kette auf einmal, wartet lange und blockiert die Strecke (Befund RAIL-026). Alle Einfahrten in einen Block brauchen denselben Signaltyp.',
         ),
         target: '[data-tour="rail-canvas"]',
         mode: 'rail',
@@ -313,7 +357,7 @@ export const TOURS: Tour[] = [
         title: N_('Züge und Fahrpläne'),
         body: N_('Lege Fahrpläne mit Halten und Züge mit Loks und Wagen an. Der Planer prüft statisch, ob jeder Halt erreichbar ist, und nennt die Ursache, wenn nicht.'),
         detail: N_(
-          'Ein Zug besteht aus mindestens einer Lok und Wagen. Der Fahrplan legt fest, welche Bahnhöfe der Zug der Reihe nach anfährt. Pro Halt kannst du einstellen, ob alles oder nur bestimmte Gegenstände umgeschlagen werden. Beim Zug zeigt der Planer, ob die Loks für die steilste Steigung reichen und wie lang der Zug höchstens sein darf.',
+          'Ein Zug besteht aus mindestens einer Lok und Wagen. Der Fahrplan legt fest, welche Bahnhöfe der Zug der Reihe nach anfährt. Pro Halt kannst du einstellen, ob alles oder nur bestimmte Gegenstände umgeschlagen werden. Beim Zug zeigt der Planer, ob die Loks für die steilste Steigung reichen und wie lang der Zug höchstens sein darf. Reichen sie nicht, ergänzt „fehlende Loks vorn ergänzen“ weitere Loks hinter der ersten; mit ◀ ▶ ordnest du Loks und Wagen um. Eine rückwärts gerichtete Lok am Ende macht den Zug zum Zweirichtungszug.',
         ),
         target: '[data-tour="add-train"]',
         mode: 'rail',
@@ -337,7 +381,7 @@ export const TOURS: Tour[] = [
     steps: [
       {
         title: N_('Transportaufträge'),
-        body: N_('Ein Auftrag beschreibt, welche Fabrik wie viel an welche andere liefert – per Zug, Fahrzeug (Lkw, Schlepper, Tanklaster), Förderband oder Rohr. Lege mit + einen Auftrag an (dafür sind zwei Fabriken nötig).'),
+        body: N_('Ein Auftrag beschreibt, welche Fabrik wie viel an welche andere liefert – per Zug, Fahrzeug (Lkw, Schlepper, Tanklaster), Drohne, Förderband oder Rohr. Lege mit + einen Auftrag an (dafür sind zwei Fabriken nötig).'),
         detail: N_(
           'Beispiel: Fabrik „Erz“ liefert 240 Eisenerz pro Minute an Fabrik „Stahl“. Liegen die Fabriken nah beieinander, reicht oft ein Förderband: Ein Mk.3-Band schafft 270 pro Minute. Für weite Strecken nimmst du Züge oder Lkw. Dafür brauchst du mindestens zwei Fabriken im Projekt.',
         ),
@@ -350,7 +394,7 @@ export const TOURS: Tour[] = [
           'Rechts wählst du das Transportmittel. Bei Zügen ordnest du Bahnhöfe und Züge zu, bei Fahrzeugen Typ, Anzahl und Strecke, bei Bändern und Rohren Stufe, Anzahl Leitungen und die Anschlüsse in beiden Fabriken. Der Planer schätzt den Durchsatz aus Laderaum und Umlaufzeit bzw. rechnet die Leitungskapazität aus. Gemessene Werte aus der Simulation ersetzen die Zugschätzung.',
         ),
         detail: N_(
-          'Der Planer schätzt, wie viel ein Zug oder Lkw pro Minute schafft: Ladung pro Fahrt geteilt durch die Zeit für eine Runde. Reicht das nicht, siehst du einen Befund. Wichtig: Der Zug muss am Lade- und am Entladebahnhof halten und dort den Gegenstand auch umschlagen. Lkw brauchen in beiden Fabriken eine Lkw-Station (bei Flüssigkeiten eine Tanklaster-Station) mit „Beladen“ bzw. „Entladen“. Ein Förderband oder Rohr zwischen zwei Fabriken beginnt an einem Ausgang der einen und endet an einem Eingang der anderen Fabrik.',
+          'Der Planer schätzt, wie viel ein Zug oder Lkw pro Minute schafft: Ladung pro Fahrt geteilt durch die Zeit für eine Runde. Reicht das nicht, siehst du einen Befund. Wichtig: Der Zug muss am Lade- und am Entladebahnhof halten und dort den Gegenstand auch umschlagen. Lkw brauchen in beiden Fabriken eine Lkw-Station (bei Flüssigkeiten eine Tanklaster-Station) mit „Beladen“ bzw. „Entladen“. Drohnen fliegen zwischen Drohnenhäfen; sie tanken am Hafen des Absenders, und der Planer zeigt, wie viele Batterien (oder andere Brennstoffe) sie pro Minute verbrauchen. Ein Förderband oder Rohr zwischen zwei Fabriken beginnt an einem Ausgang der einen und endet an einem Eingang der anderen Fabrik.',
         ),
         target: '[data-tour="transport-left"]',
         mode: 'transport',

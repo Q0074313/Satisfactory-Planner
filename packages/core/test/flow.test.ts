@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkFactory } from '../src/factory/checks.ts';
-import { computeFactoryFlow } from '../src/factory/flow.ts';
+import { computeFactoryFlow, sunkItems } from '../src/factory/flow.ts';
 import { controlPoints, linkPath, pathLength, routePath, verticalSections } from '../src/factory/linkPath.ts';
 import { machineRates } from '../src/production/machine.ts';
 import { compareBalance } from '../src/production/balance.ts';
@@ -94,6 +94,23 @@ describe('Durchsatzmodell', () => {
     expect(rules(fs)).not.toContain('FAB-013');
   });
 
+  it('Schredder: Zufluss gilt als Überschuss (FAB-020, Hinweis) statt als Fehler', () => {
+    const { p, f, add, belt } = factory();
+    const m = add('Build_MinerMk1_C', miner());
+    const s1 = add('Build_SmelterMk1_C', { recipeId: 'Recipe_IngotIron_C' });
+    const sink = add('Build_ResourceSink_C');
+    belt(m, 'belt-out-0', s1, 'belt-in-0');
+    belt(s1, 'belt-out-0', sink, 'belt-in-0');
+    const flow = computeFactoryFlow(p, gd, f.id);
+    expect(flow.sinks.get(sink)).toEqual([{ itemId: 'Desc_IronIngot_C', perMin: expect.closeTo(30) }]);
+    expect(sunkItems(flow).get('Desc_IronIngot_C')).toBeCloseTo(30);
+    const fs = checkFactory(p, gd, f.id);
+    const hint = fs.find((x) => x.ruleId === 'FAB-020')!;
+    expect(hint.severity).toBe('info');
+    expect(hint.objects).toEqual([{ table: 'buildings', id: sink }]);
+    expect(rules(fs)).not.toContain('FAB-013');
+  });
+
   it('Band zu klein: theoretisch 120/min, Mk.1 schafft 60 → Befund FAB-011 und Auslastung 50 %', () => {
     const { p, f, add, belt } = factory();
     const m = add('Build_MinerMk2_C', miner('normal', 'Build_MinerMk2_C'));
@@ -168,7 +185,7 @@ describe('Durchsatzmodell', () => {
     const sink = add('Build_ResourceSink_C');
     belt(pf, 'belt-out-0', s, 'belt-in-0');
     belt(s, 'belt-out-0', sink, 'belt-in-0');
-    p.transportOrders.o1 = { id: 'o1', name: 'Erz', itemId: 'Desc_OreIron_C', ratePerMin: 15, fromFactoryId: other, toFactoryId: f.id, mode: 'train', fromStationId: null, toStationId: null, trainIds: [], roundTripEstimateS: null, vehicle: null, direct: null };
+    p.transportOrders.o1 = { id: 'o1', name: 'Erz', itemId: 'Desc_OreIron_C', ratePerMin: 15, fromFactoryId: other, toFactoryId: f.id, mode: 'train', fromStationId: null, toStationId: null, trainIds: [], roundTripEstimateS: null, vehicle: null, drone: null, direct: null };
     const flow = computeFactoryFlow(p, gd, f.id);
     expect(flow.machines.get(s)!.utilization).toBeCloseTo(0.5);
     expect(flow.platforms.get(pf)!.items).toEqual([{ itemId: 'Desc_OreIron_C', perMin: expect.closeTo(15) }]);

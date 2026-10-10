@@ -4,9 +4,11 @@
  * damit Aufgaben direkt erledigt werden können.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { LANGUAGES, type Lang } from '@satis/core';
 import { t } from '../../i18n';
 import { usePrefs } from '../../state/prefsStore';
 import { useProjectStore } from '../../state/projectStore';
+import { createExample } from '../../state/session';
 import { useUiStore } from '../../state/uiStore';
 import { versionLabel } from '../../version';
 import { counts, TOURS, type Counts } from './tours';
@@ -132,6 +134,12 @@ export function TourOverlay() {
   );
 }
 
+/** Öffnet ein Beispielprojekt als neues Projekt (das aktuelle bleibt unverändert gespeichert). */
+async function openExample(kind: 'simple' | 'complex', after?: () => void) {
+  after?.();
+  if (await createExample(kind)) useUiStore.getState().toast(t('Beispielprojekt angelegt. Dein bisheriges Projekt bleibt unverändert.'));
+}
+
 /** Hilfemenü mit allen Führungen. */
 export function HelpMenu() {
   const [open, setOpen] = useState(false);
@@ -157,11 +165,19 @@ export function HelpMenu() {
               {t(tour.title)} {done.includes(tour.id) && <span className="dim">✓</span>}
             </button>
           ))}
+          <p className="dim small-text">{t('Beispielprojekte zum Ausprobieren')}</p>
+          <button className="menu-item" data-testid="example-simple" onClick={() => void openExample('simple', () => setOpen(false))}>
+            {t('Einfach: Eisenwerk')}
+          </button>
+          <button className="menu-item" data-testid="example-complex" onClick={() => void openExample('complex', () => setOpen(false))}>
+            {t('Komplex: zwei Fabriken mit Transport')}
+          </button>
           <label className="check-row menu-check">
             <input type="checkbox" checked={detailed} onChange={(e) => usePrefs.getState().setDetailedTours(e.target.checked)} />
             {t('Ausführliche Erklärungen (Einsteiger)')}
           </label>
           <p className="dim small-text menu-version">{versionLabel()}</p>
+          <p className="dim small-text menu-version">{t('Mit KI-Unterstützung entwickelt – Fehler sind möglich (Einstellungen → Allgemein).')}</p>
         </div>
       )}
     </div>
@@ -172,10 +188,20 @@ export function HelpMenu() {
 export function WelcomeCard() {
   const welcomed = usePrefs((s) => s.welcomed);
   const tour = useUiStore((s) => s.tour);
+  const lang = usePrefs((s) => s.language);
   if (welcomed || tour) return null;
   return (
     <div className="welcome-card" data-testid="welcome">
-      <h3>{t('Willkommen!')}</h3>
+      <div className="welcome-head">
+        <h3>{t('Willkommen!')}</h3>
+        <select value={lang} onChange={(e) => usePrefs.getState().setLanguage(e.target.value as Lang)} aria-label={t('Sprache')} data-testid="welcome-language">
+          {LANGUAGES.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.label}
+            </option>
+          ))}
+        </select>
+      </div>
       <p>{t('Möchtest du eine kurze Einführung in die Bedienung? Du kannst sie jederzeit über „?“ oben rechts erneut starten.')}</p>
       <div className="button-row">
         <button
@@ -196,6 +222,15 @@ export function WelcomeCard() {
           data-testid="welcome-detailed"
         >
           {t('Ausführlich für Einsteiger')}
+        </button>
+        <button
+          data-testid="welcome-example"
+          onClick={() => {
+            usePrefs.getState().setWelcomed();
+            void openExample('simple');
+          }}
+        >
+          {t('Beispielfabrik ansehen')}
         </button>
         <button onClick={() => usePrefs.getState().setWelcomed()}>{t('Später')}</button>
       </div>

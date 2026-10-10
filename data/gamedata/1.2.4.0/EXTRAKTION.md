@@ -1,8 +1,8 @@
 # Extraktionsbericht sf-1.2.4.0
 
-- Erzeugt: 2026-10-07T01:22:03.795Z
+- Erzeugt: 2026-10-10T12:29:38.458Z
 - Spielversion: 1.2.4.0 (Engine-Changelist 502094, ++FactoryGame+rel-main-anniversary-2026)
-- Gegenstände: 168, Rezepte: 291, Gebäude: 228, Fahrzeuge: 4, Fakten: 52
+- Gegenstände: 168, Rezepte: 308, Gebäude: 228, Fahrzeuge: 4, Fakten: 63
 - Quelle Docs SHA-256: `a81d250e96aa13db3c0bf8c332c199ad930b2f15323e2c1a069afa4c07f971bb`
 
 ## Befunde

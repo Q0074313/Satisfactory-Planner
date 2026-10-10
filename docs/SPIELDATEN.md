@@ -17,8 +17,10 @@ Entscheidung: Unterstützt wird die **aktuell installierte stabile Version 1.2.4
 2. **Satisfactory Wiki** (satisfactory.wiki.gg), Lizenz **CC BY-NC-SA 3.0**. Übernommen werden nur einzelne Faktenangaben mit Seitenverweis, keine Texte:
    - Anschlusszahlen aus Infoboxen (`curated/wiki-infobox.json`, automatisch abgerufen),
    - kuratierte Einzelwerte (`curated/facts.json`): Zuglängen, Kapazitäten, Kurvenradius, Reinheitsfaktoren, Rohstoffmaxima, Zugmassen und Zugkraft je Steigung (Wiki „Freight Car“, „Electric Locomotive“), Förderhöhen ohne Pumpe (Wiki „Head lift“), Fahrzeuggeschwindigkeiten, Tanklaster-Inhalt und Andockzeit an Lkw-Stationen (Wiki „Truck“, „Tractor“, „Explorer“, „Truck Station“).
+   - Drohnen: Geschwindigkeit je Brennstoff und Dauer von Start bzw. Landung (Wiki „Drone“) in `curated/facts.json`; Laderaum und Energiebedarf je Umlauf aus den Docs (Fakten `drone.*`).
    - Straßenfahrzeuge (`vehicles` im Datensatz): Laderaum aus den Docs (`FGVehicleDescriptor.mInventorySize`, `mIsFluidStorageInventory`), deutsche Namen aus `de.json`; aufgenommen werden nur Fahrzeuge mit kuratierter Geschwindigkeit (Schlepper, Lkw, Tanklaster, Explorer).
-3. **Manuelle Ergänzung** (`curated/ports-overrides.json`): nur dort, wo keine Quelle verfügbar war. Immer als `unverified` gekennzeichnet (derzeit: ein Rohreingang am Treibstoffgenerator).
+3. **Abgeleitete Kraftwerksrezepte** (`Power_<Kraftwerk>_<Brennstoff>`): aus `mFuel`, `mPowerProduction`, `mSupplementalToPowerRatio` und dem Energiewert des Brennstoffs berechnet (ein Zyklus = 1 min bei 100 % Takt). Erdwärmekraftwerk nicht (kein Brennstoff).
+4. **Manuelle Ergänzung** (`curated/ports-overrides.json`): nur dort, wo keine Quelle verfügbar war. Immer als `unverified` gekennzeichnet (derzeit: ein Rohreingang am Treibstoffgenerator).
 
 ## Was fehlt bzw. unsicher ist
 

@@ -10,6 +10,7 @@
  *   (Exponenten aus Docs: mPowerConsumptionExponent, mProductionBoostPowerConsumptionExponent)
  * - Variable Leistung (Teilchenbeschleuniger u. a.): Mittelwert
  *   constant + factor / 2 – Annahme, siehe docs/SPIELREGELN.md.
+ * - Kraftwerke: abgeleitete Rezepte (ein Zyklus = 1 min), erzeugte Leistung = Nennleistung · Takt
  * - Gewinnung: Menge je Zyklus · 60 / Zykluszeit · Takt · Reinheitsfaktor
  *   (Docs mItemsPerCycle, mExtractCycleTime; Flüssigkeiten in Litern → m³;
  *   Reinheit unrein ×0,5 / normal ×1 / rein ×2 laut Wiki „Resource node“;
@@ -35,6 +36,8 @@ export interface MachineRates {
   inputs: Rate[];
   outputs: Rate[];
   powerMW: number;
+  /** Erzeugte Leistung (Kraftwerke). */
+  generatedMW?: number;
   /** Leistung schwankt (variable Gebäude): Spanne. */
   powerRangeMW?: [number, number];
 }
@@ -92,6 +95,8 @@ export function machineRates(gd: GameDataIndex, m: MachineSetup): MachineRates {
     outputs: recipe.outputs.map((a) => ({ item: a.item, perMin: a.amount * cycles * (1 + boost) })),
     powerMW: power.avg,
   };
+  // Kraftwerke: Leistung und Brennstoffverbrauch linear zum Takt (Wiki „Clock speed“)
+  if (recipe.generator) res.generatedMW = recipe.generator.powerMW * m.clock;
   if (power.range) res.powerRangeMW = power.range;
   return res;
 }

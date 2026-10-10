@@ -8,7 +8,7 @@ import { loadGameData } from '../state/gamedata';
 import { matchAction } from '../state/keymap';
 import { effectiveTheme, usePrefs } from '../state/prefsStore';
 import { setNotifier, useProjectStore } from '../state/projectStore';
-import { boot, importFromFile, openRemote, useAutosave, type SaveStatus } from '../state/session';
+import { boot, idFromHistory, importFromFile, openRemote, useAutosave, type SaveStatus } from '../state/session';
 import { idFromLocation } from '../state/server';
 import { LAYER_LABELS, useUiStore, type LayerKey, type Mode } from '../state/uiStore';
 import { FactoryEditor } from '../features/factory/FactoryEditor';
@@ -23,6 +23,7 @@ import { RailLeftPanel } from '../features/rail/RailLeftPanel';
 import { RailProperties } from '../features/rail/RailProperties';
 import { TransportView } from '../features/transport/TransportView';
 import { SettingsDialog } from '../features/settings/SettingsDialog';
+import { DiagnoseDialog } from '../features/findings/DiagnoseDialog';
 import { HelpMenu, TourOverlay, WelcomeCard } from '../features/tutorial/Tour';
 import { ProjectLinkBar, ProjectLinkButton, useLinkBar } from '../features/link/ProjectLink';
 import { TextField } from '../ui/fields';
@@ -66,6 +67,7 @@ export function App() {
   const project = useProjectStore((s) => s.project);
   const lang = usePrefs((s) => s.language);
   const settingsOpen = useUiStore((s) => s.settingsOpen);
+  const diagnoseOpen = useUiStore((s) => s.diagnoseOpen);
   const [booting, setBooting] = useState(true);
   const [showList, setShowList] = useState(false);
   useTheme();
@@ -77,7 +79,7 @@ export function App() {
     void boot().finally(() => setBooting(false));
     // Zurück/Vor im Browser zwischen Projekt-Links
     const onPop = () => {
-      const id = idFromLocation();
+      const id = idFromHistory() ?? idFromLocation();
       if (!id) return setShowList(true);
       if (useProjectStore.getState().remote?.id !== id) void openRemote(id, { push: false }).then((ok) => ok && setShowList(false));
       else setShowList(false);
@@ -93,6 +95,7 @@ export function App() {
       {!project || showList ? <ProjectList onClose={project ? () => setShowList(false) : undefined} /> : <Workspace onOpenList={() => setShowList(true)} />}
       <Toasts />
       {settingsOpen && <SettingsDialog />}
+      {diagnoseOpen && project && !showList && <DiagnoseDialog />}
       <TourOverlay />
     </div>
   );

@@ -446,8 +446,22 @@ function TractionInfo({ trac, stationName, vehicleLen }: { trac: NonNullable<Ret
   );
 }
 
+/** Fügt `n` vorwärts gerichtete Loks hinter den führenden Loks ein (Mehrfachtraktion vorn). */
+function addFrontLocos(consist: Vehicle[], n: number): Vehicle[] {
+  let lead = 0;
+  while (lead < consist.length && consist[lead]!.kind === 'locomotive') lead++;
+  const locos: Vehicle[] = Array.from({ length: n }, () => ({ kind: 'locomotive', reversed: false }));
+  return [...consist.slice(0, lead), ...locos, ...consist.slice(lead)];
+}
+
 const VEHICLE_LABEL = (v: Vehicle) =>
   v.kind === 'locomotive' ? (v.reversed ? t('Lok ⟵') : t('Lok ⟶')) : v.cargo === 'liquid' ? t('Wagen (flüssig)') : t('Wagen (fest)');
+
+const swap = <T,>(arr: T[], i: number, j: number): T[] => {
+  const out = [...arr];
+  [out[i], out[j]] = [out[j]!, out[i]!];
+  return out;
+};
 
 function TrainProps({ id }: { id: string }) {
   const project = useProjectStore((s) => s.project)!;
@@ -527,7 +541,17 @@ function TrainProps({ id }: { id: string }) {
                 ⇅
               </button>
             )}
-            <button className="link-button" title={t('Entfernen')} onClick={() => setConsist(tr.consist.filter((_, k) => k !== i))}>
+            {i > 0 && (
+              <button className="link-button" title={t('Nach vorn')} onClick={() => setConsist(swap(tr.consist, i, i - 1))}>
+                ◀
+              </button>
+            )}
+            {i < tr.consist.length - 1 && (
+              <button className="link-button" title={t('Nach hinten')} onClick={() => setConsist(swap(tr.consist, i, i + 1))}>
+                ▶
+              </button>
+            )}
+            <button className="link-button" title={t('Entfernen')} disabled={tr.consist.length <= 1} onClick={() => setConsist(tr.consist.filter((_, k) => k !== i))}>
               ✕
             </button>
           </span>
@@ -536,9 +560,23 @@ function TrainProps({ id }: { id: string }) {
       <div className="button-row">
         <button onClick={() => setConsist([...tr.consist, { kind: 'wagon', cargo: 'solid' }])}>{t('+ Wagen')}</button>
         <button onClick={() => setConsist([...tr.consist, { kind: 'wagon', cargo: 'liquid' }])}>{t('+ Flüssigwagen')}</button>
-        <button onClick={() => setConsist([...tr.consist, { kind: 'locomotive', reversed: false }])}>{t('+ Lok')}</button>
-        <button onClick={() => setConsist([...tr.consist, { kind: 'locomotive', reversed: true }])}>{t('+ Lok rückwärts')}</button>
+        <button onClick={() => setConsist(addFrontLocos(tr.consist, 1))} title={t('Weitere Lok vorn hinter den führenden Loks (Mehrfachtraktion)')} data-testid="add-front-loco">
+          {t('+ Lok vorn')}
+        </button>
+        <button onClick={() => setConsist([...tr.consist, { kind: 'locomotive', reversed: false }])} title={t('Lok am Zugende, in Fahrtrichtung (schiebt mit)')}>
+          {t('+ Lok hinten')}
+        </button>
+        <button onClick={() => setConsist([...tr.consist, { kind: 'locomotive', reversed: true }])} title={t('Lok am Zugende, rückwärts: Der Zug kann in beide Richtungen fahren')}>
+          {t('+ Lok rückwärts')}
+        </button>
       </div>
+      {trac && trac.locosNeeded !== null && trac.locosNeeded > trac.locomotives && (
+        <div className="button-row">
+          <button className="primary small" onClick={() => setConsist(addFrontLocos(tr.consist, trac.locosNeeded! - trac.locomotives))} data-testid="add-needed-locos">
+            {t('{n} fehlende Lok(s) vorn ergänzen', { n: trac.locosNeeded - trac.locomotives })}
+          </button>
+        </div>
+      )}
       {legs.length > 0 && (
         <>
           <h4 className="sub">{t('Fahrwege (statische Prüfung)')}</h4>

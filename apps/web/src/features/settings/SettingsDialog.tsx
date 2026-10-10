@@ -70,6 +70,10 @@ function GeneralTab() {
         <input type="checkbox" data-testid="detailed-tours" checked={prefs.detailedTours} onChange={(e) => prefs.setDetailedTours(e.target.checked)} />
         {t('Tutorial: ausführliche Erklärungen für Einsteiger')}
       </label>
+      <label className="check-row" title={t('Für Streams und Bildschirmfreigaben: Der Projekt-Link wird verdeckt angezeigt. Kopieren funktioniert weiterhin.')}>
+        <input type="checkbox" data-testid="streamer-mode" checked={prefs.streamerMode} onChange={(e) => prefs.setStreamerMode(e.target.checked)} />
+        {t('Streamer-Modus: Projekt-Link verdecken')}
+      </label>
       <p className="dim small-text">{t('Diese Einstellungen gelten für diesen Browser und werden nicht im Projekt gespeichert. Dokumentation und Spielregel-Quellen sind auf Deutsch.')}</p>
       <Row label={t('Softwareversion')}>
         <span data-testid="app-version">
@@ -78,7 +82,18 @@ function GeneralTab() {
           {APP_BUILT && <span className="dim"> · {t('erstellt am {date}', { date: APP_BUILT })}</span>}
         </span>
       </Row>
+      <AboutNote />
     </Section>
+  );
+}
+
+/** Hinweis zur Entstehung und zu möglichen Fehlern (auch im Hilfemenü). */
+export function AboutNote() {
+  return (
+    <div className="about-note small-text" data-testid="about-note">
+      <p>{t('Satis Planner ist ein privates Fanprojekt und steht in keiner Verbindung zu Coffee Stain Studios.')}</p>
+      <p>{t('Der Planer wurde zusammen mit Claude (KI von Anthropic) entwickelt. Berechnungen, Prüfregeln und Spieldaten können Fehler enthalten – wichtige Werte bitte im Spiel nachprüfen.')}</p>
+    </div>
   );
 }
 

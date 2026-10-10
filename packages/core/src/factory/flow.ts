@@ -23,7 +23,8 @@
  * Annahmen (werden angezeigt): beste Verteilung an Splittern (im Spiel
  * gleichmäßig mit Überlauf), Filter intelligenter Splitter nicht modelliert,
  * Rohre fließen in Zeichenrichtung, Förderhöhe und Pumpen nicht berücksichtigt,
- * Kraftwerke nehmen Brennstoff ohne modellierten Verbrauch ab.
+ * Kraftwerke mit Brennstoffwahl verbrauchen wie Maschinen; ohne Wahl nehmen sie
+ * Brennstoff ohne modellierten Verbrauch ab.
  */
 import { solve, type Coefficients, type Constraint } from 'yalps';
 import type { GameDataIndex, GdBuilding } from '../gamedata/index.ts';
@@ -90,6 +91,8 @@ export interface FactoryFlow {
   platforms: Map<string, { mode: 'load' | 'unload'; items: ItemRate[] }>;
   /** Fluss direkter Leitungen zu/von anderen Fabriken je Transportauftrag (mit Kapazitätsgrenze). */
   direct: Map<string, { dir: 'in' | 'out'; perMin: number; required: number }>;
+  /** Fluss in AWESOME-Schredder je Gebäude: gilt als Überschuss, nicht als Verbrauch. */
+  sinks: Map<string, ItemRate[]>;
   assumptions: string[];
 }
 
@@ -202,7 +205,7 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
     tr('Splitter und Zusammenführungen verteilen bestmöglich (im Spiel: gleichmäßig, Überlauf auf freie Ausgänge).'),
     tr('Filter intelligenter und programmierbarer Splitter werden nicht berücksichtigt.'),
     tr('Rohre fließen in Zeichenrichtung; Förderhöhe, Pumpen und Druck werden nicht berechnet.'),
-    tr('Kraftwerke nehmen Brennstoff ab, ihr Verbrauch ist nicht modelliert.'),
+    tr('Kraftwerke mit gewähltem Brennstoff verbrauchen wie Maschinen; ohne Brennstoffwahl nehmen sie Brennstoff ohne modellierten Verbrauch ab.'),
     tr('Produkte werden den Ausgängen in Rezeptreihenfolge zugeordnet (Anschlusslage schematisch).'),
   ];
   const nodes = new Map<string, Node>();
@@ -391,6 +394,7 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
       machines: new Map(),
       platforms: new Map(),
       direct: new Map(),
+      sinks: new Map(),
       assumptions,
     };
   }
@@ -419,7 +423,14 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
 
   const machines = new Map<string, FlowMachineResult>();
   const platforms = new Map<string, { mode: 'load' | 'unload'; items: ItemRate[] }>();
+  const sinks = new Map<string, ItemRate[]>();
   for (const n of nodes.values()) {
+    if (n.role === 'sink') {
+      const sum = new Map<string, number>();
+      for (const l of n.inLinks) for (const x of linkResults.get(l.id)?.items ?? []) sum.set(x.itemId, (sum.get(x.itemId) ?? 0) + x.perMin);
+      const items = [...sum].filter(([, v]) => v > EPS).map(([itemId, perMin]) => ({ itemId, perMin }));
+      if (items.length) sinks.set(n.b.id, items);
+    }
     if (n.role === 'platform-load' || n.role === 'platform-unload') {
       const sum = new Map<string, number>();
       for (const l of n.role === 'platform-load' ? n.inLinks : n.outLinks)
@@ -459,7 +470,7 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
   }
   const directResult = new Map<string, { dir: 'in' | 'out'; perMin: number; required: number }>();
   for (const d of [...dIn, ...dOut]) directResult.set(d.orderId, { dir: d.dir, perMin: get(capped.val, `d:${d.dir}:${d.orderId}`), required: get(uncapped.val, `d:${d.dir}:${d.orderId}`) });
-  return { status: 'ok', message: '', links: linkResults, machines, platforms, direct: directResult, assumptions };
+  return { status: 'ok', message: '', links: linkResults, machines, platforms, direct: directResult, sinks, assumptions };
 }
 
 /**
@@ -485,4 +496,11 @@ export function cachedFactoryFlow(p: Project, gd: GameDataIndex, factoryId: stri
   const result = computeFactoryFlow(p, gd, factoryId);
   cache.set(factoryId, { deps, gd, result, lang });
   return result;
+}
+
+/** Summe aller Flüsse in AWESOME-Schredder der Fabrik je Gegenstand. */
+export function sunkItems(flow: FactoryFlow): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const items of flow.sinks.values()) for (const x of items) out.set(x.itemId, (out.get(x.itemId) ?? 0) + x.perMin);
+  return out;
 }

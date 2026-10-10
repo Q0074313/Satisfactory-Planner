@@ -80,10 +80,11 @@ const FALLBACK: GdClearanceBox = {
  * Übergabe zwischen Fabrik und Transportauftrag: Frachtplattformen (Zug) und
  * LKW-/Tanklaster-Stationen (Fahrzeug). `null` = keine Übergabe.
  */
-export function transferInterface(gd: GdBuilding | undefined): 'train' | 'vehicle' | null {
+export function transferInterface(gd: GdBuilding | undefined): 'train' | 'vehicle' | 'drone' | null {
   if (!gd) return null;
   if (gd.freightPlatform) return 'train';
   if (gd.nativeClass === 'FGBuildableDockingStation') return 'vehicle';
+  if (gd.nativeClass === 'FGBuildableDroneStation') return 'drone';
   return null;
 }
 

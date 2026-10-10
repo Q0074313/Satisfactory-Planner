@@ -116,7 +116,12 @@ export function addSegment(p: Project, networkId: string, a: SegmentEnd, b: Segm
   return id;
 }
 
-export type TrackEndpoint = { kind: 'node'; nodeId: string; side?: NodeSide } | { kind: 'point'; position: Vec3 };
+/**
+ * Endpunkt beim Gleisbau. Ein neuer Endpunkt kann eine feste Fahrtrichtung
+ * erhalten (`headingDeg`, absolut zum Raster, z. B. per Mausrad gewählt);
+ * sonst ergibt sie sich aus dem tangentialen Bogen bzw. der Geraden.
+ */
+export type TrackEndpoint = { kind: 'node'; nodeId: string; side?: NodeSide } | { kind: 'point'; position: Vec3; headingDeg?: number };
 
 /** Seite eines Knotens, deren Austrittsrichtung am besten zum Zielpunkt zeigt. */
 export function sideTowards(node: RailNode, target: Vec2): NodeSide {
@@ -187,14 +192,15 @@ export function addTrack(
     toSide = 'A';
   }
 
+  const endHeading = to.kind === 'point' && to.headingDeg !== undefined ? r4(to.headingDeg) : undefined;
   if (from.kind === 'point' && to.kind === 'point') {
     const h = headingOf(sub(P3, P0));
     fromNodeId = addNode(p, networkId, P0, h);
-    toNodeId = addNode(p, networkId, P3, h);
+    toNodeId = addNode(p, networkId, P3, endHeading ?? h);
   } else if (from.kind === 'node' && to.kind === 'point') {
     const t0 = outward(p.railNodes[fromNodeId]!, fromSide);
     const t3 = arcEndDirection(P0, t0, P3);
-    toNodeId = addNode(p, networkId, P3, headingOf(t3));
+    toNodeId = addNode(p, networkId, P3, endHeading ?? headingOf(t3));
     toSide = 'A';
   } else if (from.kind === 'point' && to.kind === 'node') {
     // Rückwärts betrachtet: Bogen vom Zielknoten zum Startpunkt
@@ -248,6 +254,48 @@ export function moveNodes(p: Project, ids: string[], delta: Vec3): void {
     const n = must(p.railNodes[id], tr('Knoten'));
     n.position = roundPos({ x: n.position.x + delta.x, y: n.position.y + delta.y, z: n.position.z + delta.z });
   }
+}
+
+/**
+ * Knoten, die zu einer Auswahl gehören: ausgewählte Knoten, Enden
+ * ausgewählter Segmente, Knoten ausgewählter Signale und Bahnhöfe.
+ */
+export function nodesOfSelection(p: Project, refs: { table: string; id: string }[]): string[] {
+  const out = new Set<string>();
+  for (const r of refs) {
+    if (r.table === 'railNodes' && p.railNodes[r.id]) out.add(r.id);
+    else if (r.table === 'railSegments') {
+      const s = p.railSegments[r.id];
+      if (s) {
+        out.add(s.a.nodeId);
+        out.add(s.b.nodeId);
+      }
+    } else if (r.table === 'railSignals') {
+      const sig = p.railSignals[r.id];
+      if (sig) out.add(sig.nodeId);
+    } else if (r.table === 'stations') {
+      const st = p.stations[r.id];
+      if (st) {
+        out.add(st.backNodeId);
+        out.add(st.frontNodeId);
+      }
+    }
+  }
+  // Ein Bahnhof bewegt sich immer als Ganzes
+  for (const st of Object.values(p.stations)) {
+    if (out.has(st.backNodeId) || out.has(st.frontNodeId)) {
+      out.add(st.backNodeId);
+      out.add(st.frontNodeId);
+    }
+  }
+  return [...out];
+}
+
+/** Verschiebt eine Auswahl (Knoten, Segmente, Signale, Bahnhöfe) gemeinsam. */
+export function moveSelection(p: Project, refs: { table: string; id: string }[], delta: Vec3): number {
+  const ids = nodesOfSelection(p, refs);
+  moveNodes(p, ids, delta);
+  return ids.length;
 }
 
 export function updateNode(p: Project, id: string, patch: { position?: Vec3; headingDeg?: number }): void {

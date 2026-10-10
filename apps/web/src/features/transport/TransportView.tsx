@@ -30,12 +30,13 @@ import { Badge, fmtNum, NumberField, Row, Section, TextField } from '../../ui/fi
 
 const unitOf = (kind: 'solid' | 'liquid') => (kind === 'solid' ? '/min' : 'm³/min');
 
-const MODE_LABELS: Record<TransportMode, string> = { train: N_('Zug'), vehicle: N_('Fahrzeug'), belt: N_('Förderband'), pipe: N_('Rohr') };
-const MODES: TransportMode[] = ['train', 'vehicle', 'belt', 'pipe'];
+const MODE_LABELS: Record<TransportMode, string> = { train: N_('Zug'), vehicle: N_('Fahrzeug'), drone: N_('Drohne'), belt: N_('Förderband'), pipe: N_('Rohr') };
+const MODES: TransportMode[] = ['train', 'vehicle', 'drone', 'belt', 'pipe'];
 
 /** Kurzbeschreibung des Transportmittels eines Auftrags (Tabelle). */
 function meansLabel(p: Project, gd: GameDataIndex, o: TransportOrder): string {
   if (o.mode === 'vehicle') return o.vehicle ? `${o.vehicle.count} × ${gd.name(o.vehicle.type)}` : t(MODE_LABELS.vehicle);
+  if (o.mode === 'drone') return o.drone ? `${o.drone.count} × ${t('Drohne')}` : t(MODE_LABELS.drone);
   if (o.mode === 'belt' || o.mode === 'pipe') return o.direct ? `${o.direct.lines} × ${gd.name(o.direct.tier)}` : t(MODE_LABELS[o.mode]);
   return o.trainIds.map((id) => p.trains[id]?.name).join(', ');
 }
@@ -49,6 +50,11 @@ function StatusBadge({ o, est }: { o: TransportOrder; est: OrderEstimate }) {
   if (o.mode === 'vehicle') {
     if (est.vehicle && !est.vehicle.kindOk) return <Badge kind="err">{t('falsches Fahrzeug')}</Badge>;
     if (!est.vehicle?.count) return <Badge kind="warn">{t('kein Fahrzeug')}</Badge>;
+    return est.ok ? <Badge kind="ok">{t('reicht (geschätzt)')}</Badge> : <Badge kind="err">{t('zu wenig (geschätzt)')}</Badge>;
+  }
+  if (o.mode === 'drone') {
+    if (est.drone && !est.drone.kindOk) return <Badge kind="err">{t('kein Feststoff')}</Badge>;
+    if (!est.drone?.count) return <Badge kind="warn">{t('keine Drohne')}</Badge>;
     return est.ok ? <Badge kind="ok">{t('reicht (geschätzt)')}</Badge> : <Badge kind="err">{t('zu wenig (geschätzt)')}</Badge>;
   }
   if (est.direct && !est.direct.kindOk) return <Badge kind="err">{o.mode === 'belt' ? t('kein Feststoff') : t('keine Flüssigkeit')}</Badge>;
@@ -268,11 +274,15 @@ function TradeSection() {
               <td className="num">{r.consumed ? fmtNum(r.consumed, 2) : ''}</td>
               <td className={`num ${r.net < -1e-6 ? 'neg' : r.net > 1e-6 ? 'pos' : ''}`}>{fmtNum(r.net, 2)}</td>
               <td className="num">{r.imports ? fmtNum(r.imports, 2) : ''}</td>
-              <td className="num">{r.exports ? fmtNum(r.exports, 2) : ''}</td>
+              <td className="num">
+                {r.exports ? fmtNum(r.exports, 2) : ''}
+                {r.transportFuel > 0 && <span className="dim small-text" title={t('Brennstoff der Drohnen mit Heimathafen in dieser Fabrik')}> {t('+{n} Drohnen', { n: fmtNum(r.transportFuel, 2) })}</span>}
+              </td>
               <td className="num">{r.planImports ? fmtNum(r.planImports, 2) : ''}</td>
               <td>
                 {r.importGap > 1e-6 && <Badge kind="warn">{t('Import fehlt {n}', { n: fmtNum(r.importGap, 2) })}</Badge>}{' '}
-                {r.exportGap > 1e-6 && <Badge kind="warn">{t('Ausfuhr ohne Deckung {n}', { n: fmtNum(r.exportGap, 2) })}</Badge>}
+                {r.exportGap > 1e-6 && <Badge kind="warn">{t('Ausfuhr ohne Deckung {n}', { n: fmtNum(r.exportGap, 2) })}</Badge>}{' '}
+                {r.fuelGap > 1e-6 && <Badge kind="warn">{t('Drohnenbrennstoff fehlt {n}', { n: fmtNum(r.fuelGap, 2) })}</Badge>}
               </td>
             </tr>
           ))}
@@ -348,6 +358,7 @@ function OrderProps({ order: o, measured }: { order: TransportOrder; measured: M
               const def = ops.defaultsFor(gd, mode, o.itemId);
               const patch: ops.OrderPatch = { mode };
               if (mode === 'vehicle' && !o.vehicle) patch.vehicle = def.vehicle;
+              if (mode === 'drone' && !o.drone) patch.drone = def.drone;
               if ((mode === 'belt' || mode === 'pipe') && !(o.direct && (mode === 'belt' ? gd.building(o.direct.tier)?.conveyor : gd.building(o.direct.tier)?.pipe)))
                 patch.direct = def.direct;
               upd(t('Transportmittel'), patch);
@@ -395,7 +406,7 @@ function OrderProps({ order: o, measured }: { order: TransportOrder; measured: M
           </select>
         </Row>
         )}
-        {(o.mode === 'train' || o.mode === 'vehicle') && (
+        {(o.mode === 'train' || o.mode === 'vehicle' || o.mode === 'drone') && (
         <Row label={t('Umlaufzeit manuell')} hint={t('Leer = aus Strecke und Annahmen schätzen bzw. aus der Simulation messen')}>
           <NumberField value={o.roundTripEstimateS ?? NaN} min={1} suffix="s" onCommit={(v) => upd(t('Umlaufzeit'), { roundTripEstimateS: v })} />
         </Row>
@@ -409,6 +420,7 @@ function OrderProps({ order: o, measured }: { order: TransportOrder; measured: M
         )}
       </Section>
       {o.mode === 'vehicle' && <VehicleSection order={o} est={est} />}
+      {o.mode === 'drone' && <DroneSection order={o} est={est} />}
       {(o.mode === 'belt' || o.mode === 'pipe') && <DirectSection order={o} est={est} />}
       {o.mode === 'train' && (
       <Section title={t('Züge')}>
@@ -542,6 +554,58 @@ function VehicleSection({ order: o, est }: { order: TransportOrder; est: OrderEs
       <Row label={t('Übergabe')} hint={t('{station} im Grundriss mit „Beladen“ beim Absender und „Entladen“ beim Empfänger', { station: stationName })}>
         {iface(o.fromFactoryId, 'load') > 0 ? <Badge kind="ok">{t('Beladen ✓')}</Badge> : <Badge kind="warn">{t('Beladen fehlt')}</Badge>}{' '}
         {iface(o.toFactoryId, 'unload') > 0 ? <Badge kind="ok">{t('Entladen ✓')}</Badge> : <Badge kind="warn">{t('Entladen fehlt')}</Badge>}
+      </Row>
+    </Section>
+  );
+}
+
+function DroneSection({ order: o, est }: { order: TransportOrder; est: OrderEstimate }) {
+  const project = useProjectStore((s) => s.project)!;
+  const gd = useProjectStore((s) => s.gd)!;
+  const apply = useProjectStore((s) => s.apply);
+  const d = o.drone!;
+  const de = est.drone;
+  const updD = (label: string, patch: Partial<typeof d>) => apply(label, (dr, g) => ops.updateOrder(dr, g, o.id, { drone: { ...d, ...patch } }));
+  const needed = de && de.capacityPerTrip > 0 && de.cycleS ? Math.ceil((o.ratePerMin * de.cycleS) / (60 * de.capacityPerTrip) - 1e-9) : null;
+  const ports = (factoryId: string, mode: 'load' | 'unload') =>
+    Object.values(project.buildings).filter((b) => b.factoryId === factoryId && b.placement && b.transfer?.mode === mode && transferInterface(gd.building(b.type)) === 'drone').length;
+  return (
+    <Section title={t('Drohnen')}>
+      <Row label={t('Anzahl')} hint={t('Jede Drohne braucht einen eigenen Heimathafen beim Absender; Zielhäfen können sich mehrere Drohnen teilen.')}>
+        <NumberField value={d.count} min={0} step={1} digits={0} onCommit={(n) => updD(t('Anzahl Drohnen'), { count: Math.max(0, Math.round(n)) })} />
+      </Row>
+      <Row label={t('Entfernung')} hint={t('Luftlinie zwischen den Drohnenhäfen')}>
+        <NumberField value={d.distanceM} min={0} suffix="m" onCommit={(n) => updD(t('Entfernung'), { distanceM: n })} />
+      </Row>
+      <Row label={t('Brennstoff')} hint={t('Bestimmt Geschwindigkeit (Wiki) und Verbrauch (Energiewert aus den Docs)')}>
+        <select value={d.fuelId} data-testid="drone-fuel" onChange={(e) => updD(t('Brennstoff'), { fuelId: e.target.value })}>
+          {ops.droneFuels(gd).map((id) => (
+            <option key={id} value={id}>
+              {gd.name(id)} ({fmtNum(gd.fact(`drone.speedMps.${id}`) ?? 0, 0)} m/s)
+            </option>
+          ))}
+        </select>
+      </Row>
+      {de && (
+        <>
+          <Row label={t('Laderaum je Flug')}>{de.kindOk ? `${fmtNum(de.capacityPerTrip, 0)} ${t('Stück')}` : <Badge kind="err">{t('nur Feststoffe')}</Badge>}</Row>
+          <Row label={t('Umlauf')} hint={t('2 × (Entfernung / Geschwindigkeit + 2 × {s} s Start bzw. Landung)', { s: gd.fact('drone.takeoffLandingS') ?? 51 })}>
+            {de.cycleS ? `${fmtNum(de.cycleS, 0)} s` : '–'} <span className="dim small-text">{de.cycleSource === 'manual' ? t('manuell') : t('geschätzt')}</span>
+          </Row>
+          <Row label={t('Brennstoff')}>
+            {t('{n} je Umlauf', { n: fmtNum(de.fuelPerTrip, 2) })} · <span data-testid="drone-fuel-rate">{t('{n}/min', { n: fmtNum(de.fuelPerMin, 2) })}</span> {gd.name(de.fuelId)}
+          </Row>
+          <Row label={t('Summe (Schätzung)')}>
+            <span className={est.ok ? 'pos' : 'neg'} data-testid="drone-sum">
+              {fmtNum(est.perMin, 1)} / {fmtNum(o.ratePerMin, 1)} /min
+            </span>
+            {needed !== null && needed > d.count && <span className="dim small-text"> · {t('nötig: {n} Drohnen', { n: needed })}</span>}
+          </Row>
+        </>
+      )}
+      <Row label={t('Übergabe')} hint={t('Drohnenhafen im Grundriss mit „Beladen“ beim Absender und „Entladen“ beim Empfänger')}>
+        {ports(o.fromFactoryId, 'load') > 0 ? <Badge kind="ok">{t('Beladen ✓')}</Badge> : <Badge kind="warn">{t('Beladen fehlt')}</Badge>}{' '}
+        {ports(o.toFactoryId, 'unload') > 0 ? <Badge kind="ok">{t('Entladen ✓')}</Badge> : <Badge kind="warn">{t('Entladen fehlt')}</Badge>}
       </Row>
     </Section>
   );

@@ -94,6 +94,11 @@ export interface GdRecipe {
    * Quantenkodierer): Leistung schwankt zwischen constant und constant+factor.
    */
   variablePower?: { constantMW: number; factorMW: number };
+  /**
+   * Nur abgeleitete Kraftwerksrezepte (Kraftwerk + Brennstoff): erzeugte
+   * Leistung bei 100 % Takt. Ein Zyklus dauert 60 s.
+   */
+  generator?: { powerMW: number };
 }
 
 export interface GdVec3 {

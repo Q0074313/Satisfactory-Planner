@@ -120,6 +120,10 @@ export function FindingsPanel() {
         <label>
           <input type="checkbox" checked={filter.ignored} onChange={() => setFilter({ ...filter, ignored: !filter.ignored })} /> {t('ignorierte zeigen')}
         </label>
+        <span className="spacer" />
+        <button className="small" data-testid="diagnose-open" title={t('Geführte Fehlersuche, wenn etwas nicht läuft, obwohl keine Befunde angezeigt werden')} onClick={() => useUiStore.getState().setDiagnoseOpen(true)}>
+          🩺 {t('Etwas stimmt nicht?')}
+        </button>
       </div>
       {list.length === 0 && <p className="dim pad">{t('Keine Befunde.')}</p>}
       <ul className="finding-list">

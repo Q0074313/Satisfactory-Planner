@@ -11,6 +11,8 @@ import { cargoKind, estimateOrder, factoryTrade } from './estimate.ts';
 import {
   TRN_CAPACITY,
   TRN_DIRECT_CAPACITY,
+  TRN_DRONE_CAPACITY,
+  TRN_DRONE_FUEL,
   TRN_ESTIMATE,
   TRN_MODE_MISMATCH,
   TRN_NO_INTERFACE,
@@ -205,6 +207,25 @@ export function checkTransport(p: Project, gd: GameDataIndex): Finding[] {
           ),
         );
       }
+      if (r.fuelGap > 1e-6) {
+        out.push(
+          makeFinding(
+            TRN_DRONE_FUEL,
+            [{ table: 'factories', id: f.id }],
+            {
+              message: tr('{factory}: Drohnen brauchen {need} {item}, verfügbar {have}', {
+                factory: f.name,
+                need: `${formatNumber(r.transportFuel, 2)} /min`,
+                item: gd.name(r.itemId),
+                have: `${formatNumber(Math.max(0, r.net + r.imports - r.exports), 2)} /min`,
+              }),
+              explanation: tr(TRN_DRONE_FUEL.description),
+              suggestion: tr('Brennstoff in der Fabrik herstellen, per Transportauftrag liefern oder am Zielhafen einspeisen.'),
+            },
+            { keyExtra: `fuel:${r.itemId}` },
+          ),
+        );
+      }
     }
   }
   const trainOrders = orders.filter((o) => o.mode === 'train' && o.trainIds.length > 0);
@@ -282,6 +303,60 @@ function checkOtherMode(p: Project, gd: GameDataIndex, o: TransportOrder, ref: O
                   : tr('{factory}: keine entladende {station} im Grundriss', { factory: fname(factoryId), station: gd.name(solid ? 'Build_TruckStation_C' : 'Build_FluidTruckStation_C') }),
               explanation: tr(TRN_NO_INTERFACE.description),
               suggestion: tr('Station im Grundriss platzieren und in den Eigenschaften Be- bzw. Entladen wählen.'),
+            },
+            { keyExtra: mode },
+          ),
+        );
+      }
+    }
+    return out;
+  }
+  if (o.mode === 'drone') {
+    const dr = est.drone;
+    if (dr && !dr.kindOk) {
+      out.push(
+        makeFinding(TRN_MODE_MISMATCH, [ref], {
+          message: tr('{order}: Drohnen befördern keine Flüssigkeiten', { order: label }),
+          explanation: tr(TRN_MODE_MISMATCH.description),
+          suggestion: tr('Abgefüllte Form transportieren, Tanklaster, Zug oder Rohr wählen.'),
+        }),
+      );
+    } else if (dr && dr.count === 0) {
+      out.push(
+        makeFinding(TRN_NO_VEHICLE, [ref], {
+          message: tr('{order}: keine Drohne eingeplant', { order: label }),
+          explanation: tr(TRN_NO_VEHICLE.description),
+          suggestion: tr('Anzahl der Drohnen im Auftrag festlegen.'),
+        }),
+      );
+    } else if (dr && !est.ok) {
+      out.push(
+        makeFinding(TRN_DRONE_CAPACITY, [ref], {
+          message: tr('{order}: geschätzt {have} statt {need}', { order: label, have: `${formatNumber(est.perMin, 1)} ${u}`, need: `${formatNumber(o.ratePerMin, 1)} ${u}` }),
+          explanation: `${tr('{n} Drohne(n): {cap} Stück je Flug, Umlauf {cycle}.', { n: dr.count, cap: formatNumber(dr.capacityPerTrip, 0), cycle: dr.cycleS ? `${formatNumber(dr.cycleS, 0)} s` : '–' })} ${tr(TRN_DRONE_CAPACITY.description)}`,
+          suggestion: tr('Mindestens {n} Drohnen (je Drohne ein Hafen beim Absender) einsetzen oder einen schnelleren Brennstoff wählen.', {
+            n: dr.capacityPerTrip > 0 && dr.cycleS ? Math.ceil((o.ratePerMin * dr.cycleS) / (60 * dr.capacityPerTrip)) : '?',
+          }),
+        }),
+      );
+    }
+    for (const [factoryId, mode] of [
+      [o.fromFactoryId, 'load'],
+      [o.toFactoryId, 'unload'],
+    ] as const) {
+      const has = Object.values(p.buildings).some((b) => b.factoryId === factoryId && b.placement && b.transfer?.mode === mode && transferInterface(gd.building(b.type)) === 'drone');
+      if (!has) {
+        out.push(
+          makeFinding(
+            TRN_NO_INTERFACE,
+            [ref, { table: 'factories', id: factoryId }],
+            {
+              message:
+                mode === 'load'
+                  ? tr('{factory}: kein beladender Drohnenhafen im Grundriss', { factory: fname(factoryId) })
+                  : tr('{factory}: kein entladender Drohnenhafen im Grundriss', { factory: fname(factoryId) }),
+              explanation: tr(TRN_NO_INTERFACE.description),
+              suggestion: tr('Drohnenhafen im Grundriss platzieren und in den Eigenschaften Be- bzw. Entladen wählen.'),
             },
             { keyExtra: mode },
           ),

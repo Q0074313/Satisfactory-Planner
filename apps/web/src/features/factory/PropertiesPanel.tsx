@@ -240,7 +240,7 @@ function BuildingProps({ building: b }: { building: Building }) {
         )}
         {transferInterface(def) && (
           <>
-            <Row label={t('Umschlag')} hint={t('Übergabe für Transportaufträge: Zugaufträge nutzen Frachtplattformen, Fahrzeugaufträge Lkw- bzw. Tanklaster-Stationen.')}>
+            <Row label={t('Umschlag')} hint={t('Übergabe für Transportaufträge: Zugaufträge nutzen Frachtplattformen, Fahrzeugaufträge Lkw- bzw. Tanklaster-Stationen, Drohnenaufträge Drohnenhäfen.')}>
               <select value={b.transfer?.mode ?? 'unload'} onChange={(e) => upd(t('Umschlag'), { transfer: { mode: e.target.value as 'load' | 'unload', stationId: b.transfer?.stationId ?? null } })}>
                 <option value="unload">{t('Entladen (Einfuhr in die Fabrik)')}</option>
                 <option value="load">{t('Beladen (Ausfuhr aus der Fabrik)')}</option>
@@ -275,7 +275,7 @@ function BuildingProps({ building: b }: { building: Building }) {
         </Row>
       </Section>
 
-      {(rates.inputs.length > 0 || rates.outputs.length > 0 || rates.powerMW > 0) && (
+      {(rates.inputs.length > 0 || rates.outputs.length > 0 || rates.powerMW > 0 || rates.generatedMW !== undefined) && (
         <Section title={t('Durchsatz (rechnerisch)')}>
           {rates.inputs.map((r) => {
             const got = fm?.inputs.find((x) => x.itemId === r.item);
@@ -296,6 +296,12 @@ function BuildingProps({ building: b }: { building: Building }) {
               {fmtRate(r.perMin)}
             </Row>
           ))}
+          {rates.generatedMW !== undefined && (
+            <Row label={t('Erzeugt')}>
+              <span className="pos">{fmtNum(rates.generatedMW)} MW</span>
+              {fm && fm.utilization < 0.999 && <span className="dim"> ({t('bei Auslastung {n} MW', { n: fmtNum(rates.generatedMW * fm.utilization) })})</span>}
+            </Row>
+          )}
           <Row label={t('Leistung')}>
             {fmtNum(rates.powerMW)} MW
             {rates.powerRangeMW && (
@@ -345,8 +351,8 @@ function BuildingProps({ building: b }: { building: Building }) {
                   onChange={(v) => apply(t('Einbaulage ändern'), (d, g) => ops.setVertical(d, g, [b.id], v === 'level' ? null : v))}
                   options={[
                     { value: 'level', label: t('waagrecht') },
-                    { value: 'up', label: t('senkrecht ▲'), title: t('Förderrichtung nach oben') },
-                    { value: 'down', label: t('senkrecht ▼'), title: t('Förderrichtung nach unten') },
+                    { value: 'up', label: '▲', title: t('Senkrecht, Förderrichtung nach oben') },
+                    { value: 'down', label: '▼', title: t('Senkrecht, Förderrichtung nach unten') },
                   ]}
                 />
               </Row>
@@ -482,9 +488,11 @@ function MultiBuildingProps({ buildings }: { buildings: Building[] }) {
   const sameClock = buildings.every((b) => b.clock === first.clock);
   const totals = new Map<string, number>();
   let power = 0;
+  let generated = 0;
   for (const b of buildings) {
     const r = machineRates(gd, b);
     power += r.powerMW;
+    generated += r.generatedMW ?? 0;
     for (const x of r.outputs) totals.set(x.item, (totals.get(x.item) ?? 0) + x.perMin);
     for (const x of r.inputs) totals.set(x.item, (totals.get(x.item) ?? 0) - x.perMin);
   }
@@ -512,6 +520,7 @@ function MultiBuildingProps({ buildings }: { buildings: Building[] }) {
         </Row>
       )}
       <Row label={t('Leistung gesamt')}>{fmtNum(power)} MW</Row>
+      {generated > 0 && <Row label={t('Erzeugt gesamt')}>{fmtNum(generated)} MW</Row>}
       {[...totals.entries()].map(([item, v]) => (
         <Row key={item} label={gd.name(item)}>
           <span className={v < 0 ? 'neg' : 'pos'}>

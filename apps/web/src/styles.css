@@ -707,6 +707,19 @@ h4.sub {
 .bottlenecks li {
   margin: 3px 0;
 }
+.suggestions {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+}
+.suggestions li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
 .assumptions {
   margin-top: 10px;
   color: var(--dim);
@@ -767,6 +780,8 @@ h4.sub {
 /* Umschaltleiste */
 .segmented {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   border: 1px solid var(--border);
   border-radius: 4px;
   overflow: hidden;
@@ -1114,4 +1129,72 @@ g.fn-shortfall rect {
 }
 .menu-version {
   margin: 4px 8px 2px;
+}
+
+.welcome-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.about-note {
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent);
+  background: var(--active-bg);
+}
+.about-note p {
+  margin: 4px 0;
+}
+.elevation-tools {
+  position: absolute;
+  top: 48px;
+  left: 8px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 6px;
+  background: var(--overlay);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+/* Geführte Fehlersuche */
+.diagnosis {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+  font-size: 13px;
+}
+.diagnosis li {
+  padding: 3px 8px;
+  border-left: 3px solid transparent;
+  cursor: default;
+}
+.diagnosis li.clickable,
+.diagnosis[data-testid='diagnose-findings'] li {
+  cursor: pointer;
+}
+.diagnosis li:hover {
+  background: var(--hover, rgba(127, 127, 127, 0.12));
+}
+.diagnosis .lvl-error {
+  border-left-color: var(--err, #e5534b);
+}
+.diagnosis .lvl-warning {
+  border-left-color: var(--warn, #d29922);
+}
+.diagnosis .lvl-info {
+  border-left-color: var(--border);
+}
+.diagnosis .lvl-ok {
+  border-left-color: var(--ok, #3fb950);
+}
+.diag-icon {
+  display: inline-block;
+  width: 1.2em;
+}
+.power-row {
+  flex-wrap: wrap;
+  margin: 4px 0;
 }

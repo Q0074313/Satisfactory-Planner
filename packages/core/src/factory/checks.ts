@@ -27,6 +27,7 @@ import {
   FAB_PIPE_HEAD_SHORT,
   FAB_PORTS_UNVERIFIED,
   FAB_SOFT_OVERLAP,
+  FAB_SUNK_SURPLUS,
   FAB_TALLER_THAN_FLOOR,
   FAB_UNDERSUPPLIED,
   FAB_UNKNOWN_TYPE,
@@ -417,6 +418,23 @@ export function checkFlow(p: Project, gd: GameDataIndex, factoryId: string, cach
         ),
       );
     }
+  }
+  for (const [sinkId, items] of flow.sinks) {
+    const sink = p.buildings[sinkId];
+    if (!sink) continue;
+    const list = items.map((x) => `${gd.name(x.itemId)} ${rate(gd, x.itemId, x.perMin)}`).join(', ');
+    out.push(
+      makeFinding(
+        FAB_SUNK_SURPLUS,
+        [{ table: 'buildings', id: sinkId }],
+        {
+          message: tr('Überschuss im Schredder: {list}', { list }),
+          explanation: tr('Diese Mengen werden nicht weiterverarbeitet. Sie zählen als Überschuss der Fabrik und stehen z. B. für Transportaufträge zur Verfügung.'),
+          suggestion: tr('Wenn das so gewollt ist, Befund als bekannt markieren; sonst die Menge in einem weiteren Rezept oder einer anderen Fabrik nutzen.'),
+        },
+        { location: locOf(sinkId) },
+      ),
+    );
   }
   out.push(
     makeFinding(FAB_FLOW_ASSUMPTIONS, [{ table: 'factories', id: factoryId }], {

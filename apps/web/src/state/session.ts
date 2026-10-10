@@ -6,7 +6,7 @@
  * - ohne Server (z. B. nur `npm run dev`): Projekte liegen lokal in IndexedDB
  */
 import { useEffect, useRef, useState } from 'react';
-import { createProject, ImportError, importProject, type Project } from '@satis/core';
+import { buildExampleProject, createProject, ImportError, importProject, type ExampleKind, type Project } from '@satis/core';
 import { t } from '../i18n';
 import { ApiError, idFromLocation, serverApi, useServer } from './server';
 import { deleteProject, lastProjectId, loadProject, rememberLastProject, saveProject } from '../persistence/db';
@@ -29,12 +29,49 @@ async function activate(project: Project, opts: { remote?: RemoteRef | null } = 
   if (!opts.remote) rememberLastProject(project.id);
 }
 
-/** Setzt die Adresse auf /f/<id>, ohne die Seite neu zu laden. */
+/**
+ * Merkt sich das geöffnete Projekt im Verlauf, ohne die ID in der Adresszeile
+ * zu zeigen (z. B. Streams): Die Adresse bleibt „/“, die ID steht im
+ * Verlaufseintrag und – für Neuladen in diesem Tab – im sessionStorage.
+ * Ein eingegebener Link /f/<id> wird nach dem Öffnen ebenfalls auf „/“ gekürzt.
+ */
+const TAB_KEY = 'satis-planner:tab-project';
+
+export function tabProjectId(): string | null {
+  try {
+    return sessionStorage.getItem(TAB_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function rememberTabProject(id: string | null) {
+  try {
+    if (id) sessionStorage.setItem(TAB_KEY, id);
+    else sessionStorage.removeItem(TAB_KEY);
+  } catch {
+    /* Speicher nicht verfügbar */
+  }
+}
+
+/** ID aus dem aktuellen Verlaufseintrag (gesetzt von showInAddressBar). */
+export function idFromHistory(): string | null {
+  const st = history.state as { projectId?: unknown } | null;
+  return typeof st?.projectId === 'string' ? st.projectId : null;
+}
+
 function showInAddressBar(id: string, replace = false) {
-  const path = `/f/${id}`;
-  if (location.pathname === path) return;
-  if (replace) history.replaceState(null, '', path);
-  else history.pushState(null, '', path);
+  rememberTabProject(id);
+  if (idFromHistory() === id && location.pathname === '/') return;
+  // Ein frisch geöffneter Link ersetzt seinen eigenen Eintrag statt einen neuen anzulegen
+  if (replace || idFromLocation() !== null) history.replaceState({ projectId: id }, '', '/');
+  else history.pushState({ projectId: id }, '', '/');
+}
+
+/** Startseite ohne Projekt im Verlauf (Adresse „/“). */
+export function leaveProjectInHistory() {
+  rememberTabProject(null);
+  history.pushState(null, '', '/');
 }
 
 /** Öffnet ein Projekt vom Server. */
@@ -46,6 +83,7 @@ export async function openRemote(id: string, opts: { replace?: boolean; push?: b
     revisions.set(id, r.revision);
     await activate(project, { remote: { id } });
     if (opts.push !== false) showInAddressBar(id, opts.replace);
+    else rememberTabProject(id);
     rememberRecent(id, project.name);
     for (const m of r.migrations) ui.toast(t('Migriert: {m}', { m }));
     return true;
@@ -84,7 +122,19 @@ export async function uploadLocal(localId: string): Promise<boolean> {
 export async function createNew(name: string): Promise<boolean> {
   const ds = DEFAULT_DATASET;
   if (!ds) throw new Error(t('Kein Spieldatensatz verfügbar.'));
-  const p = createProject({ name, datasetId: ds.datasetId, gameVersion: ds.gameVersion });
+  return store(createProject({ name, datasetId: ds.datasetId, gameVersion: ds.gameVersion }));
+}
+
+/** Legt ein Beispielprojekt (Tutorial) als neues Projekt an und öffnet es. */
+export async function createExample(kind: ExampleKind): Promise<boolean> {
+  const ds = DEFAULT_DATASET;
+  if (!ds) throw new Error(t('Kein Spieldatensatz verfügbar.'));
+  const gd = await loadGameData(ds.datasetId);
+  return store(buildExampleProject(gd, kind, { datasetId: ds.datasetId, gameVersion: ds.gameVersion }));
+}
+
+/** Neues Projekt speichern (Server bzw. Browser) und öffnen. */
+async function store(p: Project): Promise<boolean> {
   if (useServer.getState().available) {
     try {
       await createRemote(p);
@@ -137,8 +187,13 @@ async function bootOnce(): Promise<boolean> {
     return false;
   }
   if (server) {
-    const last = recentProjects()[0];
-    return last ? openRemote(last.id, { replace: true }) : false;
+    // Neuladen: zuerst das Projekt dieses Tabs, sonst das zuletzt geöffnete
+    const id = idFromHistory() ?? tabProjectId() ?? recentProjects()[0]?.id;
+    if (!id) return false;
+    if (await openRemote(id, { replace: true })) return true;
+    rememberTabProject(null);
+    history.replaceState(null, '', '/');
+    return false;
   }
   const id = lastProjectId();
   return id ? openById(id) : false;

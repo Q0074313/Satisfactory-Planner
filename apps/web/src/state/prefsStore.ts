@@ -8,6 +8,16 @@ import { resolveBindings, type Bindings } from './keymap';
 
 export type ThemePref = 'system' | 'dark' | 'light';
 
+/**
+ * Fangraster im Schieneneditor (Rasterecken). 4 m trifft im 8-m-Fundamentraster
+ * Ecken, Kantenmitten und Feldmitten; 1 m für Feinarbeit.
+ */
+export interface RailSnap {
+  stepM: number;
+}
+export const RAIL_SNAP_STEPS = [4, 1];
+const DEFAULT_RAIL_SNAP: RailSnap = { stepM: 4 };
+
 interface Prefs {
   language: Lang;
   theme: ThemePref;
@@ -19,6 +29,9 @@ interface Prefs {
   animateFlow: boolean;
   /** Ausführliche Erklärungen in den Touren (Einsteiger). */
   detailedTours: boolean;
+  railSnap: RailSnap;
+  /** Streamer-Modus: Projekt-Link in der Oberfläche verdecken. */
+  streamerMode: boolean;
   /** Zuletzt gewählte Stufe und Verlegemodus je Leitungsart (gilt für die nächste Benutzung des Werkzeugs). */
   linkTools: Partial<Record<LinkKind, { tier: string; routing: LinkRouting }>>;
 }
@@ -33,21 +46,16 @@ interface PrefsState extends Prefs {
   setWelcomed(): void;
   setAnimateFlow(v: boolean): void;
   setDetailedTours(v: boolean): void;
+  setStreamerMode(v: boolean): void;
+  setRailSnap(v: RailSnap): void;
   setLinkTool(kind: LinkKind, v: { tier: string; routing: LinkRouting }): void;
 }
 
 const KEY = 'satis-planner:prefs';
 
-function detectLanguage(): Lang {
-  try {
-    return navigator.language?.toLowerCase().startsWith('de') ? 'de' : 'en';
-  } catch {
-    return 'de';
-  }
-}
-
 function load(): Prefs {
-  const base: Prefs = { language: detectLanguage(), theme: 'system', keymap: {}, toursDone: [], welcomed: false, animateFlow: true, detailedTours: false, linkTools: {} };
+  // Standardsprache Englisch, unabhängig von der Browsersprache
+  const base: Prefs = { language: 'en', theme: 'system', keymap: {}, toursDone: [], welcomed: false, animateFlow: true, detailedTours: false, streamerMode: false, railSnap: DEFAULT_RAIL_SNAP, linkTools: {} };
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return base;
@@ -60,6 +68,8 @@ function load(): Prefs {
       welcomed: !!v.welcomed,
       animateFlow: v.animateFlow !== false,
       detailedTours: !!v.detailedTours,
+      streamerMode: !!v.streamerMode,
+      railSnap: v.railSnap && RAIL_SNAP_STEPS.includes(v.railSnap.stepM) ? { stepM: v.railSnap.stepM } : DEFAULT_RAIL_SNAP,
       linkTools: v.linkTools && typeof v.linkTools === 'object' ? v.linkTools : {},
     };
   } catch {
@@ -89,6 +99,8 @@ export const usePrefs = create<PrefsState>((set, get) => {
       welcomed: s.welcomed,
       animateFlow: s.animateFlow,
       detailedTours: s.detailedTours,
+      streamerMode: s.streamerMode,
+      railSnap: s.railSnap,
       linkTools: s.linkTools,
     });
   };
@@ -130,6 +142,14 @@ export const usePrefs = create<PrefsState>((set, get) => {
     },
     setDetailedTours(detailedTours) {
       set({ detailedTours });
+      persist();
+    },
+    setStreamerMode(streamerMode) {
+      set({ streamerMode });
+      persist();
+    },
+    setRailSnap(railSnap) {
+      set({ railSnap: { ...railSnap } });
       persist();
     },
     setLinkTool(kind, v) {

@@ -23,6 +23,8 @@ function plan(patch: Partial<ProductionPlan>): ProductionPlan {
     machineLimits: [],
     limitToExistingMachines: false,
     optimize: 'resources',
+    power: { generators: [] },
+    suggestAlternates: false,
     ...patch,
   };
 }

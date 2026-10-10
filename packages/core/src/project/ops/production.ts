@@ -23,6 +23,8 @@ export function addPlan(p: Project, factoryId: string, name: string): string {
     machineLimits: [],
     limitToExistingMachines: false,
     optimize: 'resources',
+    power: { generators: [] },
+    suggestAlternates: false,
   };
   return id;
 }
@@ -39,6 +41,10 @@ export function updatePlan(p: Project, gd: GameDataIndex, id: string, patch: Pla
   for (const s of patch.supplies ?? []) {
     if (!gd.item(s.itemId)) throw new OpError(tr('Gegenstand {id} unbekannt.', { id: s.itemId }));
     if (s.maxPerMin !== null && !(s.maxPerMin >= 0)) throw new OpError(tr('Versorgungsmengen dürfen nicht negativ sein.'));
+  }
+  for (const g of patch.power?.generators ?? []) {
+    if (!gd.recipe(g.recipeId)?.generator) throw new OpError(tr('Rezept {id} unbekannt.', { id: g.recipeId }));
+    if (!(g.count >= 0)) throw new OpError(tr('Die Anzahl darf nicht negativ sein.'));
   }
   for (const r of [...(patch.enabledAlternates ?? []), ...(patch.disabledRecipes ?? [])]) {
     if (!gd.recipe(r)) throw new OpError(tr('Rezept {id} unbekannt.', { id: r }));

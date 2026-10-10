@@ -231,6 +231,21 @@ export const RAIL_TRACTION = defineRule({
   sources: [FREIGHT_CAR, LOCOMOTIVE],
 });
 
+/** Ab so vielen Pfadblöcken direkt hintereinander auf einem Fahrweg meldet RAIL-026. */
+export const PATH_CHAIN_LIMIT = 3;
+
+export const RAIL_PATH_CHAIN = defineRule({
+  id: 'RAIL-026',
+  title: 'Viele Pfadsignale hintereinander',
+  domain: 'rail',
+  kind: 'recommendation',
+  certainty: 'dynamic',
+  severity: 'warning',
+  description:
+    'Ein Pfadsignal lässt einen Zug erst einfahren, wenn sein ganzer Weg durch die folgenden Pfadblöcke bis in einen Block hinter einem Blocksignal frei ist („path in, block out“). Folgen mehrere Pfadsignale direkt aufeinander, reserviert der Zug die ganze Kette auf einmal: Er wartet länger auf freie Fahrt und hält die Strecke lange für andere Züge belegt. Empfehlung: Pfadsignale nur vor Weichen und Kreuzungen, dazwischen Blocksignale mit mindestens einer Zuglänge Abstand. Der Planer meldet Ketten ab drei Pfadblöcken auf dem Fahrweg eines Zuges.',
+  sources: [SIGNALS],
+});
+
 export const RAIL_DEADLOCK_UNCHECKED = defineRule({
   id: 'RAIL-024',
   title: 'Deadlocks statisch nicht ausschließbar',

@@ -199,3 +199,22 @@ export function bezierMinRadius(c: Bezier3, samples = 48): number {
   }
   return min;
 }
+
+/**
+ * Fängt einen Punkt im Raster der Schrittweite `step`:
+ * - `corner`: Rasterecken (Vielfache von `step`)
+ * - `center`: Feldmitten (um eine halbe Schrittweite versetzt)
+ * - `edge`: Kantenmitten (eine Achse auf der Rasterlinie, die andere in der Feldmitte),
+ *   z. B. Gleise mittig über einer Fundamentreihe
+ */
+export function snapToGrid(p: Vec2, step: number, anchor: 'corner' | 'edge' | 'center'): Vec2 {
+  if (step <= 0) return p;
+  // „+ 0“ macht aus −0 eine 0
+  const line = (v: number) => Math.round(v / step) * step + 0;
+  const mid = (v: number) => Math.round((v - step / 2) / step) * step + step / 2 + 0;
+  if (anchor === 'corner') return { x: line(p.x), y: line(p.y) };
+  if (anchor === 'center') return { x: mid(p.x), y: mid(p.y) };
+  const a = { x: line(p.x), y: mid(p.y) };
+  const b = { x: mid(p.x), y: line(p.y) };
+  return Math.hypot(a.x - p.x, a.y - p.y) <= Math.hypot(b.x - p.x, b.y - p.y) ? a : b;
+}

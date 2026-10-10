@@ -43,10 +43,10 @@ const DARK = {
   pathSignal: '#a77bff',
   signalInk: '#111',
   fuelPort: '#ff5ce1',
-  /** Förderbänder Mk.1 … Mk.6 (Farbton steigt mit der Stufe). */
-  beltTiers: ['#b8a45a', '#e2c12a', '#f0962e', '#ea5f3a', '#d64fa0', '#9b78f0'],
-  /** Rohre Mk.1, Mk.2. */
-  pipeTiers: ['#4fb3e0', '#2a6fe0'],
+  /** Förderbänder Mk.1 … Mk.6 (Farbton steigt mit der Stufe; Mk.1 grau, damit es sich deutlich von Mk.2 abhebt). */
+  beltTiers: ['#a39d94', '#ecc414', '#f08a24', '#e8463a', '#d24fc0', '#8f6bff'],
+  /** Rohre Mk.1 (türkis), Mk.2 (kräftig blau); beide weit genug weg von der Auswahlfarbe. */
+  pipeTiers: ['#35a593', '#3d5df0'],
 };
 
 type Palette = typeof DARK;
@@ -92,19 +92,15 @@ const LIGHT: Palette = {
   pathSignal: '#7b4fd6',
   signalInk: '#fff',
   fuelPort: '#b0249a',
-  beltTiers: ['#8a7a3a', '#a88a00', '#c06a10', '#c0401c', '#a8317c', '#6a46c8'],
-  pipeTiers: ['#2a8fc0', '#1048b0'],
+  beltTiers: ['#928c84', '#c29e10', '#d97a26', '#de5a45', '#c955b8', '#7d60e0'],
+  pipeTiers: ['#2f9c8c', '#4a6ae6'],
 };
 
 /** Aktuelle Zeichenfarben (werden beim Wechsel des Farbschemas ersetzt). */
 export const COLORS: Palette = { ...DARK };
 
-export function applyCanvasTheme(theme: 'dark' | 'light'): void {
-  Object.assign(COLORS, theme === 'light' ? LIGHT : DARK);
-}
-
-/** Gebäudefarben je Kategorie (in beiden Farbschemata gut lesbar). */
-export const CATEGORY_COLORS: Record<string, string> = {
+/** Gebäudefarben je Kategorie; im hellen Schema heller, Beschriftung bleibt weiß lesbar. */
+const CATEGORY_DARK: Record<string, string> = {
   production: '#3d5a80',
   extraction: '#6b4f2a',
   power: '#5a3d80',
@@ -114,6 +110,22 @@ export const CATEGORY_COLORS: Record<string, string> = {
   foundation: '#444a50',
   other: '#4f4f4f',
 };
+const CATEGORY_LIGHT: Record<string, string> = {
+  production: '#5b7fb0',
+  extraction: '#937248',
+  power: '#7f63aa',
+  logistics: '#6d7986',
+  storage: '#5b8f6d',
+  rail: '#98605e',
+  foundation: '#6a7178',
+  other: '#767676',
+};
+export const CATEGORY_COLORS: Record<string, string> = { ...CATEGORY_DARK };
+
+export function applyCanvasTheme(theme: 'dark' | 'light'): void {
+  Object.assign(COLORS, theme === 'light' ? LIGHT : DARK);
+  Object.assign(CATEGORY_COLORS, theme === 'light' ? CATEGORY_LIGHT : CATEGORY_DARK);
+}
 
 export function pathPolygon(ctx: CanvasRenderingContext2D, vp: Viewport, pts: Vec[]): void {
   ctx.beginPath();
@@ -173,20 +185,44 @@ export function drawLabel(
   text: string,
   x: number,
   y: number,
-  opts: { color?: string; size?: number; bg?: string; align?: CanvasTextAlign } = {},
+  opts: { color?: string; size?: number; bg?: string; align?: CanvasTextAlign; maxWidth?: number } = {},
 ): void {
-  ctx.font = `${opts.size ?? 11}px system-ui, sans-serif`;
+  let size = opts.size ?? 11;
+  ctx.font = `${size}px system-ui, sans-serif`;
+  if (opts.maxWidth !== undefined) {
+    // Passt der Text nicht hinein: erst verkleinern (bis 8 px), dann mit „…“ kürzen
+    const w = ctx.measureText(text).width;
+    if (w > opts.maxWidth) {
+      size = Math.max(8, Math.floor((size * opts.maxWidth) / w));
+      ctx.font = `${size}px system-ui, sans-serif`;
+      text = fitText(ctx, text, opts.maxWidth);
+      if (!text) return;
+    }
+  }
   ctx.textAlign = opts.align ?? 'center';
   ctx.textBaseline = 'middle';
   if (opts.bg) {
     const w = ctx.measureText(text).width + 6;
-    const h = (opts.size ?? 11) + 4;
+    const h = size + 4;
     const left = opts.align === 'left' ? x - 3 : opts.align === 'right' ? x - w + 3 : x - w / 2;
     ctx.fillStyle = opts.bg;
     ctx.fillRect(left, y - h / 2, w, h);
   }
   ctx.fillStyle = opts.color ?? COLORS.text;
   ctx.fillText(text, x, y);
+}
+
+/** Kürzt einen Text mit „…“ auf die Breite (aktuelle Schrift); leer, wenn nicht einmal ein Zeichen passt. */
+export function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (ctx.measureText(text.slice(0, mid).trimEnd() + '…').width <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo === 0 ? '' : text.slice(0, lo).trimEnd() + '…';
 }
 
 /** Bemaßungslinie zwischen zwei Weltpunkten mit Längenangabe. */

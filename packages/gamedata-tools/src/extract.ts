@@ -382,6 +382,49 @@ function main() {
     for (const a of [...inputs, ...outputs]) usedItems.add(a.item);
   }
 
+  // ---------- Stromerzeugung ----------
+  // Abgeleitete Rezepte je Kraftwerk und Brennstoff (Docs mFuel, mPowerProduction,
+  // mSupplementalToPowerRatio, mEnergyValue). Ein Zyklus = 1 min bei 100 % Takt:
+  //   Brennstoff/min = Leistung · 60 / Energiewert (Flüssigkeiten: Docs je Liter → je m³)
+  //   Zusatzstoff m³/min = Leistung · mSupplementalToPowerRatio · 60 / 1000
+  //   Nebenprodukt/min = Brennstoff/min · mByproductAmount
+  for (const group of ['FGBuildableGeneratorFuel', 'FGBuildableGeneratorNuclear']) {
+    for (const c of en.get(group) ?? []) {
+      const b = buildings[c.ClassName];
+      const powerMW = b?.powerProductionMW ?? 0;
+      if (!b || powerMW <= 0) continue;
+      const fuels = (c as unknown as { mFuel?: { mFuelClass: string; mSupplementalResourceClass: string; mByproduct: string; mByproductAmount: string }[] }).mFuel ?? [];
+      const ratio = num(c.mSupplementalToPowerRatio) || 0;
+      for (const f of fuels) {
+        const fuel = allItems.get(f.mFuelClass);
+        const energy = fuel ? (fuel.form === 'solid' ? fuel.energyMJ : fuel.energyMJ * 1000) : 0;
+        if (!fuel || energy <= 0) {
+          report.push(`Brennstoff ${f.mFuelClass} in ${b.id} übersprungen: unbekannt oder ohne Energiewert.`);
+          continue;
+        }
+        const perMin = (powerMW * 60) / energy;
+        const inputs: GdAmount[] = [{ item: fuel.id, amount: perMin }];
+        if (f.mSupplementalResourceClass && ratio > 0 && allItems.has(f.mSupplementalResourceClass))
+          inputs.push({ item: f.mSupplementalResourceClass, amount: (powerMW * ratio * 60) / 1000 });
+        const outputs: GdAmount[] = [];
+        const by = Number.parseFloat(f.mByproductAmount);
+        if (f.mByproduct && by > 0 && allItems.has(f.mByproduct)) outputs.push({ item: f.mByproduct, amount: perMin * by });
+        const r: GdRecipe = {
+          id: `Power_${b.id}_${fuel.id}`,
+          name: { en: `Power: ${fuel.name.en}`, de: `Strom: ${fuel.name.de}` },
+          alternate: false,
+          durationS: 60,
+          inputs,
+          outputs,
+          producedIn: [b.id],
+          generator: { powerMW },
+        };
+        recipes[r.id] = r;
+        for (const a of [...inputs, ...outputs]) usedItems.add(a.item);
+      }
+    }
+  }
+
   // Ableitung: Mindestanzahl Anschlüsse je Produktionsgebäude aus den Rezepten,
   // als Gegenprobe zu den Wiki-Angaben.
   for (const id of productionBuildings) {
@@ -440,6 +483,18 @@ function main() {
       sourceRef: { source: 'docs', detail: 'Desc_CrystalShard_C.mExtraPotential', confidence: 'game-data' },
     };
   }
+
+  // ---------- Drohnen ----------
+  // Laderaum und Energiebedarf je Umlauf aus den Docs (mTripPowerCost, mTripPowerPerMeterCost in MJ;
+  // mit Batterien à 6000 MJ: 4 Batterien + 1 Batterie je km, vgl. Wiki „Drone“, Patch 0.4.0.11).
+  const droneDesc = (en.get('FGVehicleDescriptor') ?? []).find((c) => c.ClassName === 'Desc_DroneTransport_C');
+  const port = (en.get('FGBuildableDroneStation') ?? []).find((c) => c.ClassName === 'Build_DroneStation_C');
+  if (droneDesc && port) {
+    const doc = (value: number, unit: string, description: string, detail: string): GdFact => ({ value, unit, description, sourceRef: { source: 'docs', detail, confidence: 'game-data' } });
+    facts['drone.slots'] = doc(Number.parseInt(droneDesc.mInventorySize ?? '0', 10), 'Stapel', 'Inventarplätze einer Drohne.', 'Desc_DroneTransport_C.mInventorySize');
+    facts['drone.tripEnergyMJ'] = doc(num(port.mTripPowerCost), 'MJ', 'Grundenergie je Umlauf einer Drohne.', 'Build_DroneStation_C.mTripPowerCost');
+    facts['drone.energyPerMeterMJ'] = doc(num(port.mTripPowerPerMeterCost), 'MJ/m', 'Zusätzliche Energie je Meter Entfernung zwischen den Häfen.', 'Build_DroneStation_C.mTripPowerPerMeterCost');
+  } else report.push('Drohnendaten (Desc_DroneTransport_C, Build_DroneStation_C) nicht gefunden.');
 
   // ---------- Straßenfahrzeuge (LKW-Stationen) ----------
   // Laderaum aus den Docs; Geschwindigkeit und Tankinhalt aus kuratierten Wiki-Fakten.
@@ -503,6 +558,7 @@ function main() {
         'Anschlusspositionen an Gebäuden sind in den Docs nicht enthalten. Der Planer zeigt Anschlüsse schematisch und kennzeichnet sie als nicht verifiziert.',
         'Flüssigkeitsmengen wurden von Litern (Docs) in m³ umgerechnet.',
         'Förderband-Durchsatz: Docs-Feld mSpeed / 2 = Items pro Minute.',
+        'Kraftwerksrezepte (Power_<Kraftwerk>_<Brennstoff>) sind aus mFuel, mPowerProduction, mSupplementalToPowerRatio und mEnergyValue abgeleitet; ein Zyklus = 1 min bei 100 % Takt.',
       ],
     },
     items,

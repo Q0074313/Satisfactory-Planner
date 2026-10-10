@@ -14,7 +14,9 @@ import {
   resourceWeight,
   solveProduction,
   sortItems,
+  suggestAlternates,
   transportNeed,
+  type Building,
   type GameDataIndex,
   type ItemSort,
   type ProductionPlan,
@@ -162,6 +164,10 @@ function PlanSettings({ plan }: { plan: ProductionPlan }) {
         <input type="checkbox" checked={plan.limitToExistingMachines} onChange={(e) => upd(t('Maschinengrenze'), { limitToExistingMachines: e.target.checked })} />
         {t('Nur vorhandene Maschinen der Fabrik')}
       </label>
+      <label className="check-row" title={t('Zeigt Alternativrezepte, die den gewichteten Rohstoffbedarf senken (bzw. beim Maximieren mehr ermöglichen)')}>
+        <input type="checkbox" checked={plan.suggestAlternates} onChange={(e) => upd(t('Alternativen vorschlagen'), { suggestAlternates: e.target.checked })} />
+        {t('Alternativrezepte vorschlagen')}
+      </label>
     </Section>
   );
 }
@@ -232,10 +238,110 @@ function PlanBody({ plan }: { plan: ProductionPlan }) {
           />
         </Section>
       </div>
+      <PowerPlants plan={plan} result={result} />
+      {plan.suggestAlternates && <AlternateHints plan={plan} buildings={buildings} />}
       <RecipeSelection plan={plan} result={result} />
       <ResultView plan={plan} result={result} />
       <BalanceView plan={plan} result={result} />
     </div>
+  );
+}
+
+/** Kraftwerke mit vorgegebener Anzahl; der Plan rechnet ihre Zulieferung. */
+function PowerPlants({ plan, result }: { plan: ProductionPlan; result: SolveResult }) {
+  const gd = useProjectStore((s) => s.gd)!;
+  const apply = useProjectStore((s) => s.apply);
+  const options = useMemo(
+    () =>
+      Object.values(gd.data.recipes)
+        .filter((r) => r.generator)
+        .sort((a, b) => gd.name(a.producedIn[0]!).localeCompare(gd.name(b.producedIn[0]!), getLanguage()) || a.generator!.powerMW - b.generator!.powerMW || localName(a.name).localeCompare(localName(b.name), getLanguage())),
+    [gd],
+  );
+  const gens = plan.power.generators;
+  const set = (generators: typeof gens) => apply(t('Kraftwerke'), (d, g) => ops.updatePlan(d, g, plan.id, { power: { generators } }));
+  const total = gens.reduce((s, x) => s + (gd.recipe(x.recipeId)?.generator?.powerMW ?? 0) * x.count, 0);
+  return (
+    <Section
+      title={t('Kraftwerke')}
+      actions={
+        <button
+          className="small"
+          data-testid="power-add"
+          onClick={() => set([...gens, { recipeId: options.find((r) => r.id === 'Power_Build_GeneratorCoal_C_Desc_Coal_C')?.id ?? options[0]!.id, count: 1 }])}
+        >
+          + {t('Kraftwerk')}
+        </button>
+      }
+    >
+      {gens.length === 0 && <p className="dim small-text">{t('Keine Kraftwerke geplant. Mit „+ Kraftwerk“ Kraftwerk, Brennstoff und Anzahl angeben – der Plan berechnet dann Brennstoff und Wasser.')}</p>}
+      {gens.map((x, i) => {
+        const r = gd.recipe(x.recipeId);
+        return (
+          <div key={i} className="inline power-row" data-testid="power-row">
+            <select value={x.recipeId} onChange={(e) => set(gens.map((y, k) => (k === i ? { ...y, recipeId: e.target.value } : y)))}>
+              {options.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {gd.name(o.producedIn[0]!)} – {gd.name(o.inputs[0]!.item)}
+                </option>
+              ))}
+            </select>
+            <NumberField value={x.count} min={0} suffix="×" onCommit={(v) => set(gens.map((y, k) => (k === i ? { ...y, count: v } : y)))} />
+            <span className="dim small-text">
+              {fmtNum((r?.generator?.powerMW ?? 0) * x.count, 1)} MW · {r?.inputs.map((a) => `${fmtNum(a.amount * x.count, 2)} ${unit(gd, a.item)} ${gd.name(a.item)}`).join(', ')}
+            </span>
+            <button className="small" onClick={() => set(gens.filter((_, k) => k !== i))}>
+              ✕
+            </button>
+          </div>
+        );
+      })}
+      {gens.length > 0 && (
+        <p className="dim small-text">
+          {t('Zusammen {n} MW bei 100 % Takt.', { n: fmtNum(total, 1) })} {t('Brennstoff und Wasser plant der Solver wie jede andere Zulieferung; der Strombedarf der Maschinen wird nicht gegengerechnet.')}
+          {result.generatedMW + 1e-6 < total && <span className="neg"> {t('Nicht alle Kraftwerke versorgbar – siehe Engpässe.')}</span>}
+        </p>
+      )}
+    </Section>
+  );
+}
+
+function AlternateHints({ plan, buildings }: { plan: ProductionPlan; buildings: Building[] }) {
+  const gd = useProjectStore((s) => s.gd)!;
+  const apply = useProjectStore((s) => s.apply);
+  const hints = useMemo(() => suggestAlternates(gd, plan, { existingMachines: buildings }), [gd, plan, buildings]);
+  const list = [...(hints.combined ? [hints.combined] : []), ...hints.single.slice(0, 8)];
+  const take = (ids: string[]) =>
+    apply(t('Alternativen übernehmen'), (d, g) => ops.updatePlan(d, g, plan.id, { enabledAlternates: [...new Set([...plan.enabledAlternates, ...ids])] }));
+  return (
+    <Section title={t('Vorschläge: Alternativrezepte')}>
+      {plan.limitToExistingMachines ? (
+        <p className="dim small-text">{t('Mit „Nur vorhandene Maschinen“ gibt es keine Vorschläge.')}</p>
+      ) : list.length === 0 ? (
+        <p className="dim small-text" data-testid="alt-none">
+          {t('Keine Alternative spart Rohstoffe (oder der Plan ist nicht vollständig lösbar).')}
+        </p>
+      ) : (
+        <ul className="suggestions" data-testid="alt-suggestions">
+          {list.map((s) => (
+            <li key={s.recipeIds.join()}>
+              <span>
+                {s === hints.combined && <Badge kind="info">{t('zusammen')}</Badge>} {s.recipeIds.map((id) => gd.name(id)).join(' + ')}{' '}
+                <Badge kind="ok">{plan.mode === 'maximize' ? t('+{n} % Menge', { n: fmtNum(s.gainPct, 1) }) : t('−{n} % Rohstoffe', { n: fmtNum(s.gainPct, 1) })}</Badge>
+                <span className="dim small-text">
+                  {' '}
+                  {s.resources.map((r) => `${gd.name(r.itemId)} ${r.delta > 0 ? '+' : '−'}${fmtNum(Math.abs(r.delta), 1)}`).join(' · ')}
+                </span>
+              </span>
+              <button className="small" onClick={() => take(s.recipeIds)}>
+                {t('übernehmen')}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="dim small-text">{t('Rohstoffe gewichtet wie im Solver (1000 / weltweites Maximum). Vorschläge nur für Alternativrezepte, die nicht ausdrücklich abgewählt sind.')}</p>
+    </Section>
   );
 }
 
@@ -246,7 +352,7 @@ function RecipeSelection({ plan, result }: { plan: ProductionPlan; result: Solve
   const [q, setQ] = useState('');
   const used = new Set(result.recipes.map((r) => r.recipeId));
   const relevant = useMemo(() => {
-    const all = Object.values(gd.data.recipes);
+    const all = Object.values(gd.data.recipes).filter((r) => !r.generator);
     const query = q.trim().toLowerCase();
     return all
       .filter((r) => !query || r.name.de.toLowerCase().includes(query) || r.name.en.toLowerCase().includes(query) || r.outputs.some((o) => gd.name(o.item).toLowerCase().includes(query)))
@@ -344,6 +450,7 @@ function ResultView({ plan, result }: { plan: ProductionPlan; result: SolveResul
           <span>
             {' '}
             · {t('{n} Maschinen', { n: result.machineCount })} · {fmtNum(result.powerMW, 1)} MW ({t('bei gleichmäßigem Takt')})
+            {result.generatedMW > 0 && <> · {t('erzeugt {n} MW', { n: fmtNum(result.generatedMW, 1) })}</>}
           </span>
         )}
       </div>
@@ -385,7 +492,7 @@ function ResultView({ plan, result }: { plan: ProductionPlan; result: SolveResul
                     <td className="num">
                       {r.machinesCeil} × {fmtNum(r.clockEven * 100, 4)} %
                     </td>
-                    <td className="num">{fmtNum(r.powerMW, 1)} MW</td>
+                    <td className="num">{r.generatedMW > 0 ? <span className="pos">+{fmtNum(r.generatedMW, 1)} MW</span> : `${fmtNum(r.powerMW, 1)} MW`}</td>
                     <td className="small-text">{r.inputs.map((x) => `${fmtNum(x.perMin, 3)} ${gd.name(x.item)}`).join(', ')}</td>
                     <td className="small-text">{r.outputs.map((x) => `${fmtNum(x.perMin, 3)} ${gd.name(x.item)}`).join(', ')}</td>
                   </tr>

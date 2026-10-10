@@ -177,7 +177,19 @@ export const FAB_FLOW_ASSUMPTIONS = defineRule({
   certainty: 'static',
   severity: 'info',
   description:
-    'Das Durchsatzmodell rechnet mit bestmöglicher Verteilung an Splittern, ohne Filter intelligenter Splitter, mit Rohrfluss in Zeichenrichtung und ohne Förderhöhe. Kraftwerke nehmen Brennstoff ohne modellierten Verbrauch ab. Pufferfüllstände und Anlaufzeiten werden nicht simuliert.',
+    'Das Durchsatzmodell rechnet mit bestmöglicher Verteilung an Splittern, ohne Filter intelligenter Splitter, mit Rohrfluss in Zeichenrichtung und ohne Förderhöhe. Kraftwerke ohne Brennstoffwahl nehmen Brennstoff ohne modellierten Verbrauch ab. Pufferfüllstände und Anlaufzeiten werden nicht simuliert.',
+  sources: [FLOW],
+});
+
+export const FAB_SUNK_SURPLUS = defineRule({
+  id: 'FAB-020',
+  title: 'Überschuss im AWESOME-Schredder',
+  domain: 'factory',
+  kind: 'recommendation',
+  certainty: 'static',
+  severity: 'info',
+  description:
+    'Gegenstände, die in einen AWESOME-Schredder fließen, gelten als ordentlich abgeführt (kein Stau, kein Fehler). Der Planer wertet sie trotzdem als Überschuss: Sie werden nicht weiterverarbeitet und stehen in der Bilanz als „davon Schredder“. So bleibt sichtbar, was eine andere Fabrik oder ein weiteres Rezept noch nutzen könnte.',
   sources: [FLOW],
 });
 

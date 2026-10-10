@@ -7,10 +7,14 @@
  *   x_i  Überschuss von i (Nebenprodukt, nicht verbraucht)
  *   u_i  Fehlmenge von i (Ziel nicht erreichbar) – stark bestraft
  *   t    Skalierung der Ziele (nur Modus „maximieren“)
+ *   g_k  Kraftwerke je Kraftwerksrezept: fest vorgegebene Anzahl (Teil von r_k)
  *
  * Bilanz je Gegenstand i:  Σ_k a_ik · r_k + s_i − x_i + u_i = d_i
  *   a_ik = Nettomenge pro Minute einer Maschine (Ausgabe − Eingabe)
  *   d_i  = Zielmenge (Modus „target“) bzw. t · Verhältnis (Modus „maximize“)
+ *
+ * Kraftwerke werden nicht nach Strombedarf berechnet: Der Plan gibt Kraftwerk,
+ * Brennstoff und Anzahl vor (g_k = Anzahl), der Solver plant die Zulieferung.
  *
  * Das Gleichungssystem löst Kreisläufe und Mehrfachausgaben direkt. Es gibt
  * keinen Rezeptbaum, der Kreisläufe abbrechen müsste.
@@ -39,6 +43,8 @@ export interface RecipeResult {
   clockEven: number;
   /** Leistung bei gleichmäßigem Takt. */
   powerMW: number;
+  /** Erzeugte Leistung (Kraftwerke). */
+  generatedMW: number;
   inputs: { item: string; perMin: number }[];
   outputs: { item: string; perMin: number }[];
 }
@@ -69,6 +75,8 @@ export interface SolveResult {
   recipes: RecipeResult[];
   items: ItemResult[];
   powerMW: number;
+  /** Erzeugte Leistung der Kraftwerke im Plan. */
+  generatedMW: number;
   machineCount: number;
   bottlenecks: Bottleneck[];
   /** Offengelegte Annahmen der Berechnung. */
@@ -90,7 +98,8 @@ export function resourceWeight(gd: GameDataIndex, itemId: string): number {
 export function allowedRecipes(gd: GameDataIndex, plan: ProductionPlan): GdRecipe[] {
   const enabled = new Set(plan.enabledAlternates);
   const disabled = new Set(plan.disabledRecipes);
-  return Object.values(gd.data.recipes).filter((r) => !disabled.has(r.id) && (!r.alternate || enabled.has(r.id)));
+  // Kraftwerke nur als feste Vorgabe (plan.power.generators), nicht frei wählbar
+  return Object.values(gd.data.recipes).filter((r) => !disabled.has(r.id) && (!r.alternate || enabled.has(r.id)) && !r.generator);
 }
 
 interface Variant {
@@ -98,6 +107,8 @@ interface Variant {
   recipe: GdRecipe;
   boost: number;
   capacity: number | null;
+  /** Fest vorgegebene Anzahl (Kraftwerke). */
+  fixed?: number;
 }
 
 export function solveProduction(gd: GameDataIndex, plan: ProductionPlan, opts: SolveOptions = {}): SolveResult {
@@ -108,6 +119,8 @@ export function solveProduction(gd: GameDataIndex, plan: ProductionPlan, opts: S
     tr('Somersloops nur bei „vorhandene Maschinen“ berücksichtigt.'),
     tr('Wasser gilt als unbegrenzt verfügbar, sofern keine Obergrenze angegeben ist.'),
   ];
+  const generators = plan.power.generators.filter((g) => g.count > 0 && gd.recipe(g.recipeId)?.generator);
+  if (generators.length) assumptions.push(tr('Kraftwerke mit vorgegebener Anzahl bei 100 % Takt; der Strombedarf der Maschinen wird nicht gegengerechnet.'));
   const maximize = plan.mode === 'maximize';
   const recipes = allowedRecipes(gd, plan);
 
@@ -129,6 +142,9 @@ export function solveProduction(gd: GameDataIndex, plan: ProductionPlan, opts: S
   } else {
     for (const r of recipes) variants.push({ key: `r:${r.id}|0`, recipe: r, boost: 0, capacity: null });
   }
+  const fixed = new Map<string, number>();
+  for (const g of generators) fixed.set(g.recipeId, (fixed.get(g.recipeId) ?? 0) + g.count);
+  for (const [id, count] of fixed) variants.push({ key: `g:${id}`, recipe: gd.recipe(id)!, boost: 0, capacity: null, fixed: count });
   const limits = new Map(plan.machineLimits.map((l) => [l.recipeId, l.maxMachines]));
 
   const perMachine = (r: GdRecipe) => {
@@ -147,7 +163,7 @@ export function solveProduction(gd: GameDataIndex, plan: ProductionPlan, opts: S
   if (maximize && [...targetOf.values()].every((v) => v <= 0)) {
     return empty('error', tr('Für „Maximieren“ mindestens ein Zielprodukt mit Verhältnis > 0 angeben.'), assumptions);
   }
-  if (!maximize && targetOf.size === 0) return empty('optimal', tr('Keine Ziele angegeben.'), assumptions);
+  if (!maximize && targetOf.size === 0 && generators.length === 0) return empty('optimal', tr('Keine Ziele angegeben.'), assumptions);
 
   const supplyOf = new Map<string, { max: number | null; origin: 'local' | 'import' }>();
   for (const s of plan.supplies) supplyOf.set(s.itemId, { max: s.maxPerMin, origin: s.origin });
@@ -167,8 +183,14 @@ export function solveProduction(gd: GameDataIndex, plan: ProductionPlan, opts: S
     const coef = new Map<string, number>();
     for (const a of v.recipe.outputs) coef.set(`i:${a.item}`, (coef.get(`i:${a.item}`) ?? 0) + a.amount * cycles * (1 + v.boost));
     for (const a of v.recipe.inputs) coef.set(`i:${a.item}`, (coef.get(`i:${a.item}`) ?? 0) - a.amount * cycles);
-    const power = def ? machinePower(def, v.recipe, 1, v.boost).avg : 0;
-    coef.set('cost', weights.power * power + weights.machines);
+    const use = def ? machinePower(def, v.recipe, 1, v.boost).avg : 0;
+    coef.set('cost', weights.power * use + weights.machines);
+    if (v.fixed !== undefined) {
+      // Vorgabe; nicht versorgbare Kraftwerke (begrenzter Brennstoff) als stark bestrafte Lücke
+      constraints.set(`fix:${v.key}`, { equal: v.fixed });
+      coef.set(`fix:${v.key}`, 1);
+      variables.set(`gs:${v.key}`, new Map([[`fix:${v.key}`, 1], ['cost', BIG * 10]]));
+    }
     const cap = v.capacity ?? limits.get(v.recipe.id);
     if (cap !== undefined && cap !== null) {
       constraints.set(`cap:${v.key}`, { max: cap });
@@ -222,6 +244,7 @@ export function solveProduction(gd: GameDataIndex, plan: ProductionPlan, opts: S
   };
   const recipeRes: RecipeResult[] = [];
   let powerMW = 0;
+  let generatedMW = 0;
   let machineCount = 0;
   for (const v of variants) {
     const m = get(v.key);
@@ -229,7 +252,8 @@ export function solveProduction(gd: GameDataIndex, plan: ProductionPlan, opts: S
     const { cycles, def } = perMachine(v.recipe);
     const ceil = Math.max(1, Math.ceil(m - 1e-6));
     const clockEven = Math.round((m / ceil) * 1e6) / 1e6;
-    const power = def ? machinePower(def, v.recipe, clockEven, v.boost).avg * ceil : 0;
+    const use = def ? machinePower(def, v.recipe, clockEven, v.boost).avg * ceil : 0;
+    const gen = (v.recipe.generator?.powerMW ?? 0) * m;
     const res: RecipeResult = {
       recipeId: v.recipe.id,
       building: v.recipe.producedIn[0]!,
@@ -237,14 +261,16 @@ export function solveProduction(gd: GameDataIndex, plan: ProductionPlan, opts: S
       machines: m,
       machinesCeil: ceil,
       clockEven,
-      powerMW: power,
+      powerMW: use,
+      generatedMW: gen,
       inputs: v.recipe.inputs.map((a) => ({ item: a.item, perMin: a.amount * cycles * m })),
       outputs: v.recipe.outputs.map((a) => ({ item: a.item, perMin: a.amount * cycles * m * (1 + v.boost) })),
     };
     for (const o of res.outputs) row(o.item).produced += o.perMin;
     for (const i of res.inputs) row(i.item).consumed += i.perMin;
     recipeRes.push(res);
-    powerMW += power;
+    powerMW += use;
+    generatedMW += gen;
     machineCount += ceil;
   }
   for (const i of items) {
@@ -289,6 +315,19 @@ export function solveProduction(gd: GameDataIndex, plan: ProductionPlan, opts: S
     if (cap !== undefined && cap !== null && cap > 0 && get(v.key) >= cap - 1e-6 && (maximize || [...itemRes.values()].some((r) => r.shortfall > EPS)))
       bottlenecks.push({ kind: 'machines', id: v.recipe.id, message: tr('{recipe}: Maschinengrenze erreicht ({cap}).', { recipe: gd.name(v.recipe.id), cap: formatNumber(cap, 4) }) });
   }
+  for (const v of variants) {
+    const gap = v.fixed !== undefined ? get(`gs:${v.key}`) : 0;
+    if (gap > EPS)
+      bottlenecks.push({
+        kind: 'supply',
+        id: v.recipe.id,
+        message: tr('{recipe}: nur {n} von {total} Kraftwerken versorgbar (Brennstoff bzw. Wasser begrenzt).', {
+          recipe: gd.name(v.recipe.id),
+          n: formatNumber(v.fixed! - gap, 3),
+          total: formatNumber(v.fixed!, 3),
+        }),
+      });
+  }
   const unmet = [...itemRes.values()].filter((r) => r.shortfall > EPS);
   const message = maximize
     ? tr('Maximale Skalierung: {scale} × Zielverhältnis.', { scale: formatNumber(scale ?? 0, 4) })
@@ -304,6 +343,7 @@ export function solveProduction(gd: GameDataIndex, plan: ProductionPlan, opts: S
     recipes: recipeRes.sort((a, b) => b.machines - a.machines),
     items: [...itemRes.values()].sort((a, b) => gd.name(a.itemId).localeCompare(gd.name(b.itemId), getLanguage())),
     powerMW,
+    generatedMW,
     machineCount,
     bottlenecks,
     assumptions,
@@ -311,7 +351,7 @@ export function solveProduction(gd: GameDataIndex, plan: ProductionPlan, opts: S
 }
 
 function empty(status: SolveResult['status'], message: string, assumptions: string[]): SolveResult {
-  return { status, message, scale: null, recipes: [], items: [], powerMW: 0, machineCount: 0, bottlenecks: [], assumptions };
+  return { status, message, scale: null, recipes: [], items: [], powerMW: 0, generatedMW: 0, machineCount: 0, bottlenecks: [], assumptions };
 }
 
 /** Kleinste Band- bzw. Rohrstufe für einen Durchsatz und Anzahl paralleler Leitungen der höchsten Stufe. */

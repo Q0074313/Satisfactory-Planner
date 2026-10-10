@@ -79,6 +79,8 @@ interface UiState {
   /** Befunde: nur die zur Ansicht passenden oder alle. */
   findingsScope: 'view' | 'all';
   settingsOpen: boolean;
+  /** Dialog „Etwas stimmt nicht?“ (geführte Fehlersuche). */
+  diagnoseOpen: boolean;
   /** Aktive Führung (Tutorial) und Schritt. */
   tour: { id: string; step: number } | null;
   /** Bitte an den Editor, einen Punkt zu zentrieren. */
@@ -99,6 +101,7 @@ interface UiState {
   toggleBottom(): void;
   setFindingsScope(s: 'view' | 'all'): void;
   setSettingsOpen(open: boolean): void;
+  setDiagnoseOpen(open: boolean): void;
   startTour(id: string): void;
   setTourStep(step: number): void;
   endTour(): void;
@@ -137,6 +140,7 @@ export const useUiStore = create<UiState>((set) => ({
   bottomOpen: true,
   findingsScope: 'view',
   settingsOpen: false,
+  diagnoseOpen: false,
   tour: null,
   focus: null,
   clipboard: null,
@@ -159,6 +163,7 @@ export const useUiStore = create<UiState>((set) => ({
   toggleBottom: () => set((s) => ({ bottomOpen: !s.bottomOpen })),
   setFindingsScope: (findingsScope) => set({ findingsScope }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+  setDiagnoseOpen: (diagnoseOpen) => set({ diagnoseOpen }),
   startTour: (id) => set({ tour: { id, step: 0 } }),
   setTourStep: (step) => set((s) => (s.tour ? { tour: { ...s.tour, step } } : {})),
   endTour: () => set({ tour: null }),

@@ -182,3 +182,88 @@ Umgesetzt aus „zukünftige Pläne bzw. Änderungen“ (Abschnitt „nächste V
 - Wegwahl: Bogenlängen sind Näherungen; Längenunterschiede unter 5 cm gelten als gleich.
 - Fahrzeuge: keine Wegplanung und keine Simulation; Strecke und Durchschnittsgeschwindigkeit sind Angaben des Nutzers. Treibstoffverbrauch wird nicht geschätzt.
 - Direkte Leitungen: Förderhöhe zwischen Fabriken und Baubarkeit der Strecke werden nicht geprüft.
+
+## Version 0.4 – Feinschliff und Bedienung ✅
+
+Umgesetzt aus „zukünftige Pläne bzw. Änderungen“ (erster Teil des Abschnitts „nächste Version“; Berechnungen folgen in 0.5).
+
+**Allgemein**
+- [x] Standardsprache Englisch (unabhängig von der Browsersprache); Sprachauswahl auch in der Begrüßung.
+- [x] Projekt-Link nicht mehr in der Adresszeile: Die Adresse bleibt „/“, die ID steht im Verlauf und für Neuladen im sessionStorage des Tabs; Zurück/Vor zwischen Projekten funktioniert weiter. Streamer-Modus (Einstellungen) verdeckt den Link auch in der Leiste, Kopieren geht weiter. *(E2E)*
+- [x] Hinweis auf die Entwicklung mit KI-Unterstützung und mögliche Fehler (Einstellungen → Allgemein, Hilfemenü).
+- [x] Beschriftungen bleiben innerhalb von Gebäuden und Flächen (Schrift wird verkleinert, notfalls mit „…“ gekürzt; Zeilen nur, soweit sie in die Höhe passen).
+- [x] Übersetzungen: neue Texte übersetzt, veraltete Einträge entfernt. *(Abdeckungstests)*
+- [x] Tutorial: neue Funktionen aufgenommen; eigener Schritt „Blocksignal oder Pfadsignal?“ mit Erklärung, wann welches Signal passt.
+
+**Fabrikplanung**
+- [x] Deutlichere Farben: Band Mk.1 grau statt gelblich, Rohr Mk.1 türkis statt hellblau; ausgewählte Leitungen mit breitem Saum, ausgewählte Gebäude mit leuchtendem Rand.
+- [x] Pumpe in der Seitenansicht direkt aufs Rohr setzen: Leitung wird geteilt, Pumpe in Flussrichtung ausgerichtet, auf senkrechten Stücken senkrecht, Stockwerk nach Höhe; rastet an der Stelle ein, ab der die Förderhöhe nicht mehr reicht. *(Unit-Test)*
+- [x] AWESOME-Schredder: Zufluss gilt als abgeführt, zählt aber als Überschuss (Spalte „davon Schredder“ in der Bilanz, Hinweis FAB-020). *(Unit-Test)*
+
+**Schienennetz**
+- [x] Gleisraster 4 m (Standard; trifft Ecken, Kantenmitten und Mitten der 8-m-Fundamente) oder 1 m. *(Unit- und E2E-Test)*
+- [x] Mehrfachauswahl gemeinsam verschieben (Rahmen oder Umschalt-Klick, dann ziehen; rastet im Gleisraster). *(Unit- und E2E-Test)*
+- [x] Mausrad dreht beim Gleisbau die Richtung am Gleisende auf Rasterwinkel (Vielfache von 15°, Umschalt 5°; eine Stufe je zwei Rastungen; Strg + Rad zoomt). *(Unit- und E2E-Test)*
+- [x] Mindestlänge 12 m, Höchstlänge 100 m und Mindestradius 17 m schon beim Bauen: rote Vorschau mit Grund, Bau nur mit Strg + Klick. *(E2E)*
+- [x] Mehrere Loks: „+ Lok vorn“ (hinter den führenden Loks), Loks und Wagen mit ◀ ▶ umordnen, „fehlende Loks vorn ergänzen“ aus der Zugkraftrechnung.
+- [x] Befund RAIL-026: ab drei Pfadblöcken hintereinander auf dem Fahrweg eines Zuges (Wegwahl wie in der Simulation). *(Unit-Test)*
+
+**Vereinfachungen / bekannte Grenzen**
+- Gleisraster und Streamer-Modus sind Browser-Einstellungen, nicht Teil des Projekts.
+- Ohne ID in der Adresszeile öffnet ein Lesezeichen auf „/“ das zuletzt geöffnete Projekt dieses Browsers; für andere Geräte den Link über „Kopieren“ weitergeben.
+- Pumpe einsetzen: Bei Leitungen im Verlegemodus „Kurve“ wird die Lage an der Sehne zwischen den Steuerpunkten bestimmt.
+- RAIL-026 nutzt eine feste Grenze (3 Pfadblöcke); die Länge der reservierten Strecke steht in der Meldung.
+
+### Hotfix 0.4.1
+
+- Einbaulage-Knöpfe der Pumpe passen in die Seitenleiste (kurze Beschriftung ▲/▼, Umbruch).
+- Endpfeil von Rohren zeigt auch an senkrechten Enden (senkrechte Pumpe) in Förderrichtung.
+- Helles Farbschema: Leitungsstufen und Gebäudefarben heller.
+- „📋 Link kopieren“ in der Kopfleiste und in der Liste „Zuletzt geöffnet“.
+- Gleisbau: Mausrad auf Rasterwinkel mit geringerer Empfindlichkeit; Gleisraster nur noch 4 m und 1 m; Pumpenwerkzeug rastet an der Stelle ein, ab der gepumpt werden muss.
+
+### Hotfix 0.4.2
+
+- Rohre: keine stehenden Richtungspfeile mehr (Pfeile nur noch animiert bei Durchfluss); Rohr Mk.1 und Mk.2 haben zur Unterscheidung von Bändern eine helle Mittellinie.
+
+## Version 0.5 – Strom, Fehlersuche, Drohnen, Beispiele ✅
+
+Umgesetzt aus „zukünftige Pläne bzw. Änderungen“ (zweiter Teil des Abschnitts „nächste Version“).
+
+**Allgemein**
+- [x] „🩺 Etwas stimmt nicht?“ (Befundliste): erweiterte Prüfung mit allen Befunden der Fabrik und ihrer Pläne (auch Hinweise und ignorierte), danach geführte Suche „Maschine steht / läuft nicht voll“ bzw. „Gegenstand kommt nicht an“. Die Suche verfolgt den Fluss über Splitter, Lager und Rohrkreuzungen zurück: fehlende Zuleitung bzw. Quelle, nicht angeschlossener oder gestauter Ausgang, volle Leitung, zu wenig Quelle für alle Abnehmer, Quelle läuft selbst nicht voll (rekursiv). Klick auf eine Zeile zeigt das Objekt. Dazu eine Liste von Ursachen, die der Planer nicht prüft. *(Unit- und E2E-Test)*
+- [x] Beispielprojekte „Eisenwerk“ (einfach) und „Montage mit Transport“ (zwei Fabriken, Lkw und direktes Band): in der Projektliste, im Hilfemenü und in der Begrüßung. Keine Fehler oder Warnungen, alle Maschinen voll ausgelastet. *(Unit- und E2E-Test)*
+- [x] Tutorial: Schritte zu „Etwas stimmt nicht?“, Stromerzeugung und Alternativ-Vorschlägen; Drohnen in der Transport-Führung.
+
+**Produktion**
+- [x] Stromerzeugung: Kraftwerksrezepte je Kraftwerk und Brennstoff aus den Docs abgeleitet (Kohle-, Biomasse-, Treibstoff-, Atomkraftwerk; Wasser und Atommüll inklusive). Im Plan unter „Kraftwerke“ Kraftwerk, Brennstoff und Anzahl vorgeben; der Plan rechnet die Zulieferung (seit 0.5.1, siehe unten). *(Unit- und E2E-Test)*
+- [x] Kraftwerke im Grundriss: Brennstoff wie ein Rezept wählen; Durchsatzmodell rechnet den Verbrauch, Eigenschaften und Bilanz zeigen die erzeugte Leistung. *(Unit-Test)*
+- [x] „Alternativrezepte vorschlagen“: einzelne Alternativen und ihre Kombination mit Einsparung in Prozent und je Rohstoff; „übernehmen“ schaltet sie frei. *(Unit- und E2E-Test)*
+
+**Transport**
+- [x] Drohnen als Transportmittel: Anzahl, Entfernung, Brennstoff; Laderaum, Umlauf, Brennstoff je Umlauf und pro Minute; Drohnenhafen im Grundriss als Übergabe (Be-/Entladen). Brennstoffbedarf zählt beim Absender (Bilanz, Befund TRN-017). Neue Befunde TRN-016/017. *(Unit- und E2E-Test)*
+
+**Vereinfachungen / bekannte Grenzen**
+- Kraftwerke im Plan bei 100 % Takt; der Strombedarf der Maschinen wird bewusst nicht gegengerechnet. Erdwärmekraftwerke fehlen (Geysire kommen mit der Karte).
+- Alternativ-Vorschläge nur ohne „Nur vorhandene Maschinen“; Maß ist der gewichtete Rohstoffbedarf, nicht die Maschinenzahl.
+- Fehlersuche nur für Fabriken (nicht Schiene); sie liest das idealisierte Durchsatzmodell (bestmögliche Splitter, schematische Anschlüsse).
+- Drohnen: Geschwindigkeiten laut Wiki ungefähr; Entfernung beim Brennstoff einfach gezählt (nicht belegt); ein Drohnenhafen ist entweder beladend oder entladend (kein Rücktransport im selben Auftrag).
+- Das Projektformat bleibt Version 2: neue Felder haben Standardwerte, alte Dateien laden unverändert.
+
+### Hotfix 0.5.1
+
+- Vorschläge für Alternativrezepte: Die Kombination umfasst höchstens 4 Rezepte (schrittweise aus den besten Ergänzungen statt aller Alternativen auf einmal); höchstens 8 Einzelvorschläge. *(Unit-Test)*
+- Kraftwerke planen statt Strom durchrechnen: Im Produktionsplan gibt man unter „Kraftwerke“ Kraftwerk, Brennstoff und Anzahl an (z. B. 16 Kohlegeneratoren); der Plan berechnet Brennstoff und Wasser bzw. deren Herstellung. Kein Gegenrechnen des Maschinenstroms mehr, keine Leistungsvorgabe in MW. Die Kraftwerksrezepte stehen nicht mehr in der Rezeptauswahl. *(Unit- und E2E-Test)*
+
+## Version 0.6 – Karte (vorgemerkt)
+
+Alles rund um die Spielkarte kommt gemeinsam in 0.6 (aus „Sag mir mal …“ im Planungsdokument):
+
+- Kartenansicht mit Kartenbild (topografisch/real) unter Fabriken, Schienennetz und Transporten.
+- Weltraster wie im Spiel: Planer-Koordinaten = Spielkoordinaten, das Raster liegt deckungsgleich mit dem Weltraster des Spiels (Verankerung vorher belegen).
+- Fabrikstandort auf der Karte festlegen (Ursprung der Fabrik in Weltkoordinaten; Grundriss dadurch fest verortet).
+- Rohstoffvorkommen (Lage, Reinheit) auf der Karte, aus belegter Quelle (möglichst Spieldateien).
+- Bessere Schätzung der Transportfahrzeuge aus echten Entfernungen und Gleislagen auf der Karte.
+- Standortvorschlag: passender Ort für eine Fabrik nach Produktionsplan und nahen Rohstoffvorkommen.
+- Hinweis zu Rechten an Spielinhalten (wie bei satisfactory-calculator.com: Assets stammen aus Satisfactory, Rechte und Marken bei Coffee Stain Studios) in „Über“/Einstellungen.
+- Formatänderung mit Migration (Standort, Weltkoordinaten).

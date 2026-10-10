@@ -246,6 +246,18 @@ export const ProductionPlanSchema = z.object({
   limitToExistingMachines: z.boolean(),
   /** Gewichtung der Zielfunktion. */
   optimize: z.enum(['resources', 'power', 'machines']),
+  /**
+   * Stromerzeugung: vorgegebene Kraftwerke (Kraftwerksrezept = Kraftwerk +
+   * Brennstoff) mit Anzahl. Der Plan berechnet ihre Zulieferung, nicht den
+   * Strombedarf der Maschinen.
+   */
+  power: z
+    .object({
+      generators: z.array(z.object({ recipeId: z.string(), count: finite.nonnegative() })).default([]),
+    })
+    .default({ generators: [] }),
+  /** Alternativrezepte vorschlagen, die Rohstoffe sparen. */
+  suggestAlternates: z.boolean().default(false),
 });
 export type ProductionPlan = z.infer<typeof ProductionPlanSchema>;
 
@@ -387,10 +399,11 @@ export type Timetable = z.infer<typeof TimetableSchema>;
  * Transportmittel eines Auftrags:
  * - `train`: Züge über Bahnhöfe (Frachtplattformen als Übergabe)
  * - `vehicle`: Straßenfahrzeuge über LKW- bzw. Tanklaster-Stationen
+ * - `drone`: Drohnen zwischen Drohnenhäfen (nur Feststoffe)
  * - `belt` / `pipe`: direkte Leitung von einem Anschluss der liefernden zu
  *   einem Anschluss der empfangenden Fabrik
  */
-export const TransportModeSchema = z.enum(['train', 'vehicle', 'belt', 'pipe']);
+export const TransportModeSchema = z.enum(['train', 'vehicle', 'drone', 'belt', 'pipe']);
 export type TransportMode = z.infer<typeof TransportModeSchema>;
 
 export const VehicleTransportSchema = z.object({
@@ -403,6 +416,16 @@ export const VehicleTransportSchema = z.object({
   speedKmh: finite.positive().nullable().default(null),
 });
 export type VehicleTransport = z.infer<typeof VehicleTransportSchema>;
+
+export const DroneTransportSchema = z.object({
+  /** Drohnen (je eine pro Heimathafen beim Absender). */
+  count: z.number().int().min(0),
+  /** Entfernung zwischen den Häfen (Meter). */
+  distanceM: finite.nonnegative(),
+  /** Brennstoff (Gegenstand), bestimmt Geschwindigkeit und Verbrauch. */
+  fuelId: z.string().default('Desc_Battery_C'),
+});
+export type DroneTransport = z.infer<typeof DroneTransportSchema>;
 
 export const DirectTransportSchema = z.object({
   /** Band- bzw. Rohrstufe als Gebäudetyp. */
@@ -432,6 +455,8 @@ export const TransportOrderSchema = z.object({
   roundTripEstimateS: finite.positive().nullable().default(null),
   /** Nur bei `vehicle`. */
   vehicle: VehicleTransportSchema.nullable().default(null),
+  /** Nur bei `drone`. */
+  drone: DroneTransportSchema.nullable().default(null),
   /** Nur bei `belt` und `pipe`. */
   direct: DirectTransportSchema.nullable().default(null),
 });

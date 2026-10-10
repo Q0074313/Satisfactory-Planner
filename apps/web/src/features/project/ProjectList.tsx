@@ -3,8 +3,9 @@ import { listProjects, loadProject, type ProjectSummary } from '../../persistenc
 import { downloadProject } from '../../persistence/files';
 import { dismissUpload, forgetRecent, recentProjects, uploadDismissed, uploadedProjects, type RecentProject } from '../../persistence/recent';
 import { DATASETS } from '../../state/gamedata';
-import { useServer } from '../../state/server';
-import { createNew, importFromFile, openById, openRemote, removeProject, uploadLocal } from '../../state/session';
+import { projectUrl, useServer } from '../../state/server';
+import { copy } from '../link/ProjectLink';
+import { createExample, createNew, importFromFile, openById, openRemote, removeProject, uploadLocal } from '../../state/session';
 import { useUiStore } from '../../state/uiStore';
 import { t } from '../../i18n';
 import { usePrefs } from '../../state/prefsStore';
@@ -50,6 +51,13 @@ export function ProjectList({ onClose }: { onClose?: () => void }) {
         <button onClick={async () => done(await importFromFile())}>{t('JSON importieren …')}</button>
         {onClose && <button onClick={onClose}>{t('Abbrechen')}</button>}
       </div>
+      <div className="project-new">
+        <span className="dim small-text">{t('Zum Ausprobieren:')}</span>
+        <button onClick={async () => done(await createExample('simple'))} data-testid="list-example-simple">
+          {t('Beispiel: Eisenwerk')}
+        </button>
+        <button onClick={async () => done(await createExample('complex'))}>{t('Beispiel: Montage mit Transport')}</button>
+      </div>
       {server ? (
         <>
           <RecentList date={date} onOpened={() => onClose?.()} />
@@ -94,6 +102,9 @@ function RecentList({ date, onOpened }: ListProps) {
               </td>
               <td>{date(r.openedAt)}</td>
               <td className="actions">
+                <button className="small" onClick={() => void copy(projectUrl(r.id))} title={t('Projekt-Link in die Zwischenablage kopieren')}>
+                  {t('Link kopieren')}
+                </button>
                 <button
                   className="small"
                   title={t('Entfernt nur den Eintrag auf diesem Gerät, nicht das Projekt auf dem Server.')}

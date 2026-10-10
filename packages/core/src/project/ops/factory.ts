@@ -7,7 +7,8 @@
  * Projekt unverändert.
  */
 import type { GameDataIndex } from '../../gamedata/index.ts';
-import { canBeVertical, transferInterface } from '../../factory/geometry.ts';
+import { canBeVertical, placedBounds, transferInterface } from '../../factory/geometry.ts';
+import { controlPoints, linkEnds, routePath } from '../../factory/linkPath.ts';
 import { releaseEndpoints } from './transport.ts';
 import { findPort, orientPorts, portDefs } from '../../factory/ports.ts';
 import { rotate, type Vec2 } from '../../geometry/index.ts';
@@ -243,7 +244,7 @@ function checkExtraction(gd: GameDataIndex, type: string, ex: Extraction): void 
 }
 
 function checkTransfer(p: Project, gd: GameDataIndex, type: string, t: Transfer): void {
-  if (!transferInterface(gd.building(type))) throw new OpError(tr('Be- und Entladen ist nur an Frachtplattformen und Lkw-Stationen möglich.'));
+  if (!transferInterface(gd.building(type))) throw new OpError(tr('Be- und Entladen ist nur an Frachtplattformen, Lkw-Stationen und Drohnenhäfen möglich.'));
   if (t.stationId && !p.stations[t.stationId]) throw new OpError(tr('{what} nicht gefunden.', { what: tr('Bahnhof') }));
 }
 
@@ -529,6 +530,70 @@ export function removeLinks(p: Project, ids: string[]): void {
     must(p.links[id], tr('Verbindung'));
     delete p.links[id];
   }
+}
+
+/**
+ * Setzt ein Gebäude mit einem Ein- und einem Ausgang (z. B. Pipeline-Pumpe)
+ * an der Stelle `at` in eine bestehende Verbindung ein: Die Verbindung wird
+ * geteilt, das Gebäude in Flussrichtung ausgerichtet (bei senkrechtem
+ * Leitungsstück senkrecht eingebaut) und das passende Stockwerk gewählt.
+ * Zwischenpunkte vor der Stelle bleiben an der ersten, die übrigen an der
+ * zweiten Teilverbindung. Liefert die ID des neuen Gebäudes.
+ */
+export function insertIntoLink(p: Project, gd: GameDataIndex, linkId: string, type: string, at: Vec3): string {
+  const link = must(p.links[linkId], tr('Verbindung'));
+  const def = must(gd.building(type), tr('Gebäudetyp'));
+  const ins = portDefs(def).filter((x) => x.kind === link.kind && x.direction === 'in');
+  const outs = portDefs(def).filter((x) => x.kind === link.kind && x.direction === 'out');
+  if (ins.length !== 1 || outs.length !== 1) throw new OpError(tr('Das Gebäude hat nicht genau einen passenden Ein- und Ausgang.'));
+  const ends = linkEnds(p, gd, link);
+  if (!ends) throw new OpError(tr('Beide Gebäude müssen im Grundriss platziert sein.'));
+
+  // Nächstes Stück der Verbindung: Index des Steuerabschnitts und Richtung des Verlaufs dort
+  const ctrl = controlPoints(ends.from, ends.to, link.waypoints);
+  let best = { k: 0, dist: Infinity, dir: { x: 0, y: 1, z: 0 } };
+  for (let k = 0; k < ctrl.length - 1; k++) {
+    const sub = routePath([ctrl[k]!, ctrl[k + 1]!], link.routing === 'curved' ? 'direct' : link.routing);
+    for (let i = 0; i < sub.length - 1; i++) {
+      const a = sub[i]!;
+      const b = sub[i + 1]!;
+      const d = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
+      const len2 = d.x * d.x + d.y * d.y + d.z * d.z;
+      if (len2 < 1e-12) continue;
+      const tt = Math.max(0, Math.min(1, ((at.x - a.x) * d.x + (at.y - a.y) * d.y + (at.z - a.z) * d.z) / len2));
+      const dist = Math.hypot(a.x + d.x * tt - at.x, a.y + d.y * tt - at.y, a.z + d.z * tt - at.z);
+      if (dist < best.dist - 1e-9) best = { k, dist, dir: d };
+    }
+  }
+  const horiz = Math.hypot(best.dir.x, best.dir.y);
+  const vertical: 'up' | 'down' | undefined = canBeVertical(def) && Math.abs(best.dir.z) > horiz ? (best.dir.z > 0 ? 'up' : 'down') : undefined;
+
+  // Stockwerk: das Stockwerk der Fabrik, in dessen Höhenbereich die Stelle liegt
+  const floors = must(p.factories[link.factoryId], tr('Fabrik'))
+    .floorIds.map((id) => p.floors[id]!)
+    .filter(Boolean)
+    .sort((a, b) => a.elevationM - b.elevationM);
+  const floor = [...floors].reverse().find((f) => f.elevationM <= at.z + 1e-6) ?? floors[0]!;
+
+  const b = must(placedBounds(def, vertical ? { vertical } : null) ?? undefined, tr('Gebäudetyp'));
+  let placement: Placement;
+  if (vertical) {
+    placement = { floorId: floor.id, x: at.x, y: at.y, zOffsetM: at.z - floor.elevationM - (b.maxZ - b.minZ) / 2, rotationDeg: 0, vertical };
+  } else {
+    // Lokal +y (Ausgang) zeigt in Flussrichtung; die Anschlussachse geht durch `at`
+    const rot = (Math.atan2(-best.dir.x, best.dir.y) * 180) / Math.PI;
+    const portZ = ins[0]!.z;
+    const c = rotate({ x: ins[0]!.local.x, y: (b.minY + b.maxY) / 2 }, rot);
+    placement = { floorId: floor.id, x: at.x - c.x, y: at.y - c.y, zOffsetM: at.z - floor.elevationM - portZ, rotationDeg: Math.round(rot * 1000) / 1000 };
+  }
+
+  const id = addBuilding(p, gd, { factoryId: link.factoryId, type, placement });
+  const cut = Math.min(link.waypoints.length, Math.max(0, best.k - 1));
+  const { from, to, tier, routing, kind } = link;
+  delete p.links[linkId];
+  addLink(p, gd, { kind, tier, routing, from, to: { buildingId: id, portId: ins[0]!.id }, waypoints: link.waypoints.slice(0, cut) });
+  addLink(p, gd, { kind, tier, routing, from: { buildingId: id, portId: outs[0]!.id }, to, waypoints: link.waypoints.slice(cut) });
+  return id;
 }
 
 // ---------------------------------------------------------------------------

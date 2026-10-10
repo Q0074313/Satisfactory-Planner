@@ -22,6 +22,8 @@ export interface CanvasHandlers {
   onPointerUp?(e: PointerInfo): void;
   onDoubleClick?(e: PointerInfo): void;
   onViewportChange?(vp: Viewport): void;
+  /** Mausrad für Werkzeuge; liefert true, wenn das Rad verbraucht wurde (dann kein Zoom). */
+  onWheel?(e: PointerInfo & { deltaY: number }): boolean;
   /** Liefert true, solange jedes Bild neu gezeichnet werden soll (Animation). */
   animating?(): boolean;
   /** Wird bei laufender Animation einmal je Bild mit der Zeit seit dem letzten Bild aufgerufen. */
@@ -121,6 +123,13 @@ export function useCanvas(handlers: CanvasHandlers) {
     };
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      // Umschalt + Rad liefert in manchen Browsern deltaX statt deltaY
+      // Zeilen- bzw. Seitenmodus (z. B. Firefox) in Pixel umrechnen
+      const unit = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 100 : 1;
+      if (handlersRef.current.onWheel?.({ ...info(e), deltaY: (e.deltaY || e.deltaX) * unit })) {
+        dirty.current = true;
+        return;
+      }
       const rect = canvas.getBoundingClientRect();
       const factor = Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015));
       vp.zoomAt({ x: e.clientX - rect.left, y: e.clientY - rect.top }, factor);

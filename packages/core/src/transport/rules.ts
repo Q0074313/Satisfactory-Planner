@@ -131,7 +131,7 @@ export const TRN_MODE_MISMATCH = defineRule({
   certainty: 'static',
   severity: 'error',
   description:
-    'Feststoffe fahren auf Förderbändern und in Fahrzeugen mit Laderaum (Schlepper, Lkw, Explorer), Flüssigkeiten und Gase in Rohren und im Tanklaster.',
+    'Feststoffe fahren auf Förderbändern, in Fahrzeugen mit Laderaum (Schlepper, Lkw, Explorer) und mit Drohnen, Flüssigkeiten und Gase in Rohren und im Tanklaster (Drohnen nur abgefüllt).',
   sources: [VEHICLES, LOGISTICS],
 });
 
@@ -142,7 +142,7 @@ export const TRN_NO_VEHICLE = defineRule({
   kind: 'recommendation',
   certainty: 'static',
   severity: 'warning',
-  description: 'Für den Auftrag sind 0 Fahrzeuge eingeplant. Die Menge wird erwartet, aber von niemandem befördert.',
+  description: 'Für den Auftrag sind 0 Fahrzeuge bzw. Drohnen eingeplant. Die Menge wird erwartet, aber von niemandem befördert.',
   sources: [PLAN],
 });
 
@@ -177,6 +177,32 @@ export const TRN_NO_INTERFACE = defineRule({
   certainty: 'static',
   severity: 'info',
   description:
-    'Für Fahrzeugaufträge fehlt in der Fabrik eine Lkw- bzw. Tanklaster-Station im passenden Modus (Beladen beim Absender, Entladen beim Empfänger). Bei direkten Bändern und Rohren ist kein Übergabeanschluss gewählt. Dem Durchsatzmodell der Fabrik fehlt damit die Schnittstelle.',
+    'Für Fahrzeug- und Drohnenaufträge fehlt in der Fabrik eine Lkw- bzw. Tanklaster-Station oder ein Drohnenhafen im passenden Modus (Beladen beim Absender, Entladen beim Empfänger). Bei direkten Bändern und Rohren ist kein Übergabeanschluss gewählt. Dem Durchsatzmodell der Fabrik fehlt damit die Schnittstelle.',
   sources: [PLAN],
+});
+
+const DRONE = { label: 'Satisfactory Docs (Drohne, Drohnenhafen) und Wiki „Drone“', url: 'https://satisfactory.wiki.gg/wiki/Drone' };
+
+export const TRN_DRONE_CAPACITY = defineRule({
+  id: 'TRN-016',
+  title: 'Geschätzte Drohnenkapazität reicht nicht',
+  domain: 'transport',
+  kind: 'recommendation',
+  certainty: 'dynamic',
+  severity: 'warning',
+  description:
+    'Neun Stapel je Flug × Anzahl Drohnen geteilt durch die Umlaufzeit liegt unter der Auftragsmenge. Umlauf = 2 × (Entfernung / Geschwindigkeit + 2 × 51 s Start bzw. Landung); die Geschwindigkeit hängt vom Brennstoff ab.',
+  sources: [DRONE],
+});
+
+export const TRN_DRONE_FUEL = defineRule({
+  id: 'TRN-017',
+  title: 'Brennstoff für Drohnen fehlt beim Absender',
+  domain: 'transport',
+  kind: 'recommendation',
+  certainty: 'static',
+  severity: 'warning',
+  description:
+    'Drohnen nehmen den Brennstoff für einen Umlauf an ihrem Heimathafen (hier: beim Absender). Die Fabrik erzeugt bzw. erhält davon weniger, als die Drohnen geschätzt verbrauchen.',
+  sources: [DRONE],
 });

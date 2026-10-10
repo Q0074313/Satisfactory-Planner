@@ -14,9 +14,10 @@ async function openLink(page: Page, url: string) {
 
 test('Projekt-Link: anlegen, auf zweitem Gerät öffnen und bearbeiten', async ({ page, browser }) => {
   await newProject(page, 'Gemeinsames Werk');
-  await expect(page).toHaveURL(LINK);
   const link = await page.getByTestId('project-link').inputValue();
-  expect(link).toBe(page.url());
+  expect(link).toMatch(LINK);
+  // Die Adresszeile zeigt die geheime ID nicht (Streams, Bildschirmfreigabe)
+  await expect(page).toHaveURL(/\/$/);
   await expect(page.getByTestId('link-bar')).toContainText('Lesezeichen');
   await placeFromCatalog(page, 'Eisenplatte', 'Eisenplatte', [[0, 0]]);
   await expect(page.locator('.save-status')).toHaveText('Gespeichert', { timeout: 5000 });
@@ -26,6 +27,7 @@ test('Projekt-Link: anlegen, auf zweitem Gerät öffnen und bearbeiten', async (
   const other = await ctx.newPage();
   await openLink(other, new URL(link).pathname);
   await expect(other.locator('.project-name input')).toHaveValue('Gemeinsames Werk');
+  await expect(other).toHaveURL(/\/$/);
   expect(await projectState<number>(other, countBuildings)).toBe(1);
   await placeFromCatalog(other, 'Eisenplatte', 'Eisenplatte', [[16, 0]]);
   await expect(other.locator('.save-status')).toHaveText('Gespeichert', { timeout: 5000 });
@@ -43,7 +45,7 @@ test('Projekt-Link: anlegen, auf zweitem Gerät öffnen und bearbeiten', async (
 
 test('Projekt-Link: gleichzeitiges Bearbeiten führt zu einer Rückfrage statt zu stillem Überschreiben', async ({ page, browser }) => {
   await newProject(page, 'Konflikt');
-  const path = new URL(page.url()).pathname;
+  const path = new URL(await page.getByTestId('project-link').inputValue()).pathname;
   const ctx = await browser.newContext();
   const other = await ctx.newPage();
   await openLink(other, path);
@@ -102,11 +104,12 @@ test('Lokale Projekte (IndexedDB, altes Format 1) werden zum Hochladen angeboten
   await expect(offer).toContainText('Altes Werk (Format 1)');
   await offer.getByRole('button', { name: 'Hochladen' }).click();
   await expect(page.locator('canvas.editor-canvas')).toBeVisible();
-  await expect(page).toHaveURL(LINK);
+  const uploaded = await page.getByTestId('project-link').inputValue();
+  expect(uploaded).toMatch(LINK);
   expect(await projectState<number>(page, '(p) => p.formatVersion')).toBe(2);
 
   // Auf dem Server liegt das Projekt im aktuellen Format
-  const id = new URL(page.url()).pathname.split('/').pop()!;
+  const id = new URL(uploaded).pathname.split('/').pop()!;
   const r = await request.get(`/api/factory/${id}`);
   expect((await r.json()).project.formatVersion).toBe(2);
 
@@ -117,4 +120,26 @@ test('Lokale Projekte (IndexedDB, altes Format 1) werden zum Hochladen angeboten
   await page.reload();
   await page.locator('.brand').click();
   await expect(page.getByTestId('upload-offer')).toHaveCount(0);
+});
+
+test('Streamer-Modus verdeckt den Link, Neuladen öffnet das Projekt dieses Tabs', async ({ page }) => {
+  await newProject(page, 'Stream-Werk');
+  const link = await page.getByTestId('project-link').inputValue();
+  await page.getByTestId('settings-button').click();
+  await page.getByTestId('streamer-mode').check();
+  await page.keyboard.press('Escape');
+  const shown = await page.getByTestId('project-link').inputValue();
+  expect(shown).not.toBe(link);
+  expect(shown).not.toContain(new URL(link).pathname.split('/').pop()!);
+
+  // Ein zweites Projekt anlegen, dann zurück: Zurück-Taste öffnet wieder das erste
+  await page.locator('.brand').click();
+  await page.getByPlaceholder('Projektname').fill('Zweites Werk');
+  await page.getByRole('button', { name: 'Neues Projekt' }).click();
+  await expect(page.locator('.project-name input')).toHaveValue('Zweites Werk');
+  await page.goBack();
+  await expect(page.locator('.project-name input')).toHaveValue('Stream-Werk');
+  await page.reload();
+  await expect(page.locator('.project-name input')).toHaveValue('Stream-Werk');
+  await expect(page).toHaveURL(/\/$/);
 });

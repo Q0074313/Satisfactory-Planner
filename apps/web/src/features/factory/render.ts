@@ -43,7 +43,7 @@ export function linkTierStyle(gd: GameDataIndex, link: Pick<LogisticsLink, 'kind
   return {
     color: palette[Math.min(index, palette.length - 1)] ?? (link.kind === 'belt' ? COLORS.belt : COLORS.pipe),
     widthFactor: link.kind === 'belt' ? 0.8 + index * 0.12 : 0.9 + index * 0.45,
-    double: link.kind === 'pipe' && index >= 1,
+    double: link.kind === 'pipe',
     index,
     label,
   };
@@ -99,7 +99,8 @@ export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: Re
       if (layers.labels && vp.scale > 1.5) {
         const c = a.polygon.reduce((s, p) => ({ x: s.x + p.x / a.polygon.length, y: s.y + p.y / a.polygon.length }), { x: 0, y: 0 });
         const sc = vp.toScreen({ x: c.x, y: Math.min(...a.polygon.map((p) => p.y)) });
-        drawLabel(ctx, a.name, sc.x, sc.y + 10, { color: style.stroke, size: 11 });
+        const xs = a.polygon.map((p) => p.x);
+        drawLabel(ctx, a.name, sc.x, sc.y + 10, { color: style.stroke, size: 11, maxWidth: (Math.max(...xs) - Math.min(...xs)) * vp.scale - 6 });
       }
     }
   }
@@ -113,17 +114,27 @@ export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: Re
     const base = style.color;
     const fr = r.flow?.links.get(sl.link.id);
     const over = fr && fr.capacity > 0 ? utilColor(Math.max(fr.required, fr.total) / fr.capacity) : '';
-    const color = selected.has(sl.link.id) ? COLORS.selection : layers.flow && over ? over : base;
+    const isSel = selected.has(sl.link.id);
+    // Ausgewählt: breiter Saum in Auswahlfarbe, die Stufenfarbe bleibt sichtbar
+    const color = layers.flow && over ? over : base;
     ctx.globalAlpha = onFloor ? 1 : 0.25;
-    ctx.strokeStyle = color;
     const width = Math.max(2, Math.min(vp.scale * (isBelt ? 1.2 : 0.9) * style.widthFactor, 16));
-    ctx.lineWidth = width;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
+    if (isSel) {
+      ctx.strokeStyle = COLORS.selection;
+      ctx.lineWidth = width + 8;
+      ctx.globalAlpha = 0.55;
+      pathPolyline(ctx, vp, sl.points);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
     pathPolyline(ctx, vp, sl.points);
     ctx.stroke();
     if (style.double) {
-      // Rohr Mk.2: helle Mittellinie
+      // Rohre: helle Mittellinie (unterscheidet sie von Bändern)
       ctx.strokeStyle = COLORS.bg;
       ctx.globalAlpha = (onFloor ? 1 : 0.25) * 0.55;
       ctx.lineWidth = Math.max(1, width * 0.3);
@@ -131,14 +142,16 @@ export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: Re
       ctx.stroke();
       ctx.globalAlpha = onFloor ? 1 : 0.25;
     }
-    // Förderrichtung: Pfeile entlang der Leitung (bei Fluss animiert)
+    // Förderrichtung: Pfeile entlang der Leitung (bei Fluss animiert; Rohre nur bei Fluss)
     const flowing = (fr?.total ?? 0) > 1e-6;
-    ctx.strokeStyle = COLORS.bg;
-    ctx.lineWidth = Math.max(1.2, width * 0.28);
-    ctx.lineCap = 'round';
-    const size = Math.max(2.5, width * 0.45);
-    const spacing = Math.max(18, width * 3);
-    drawChevrons(ctx, vp, sl.points, spacing, size, flowing ? (r.phase ?? 0) : 0);
+    if (isBelt || flowing) {
+      ctx.strokeStyle = COLORS.bg;
+      ctx.lineWidth = Math.max(1.2, width * 0.28);
+      ctx.lineCap = 'round';
+      const size = Math.max(2.5, width * 0.45);
+      const spacing = Math.max(18, width * 3);
+      drawChevrons(ctx, vp, sl.points, spacing, size, flowing ? (r.phase ?? 0) : 0);
+    }
     // Lifte und Pfeil am Ende
     ctx.fillStyle = color;
     ctx.strokeStyle = color;
@@ -156,9 +169,14 @@ export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: Re
         ctx.fillStyle = color;
       }
     }
-    const end = sl.points.at(-1)!;
-    const prev = sl.points.at(-2);
-    if (prev) arrowHead(ctx, vp.toScreen(prev), vp.toScreen(end), Math.max(6, width * 1.2));
+    // Endpfeil in Förderrichtung: letzter Punkt mit seitlichem Abstand (senkrechte Enden, z. B. an
+    // senkrechten Pumpen, haben im Grundriss keine Richtung)
+    const end = vp.toScreen(sl.points.at(-1)!);
+    const prev = [...sl.points]
+      .reverse()
+      .map((q) => vp.toScreen(q))
+      .find((q) => Math.hypot(q.x - end.x, q.y - end.y) > 0.5);
+    if (prev) arrowHead(ctx, prev, end, Math.max(6, width * 1.2));
     // Durchsatz an der Leitung
     if (layers.flow && fr && onFloor && vp.scale > 2.5 && (fr.total > 1e-6 || fr.required > 1e-6)) {
       const mid = sl.points[Math.floor(sl.points.length / 2)]!;
@@ -266,8 +284,14 @@ export function drawBuilding(
           : part.soft
             ? COLORS.outlineSoft
             : COLORS.outline;
-    ctx.lineWidth = opts.selected || opts.mark ? 2 : 1;
+    ctx.lineWidth = opts.selected ? 3 : opts.mark ? 2 : 1;
+    if (opts.selected && !part.soft) {
+      // Ausgewählt: leuchtender Rand, damit die Auswahl auch neben gleichfarbigen Leitungen auffällt
+      ctx.shadowColor = COLORS.selection;
+      ctx.shadowBlur = 10;
+    }
     ctx.stroke();
+    ctx.shadowBlur = 0;
     ctx.setLineDash([]);
   }
   const pl = sb.building.placement;
@@ -297,17 +321,28 @@ export function drawBuilding(
   ctx.fill();
 
   if (opts.labels && vp.scale * Math.min(b.maxX - b.minX, b.maxY - b.minY) > 40) {
-    const c = vp.toScreen(toW((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2));
-    drawLabel(ctx, sb.building.label || localName(def.name), c.x, c.y - 6, { size: 11, color: '#f2f2f2' });
+    // Beschriftung bleibt innerhalb des Gebäudes: Breite und Höhe auf dem Bildschirm (bei Drehung vertauscht)
+    const quarter = Math.round((((pl.rotationDeg % 360) + 360) % 360) / 90) % 2 === 1;
+    const straight = Math.abs(pl.rotationDeg / 90 - Math.round(pl.rotationDeg / 90)) < 1e-6;
+    const dx = (b.maxX - b.minX) * vp.scale;
+    const dy = (b.maxY - b.minY) * vp.scale;
+    const boxW = (straight ? (quarter ? dy : dx) : Math.min(dx, dy)) - 6;
+    const boxH = (straight ? (quarter ? dx : dy) : Math.min(dx, dy)) - 6;
     const recipe = sb.building.recipeId ? gd.recipe(sb.building.recipeId) : undefined;
     const ex = sb.building.extraction ? gd.name(sb.building.extraction.itemId) : '';
     const sub = [recipe ? localName(recipe.name) : ex, sb.building.clock !== 1 ? `${+(sb.building.clock * 100).toFixed(2)} %` : '']
       .filter(Boolean)
       .join(' · ');
-    if (sub) drawLabel(ctx, sub, c.x, c.y + 8, { size: 10, color: '#c8ccd2' });
+    const lines: { text: string; size: number; color: string }[] = [{ text: sb.building.label || localName(def.name), size: 11, color: '#f2f2f2' }];
     if (opts.utilization !== undefined && opts.utilization < 0.999) {
-      drawLabel(ctx, `${formatNumber(opts.utilization * 100, 0)} %`, c.x, c.y + 22, { size: 10, color: opts.utilization < 0.01 ? '#ff8a8a' : '#ffd27f' });
+      lines.push({ text: `${formatNumber(opts.utilization * 100, 0)} %`, size: 10, color: opts.utilization < 0.01 ? '#ff8a8a' : '#ffd27f' });
     }
+    if (sub) lines.splice(1, 0, { text: sub, size: 10, color: '#c8ccd2' });
+    // So viele Zeilen wie in die Höhe passen; die Auslastung hat Vorrang vor der Rezeptzeile
+    const fit = Math.max(1, Math.min(lines.length, Math.floor(boxH / 14)));
+    const shown = fit < lines.length && sub && lines.length === 3 ? [lines[0]!, lines[2]!].slice(0, fit) : lines.slice(0, fit);
+    const c = vp.toScreen(toW((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2));
+    shown.forEach((ln, i) => drawLabel(ctx, ln.text, c.x, c.y + (i - (shown.length - 1) / 2) * 14, { size: ln.size, color: ln.color, maxWidth: boxW }));
   }
 }
 

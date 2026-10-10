@@ -19,6 +19,8 @@ function plan(targets: { itemId: string; ratePerMin: number }[], enabledAlternat
     machineLimits: [],
     limitToExistingMachines: false,
     optimize: 'resources',
+    power: { generators: [] },
+    suggestAlternates: false,
   };
 }
 

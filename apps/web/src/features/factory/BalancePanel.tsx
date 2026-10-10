@@ -4,7 +4,7 @@
  * Ein- und Ausfuhren über Transportaufträge stehen daneben (lokal vs. extern).
  */
 import { useMemo, useState } from 'react';
-import { cachedFactoryFlow, factoryTrade, floorAreaStats, machineRates, sortItems, type ItemSort } from '@satis/core';
+import { cachedFactoryFlow, factoryTrade, sunkItems, floorAreaStats, machineRates, sortItems, type ItemSort } from '@satis/core';
 import { t } from '../../i18n';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
@@ -17,15 +17,15 @@ export function BalancePanel() {
   const [sort, setSort] = useState<ItemSort>('alpha');
 
   const data = useMemo(() => {
-    const rows = new Map<string, { itemId: string; planned: number; placed: number; achieved: number; prod: number; cons: number; imports: number; exports: number; throughput: number }>();
-    const power = { planned: 0, placed: 0 };
+    const rows = new Map<string, { itemId: string; planned: number; placed: number; achieved: number; prod: number; cons: number; imports: number; exports: number; sunk: number; throughput: number }>();
+    const power = { planned: 0, placed: 0, generated: 0 };
     const machines = { planned: 0, placed: 0 };
-    if (!factoryId) return { rows: [], power, machines };
+    if (!factoryId) return { rows: [], power, machines, anySunk: false };
     const flow = cachedFactoryFlow(project, gd, factoryId);
     const row = (item: string) => {
       let r = rows.get(item);
       if (!r) {
-        r = { itemId: item, planned: 0, placed: 0, achieved: 0, prod: 0, cons: 0, imports: 0, exports: 0, throughput: 0 };
+        r = { itemId: item, planned: 0, placed: 0, achieved: 0, prod: 0, cons: 0, imports: 0, exports: 0, sunk: 0, throughput: 0 };
         rows.set(item, r);
       }
       return r;
@@ -39,6 +39,7 @@ export function BalancePanel() {
       if (placed) machines.placed++;
       power.planned += r.powerMW;
       if (placed) power.placed += r.powerMW;
+      power.generated += (r.generatedMW ?? 0) * util;
       const add = (item: string, v: number) => {
         const x = row(item);
         x.planned += v;
@@ -58,7 +59,10 @@ export function BalancePanel() {
         x.exports = tr.exports;
       }
     }
-    return { rows: [...rows.values()], power, machines };
+    // Schredder: kein Verbrauch, sondern Teil des Überschusses („davon Schredder“)
+    const sunk = sunkItems(flow);
+    for (const [item, v] of sunk) row(item).sunk = v;
+    return { rows: [...rows.values()], power, machines, anySunk: sunk.size > 0 };
   }, [project, gd, factoryId]);
   const sorted = useMemo(() => {
     const stages = new Map<string, number>();
@@ -79,6 +83,7 @@ export function BalancePanel() {
             p: fmtNum(data.power.planned),
             q: fmtNum(data.power.placed),
           })}
+          {data.power.generated > 0 && <> {t('Erzeugt laut Durchsatz: {n} MW.', { n: fmtNum(data.power.generated) })}</>}
         </span>
         <span className="spacer" />
         <SortSelect value={sort} onChange={setSort} />
@@ -100,6 +105,11 @@ export function BalancePanel() {
             <th className="num" title={t('Transportaufträge aus dieser Fabrik')}>
               {t('Ausfuhr')}
             </th>
+            {data.anySunk && (
+              <th className="num" title={t('Teil des Überschusses, der laut Durchsatzmodell in einen AWESOME-Schredder fließt')}>
+                {t('davon Schredder')}
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -116,18 +126,19 @@ export function BalancePanel() {
               <td className={cls(r.achieved)}>{fmtNum(r.achieved, 3)}</td>
               <td className="num">{r.imports ? fmtNum(r.imports, 3) : ''}</td>
               <td className="num">{r.exports ? fmtNum(r.exports, 3) : ''}</td>
+              {data.anySunk && <td className="num">{r.sunk ? fmtNum(r.sunk, 3) : ''}</td>}
             </tr>
           ))}
           {data.rows.length === 0 && (
             <tr>
-              <td colSpan={8} className="dim">
+              <td colSpan={data.anySunk ? 9 : 8} className="dim">
                 {t('Noch keine Maschinen mit Rezept.')}
               </td>
             </tr>
           )}
         </tbody>
       </table>
-      <p className="dim small-text pad">{t('Positive Werte = Überschuss, negative = Bedarf. Den Abgleich mit dem Soll eines Produktionsplans zeigt die Ansicht „Produktion“.')}</p>
+      <p className="dim small-text pad">{t('Positive Werte = Überschuss, negative = Bedarf. Was in einen AWESOME-Schredder fließt, zählt als Überschuss. Den Abgleich mit dem Soll eines Produktionsplans zeigt die Ansicht „Produktion“.')}</p>
     </div>
   );
 }

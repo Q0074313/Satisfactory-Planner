@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import {
   closestT,
   factoryOps,
+  segmentMinRadius,
   geo,
   lengthAtT,
   outward,
@@ -23,7 +24,7 @@ import { COLORS, drawDimension, drawGrid, drawLabel, formatM, pathPolygon, pathP
 import { t } from '../../i18n';
 import { matchAction } from '../../state/keymap';
 import { useFindingMarks } from '../../state/derived';
-import { usePrefs } from '../../state/prefsStore';
+import { RAIL_SNAP_STEPS, usePrefs, type RailSnap } from '../../state/prefsStore';
 import { useProjectStore } from '../../state/projectStore';
 import { useSimStore } from '../../state/simStore';
 import { useUiStore, type RailTool } from '../../state/uiStore';
@@ -41,7 +42,12 @@ interface Interaction {
     | { kind: 'node'; id: string; start: geo.Vec2; delta: geo.Vec2; moved: boolean }
     | { kind: 'station'; id: string; start: geo.Vec2; delta: geo.Vec2; moved: boolean }
     | { kind: 'marquee'; start: geo.Vec2; current: geo.Vec2 }
+    | { kind: 'group'; refs: ObjectRef[]; start: geo.Vec2; delta: geo.Vec2; moved: boolean }
     | null;
+  /** Feste Fahrtrichtung am Ende des entstehenden Gleises (Mausrad, absolut zum Raster); null = automatisch. */
+  endHeading: number | null;
+  /** Aufsummierte Raddrehung bis zur nächsten Winkelstufe. */
+  wheelAcc: number;
   measureStart: geo.Vec2 | null;
   shift: boolean;
   alt: boolean;
@@ -51,6 +57,9 @@ interface Interaction {
 type SignalTarget =
   | { kind: 'node'; nodeId: string; pos: geo.Vec2; dir: geo.Vec2; facing: 'forward' | 'backward' }
   | { kind: 'segment'; segId: string; t: number; pos: geo.Vec2; dir: geo.Vec2; facing: 'forward' | 'backward'; fromA: number; toB: number };
+
+/** Raddrehung je Winkelstufe beim Gleisbau (Pixel-Delta; eine Rastung ≈ 100). */
+const WHEEL_PER_STEP = 200;
 
 /** Fangbereich des Signalwerkzeugs seitlich neben dem Gleis (m). */
 const SIGNAL_CAPTURE_M = 3;
@@ -129,7 +138,8 @@ export function RailEditor() {
   const statusRef = useRef<HTMLSpanElement | null>(null);
   const scene = useMemo(() => buildRailScene(project, networkId), [project, networkId]);
 
-  const it = useRef<Interaction>({ cursor: { x: 0, y: 0 }, hover: null, from: null, drag: null, measureStart: null, shift: false, alt: false });
+  const it = useRef<Interaction>({ cursor: { x: 0, y: 0 }, hover: null, from: null, drag: null, measureStart: null, shift: false, alt: false, endHeading: null, wheelAcc: 0 });
+  const railSnap = usePrefs((s) => s.railSnap);
   const live = useRef({ project, scene, selection, tool, layers, marks, networkId, gd });
   live.current = { project, scene, selection, tool, layers, marks, networkId, gd };
 
@@ -139,11 +149,12 @@ export function RailEditor() {
     onPointerMove: (e) => pointerMove(e),
     onPointerUp: () => pointerUp(),
     onViewportChange: () => updateStatus(),
+    onWheel: (e) => wheel(e),
     animating: () => useSimStore.getState().playing,
     onFrame: (dt) => useSimStore.getState().advance(dt),
   });
 
-  useEffect(requestDraw, [scene, selection, tool, layers, marks, theme, playing, requestDraw]);
+  useEffect(requestDraw, [scene, selection, tool, layers, marks, theme, playing, railSnap, requestDraw]);
   useEffect(() => {
     fitView();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -163,6 +174,7 @@ export function RailEditor() {
   useEffect(() => {
     it.current.from = null;
     it.current.measureStart = null;
+    it.current.endHeading = null;
     requestDraw();
   }, [tool.kind, requestDraw]);
 
@@ -184,8 +196,40 @@ export function RailEditor() {
   }
 
   const tolM = () => 7 / viewport.scale;
-  const snapStep = () => live.current.project.settings.snapM;
-  const snapPt = (p: geo.Vec2, free: boolean) => (free || snapStep() <= 0 ? p : { x: geo.snap(p.x, snapStep()), y: geo.snap(p.y, snapStep()) });
+  // Gleisraster (Einstellung im Editor, Standard 4 m: Ecken, Kantenmitten und Mitten der Fundamente)
+  const snapStep = () => usePrefs.getState().railSnap.stepM;
+  const snapPt = (p: geo.Vec2, free: boolean) => (free ? p : geo.snapToGrid(p, usePrefs.getState().railSnap.stepM, 'corner'));
+  const trackLimits = () => {
+    const gd = live.current.gd;
+    return { minLen: gd.fact('rail.track.minSegmentLengthM') ?? 12, maxLen: gd.fact('rail.track.maxSegmentLengthM') ?? 100, minR: gd.fact('rail.track.minTurnRadiusM') ?? 17 };
+  };
+
+  /**
+   * Mausrad beim Gleisbau: Richtung am Gleisende in Winkelstufen des Rasters
+   * (Vielfache von 15°, Umschalt: 5°). Erst nach etwa zwei Rastungen des
+   * Rads geht es eine Stufe weiter. Strg + Rad zoomt.
+   */
+  function wheel(e: PointerInfo & { deltaY: number }): boolean {
+    const i = it.current;
+    if (live.current.tool.kind !== 'track' || !i.from || e.ctrl || e.deltaY === 0) return false;
+    i.wheelAcc += e.deltaY;
+    if (Math.abs(i.wheelAcc) < WHEEL_PER_STEP) return true;
+    const dir = Math.sign(i.wheelAcc);
+    i.wheelAcc = 0;
+    const step = e.shift ? 5 : 15;
+    // Ausgangswert: aktuelle (automatische) Richtung, auf die nächste Stufe in Drehrichtung
+    let base = i.endHeading;
+    if (base === null) {
+      const { ep, splitSeg } = endpointAt(i.cursor, live.current.tool.z);
+      const pv = previewTrack(i.from, ep, splitSeg);
+      const a = pv?.pts.at(-2);
+      const b = pv?.pts.at(-1);
+      base = a && b ? (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI : 0;
+      base = (dir > 0 ? Math.floor(base / step + 1e-6) : Math.ceil(base / step - 1e-6)) * step;
+    } else base = Math.round(base / step) * step;
+    i.endHeading = geo.normalizeDeg(base + dir * step + 180) - 180;
+    return true;
+  }
 
   function hit(pt: geo.Vec2, segTolM?: number): RailHit {
     return railHitTest(live.current.scene, live.current.project, pt, tolM(), { nodes: true, segments: true, stations: true, scale: viewport.scale, segTolM });
@@ -216,7 +260,7 @@ export function RailEditor() {
         p = geo.add(n.position, geo.scale(d, along));
       }
     }
-    return { ep: { kind: 'point', position: { x: p.x, y: p.y, z } } };
+    return { ep: { kind: 'point', position: { x: p.x, y: p.y, z }, headingDeg: it.current.endHeading ?? undefined } };
   }
 
   /**
@@ -409,6 +453,30 @@ export function RailEditor() {
     if (L.layers.trains) drawTrains(ctx, vp);
     drawToolOverlay(ctx, vp, L.tool);
 
+    // Verschieben: betroffene Gleise gestrichelt an der neuen Lage
+    const dg = it.current.drag;
+    if (dg && dg.kind !== 'marquee' && dg.moved) {
+      const refs: ObjectRef[] = dg.kind === 'group' ? dg.refs : [{ table: dg.kind === 'node' ? 'railNodes' : 'stations', id: dg.id }];
+      const ids = new Set(ops.nodesOfSelection(L.project, refs));
+      const delta = { x: dg.delta.x, y: dg.delta.y, z: 0 };
+      produce(L.project, (d: Project) => {
+        ops.moveNodes(d, [...ids], delta);
+        ctx.strokeStyle = COLORS.selection;
+        ctx.lineWidth = Math.max(2, vp.scale * 1.2);
+        ctx.setLineDash([6, 4]);
+        for (const seg of Object.values(d.railSegments)) {
+          if (seg.networkId !== L.networkId || (!ids.has(seg.a.nodeId) && !ids.has(seg.b.nodeId))) continue;
+          const shape = segmentShape(d, seg);
+          if (!shape) continue;
+          pathPolyline(ctx, vp, segmentPolyline(shape, 24));
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+      });
+      const c = vp.toScreen(it.current.cursor);
+      drawLabel(ctx, `Δx ${formatM(dg.delta.x)}  Δy ${formatM(dg.delta.y)}`, c.x + 14, c.y + 18, { align: 'left', bg: COLORS.labelBg });
+    }
+
     if (it.current.drag?.kind === 'marquee') {
       const a = vp.toScreen(it.current.drag.start);
       const b = vp.toScreen(it.current.drag.current);
@@ -493,19 +561,35 @@ export function RailEditor() {
     drawLabel(ctx, lbl, vp.width - 12, 16, { align: 'right', size: 12, bg: COLORS.labelBg, color: s.sim.deadlock ? COLORS.error : COLORS.text });
   }
 
-  /** Vorschau eines Gleisstücks über einen temporären Entwurf. */
-  function previewTrack(from: Endpoint, to: Endpoint, split?: { id: string; t: number }): Vec3[] | null {
+  /**
+   * Vorschau eines Gleisstücks über einen temporären Entwurf, mit Länge,
+   * kleinstem Radius und – falls nicht baubar – dem Grund (Mindestlänge,
+   * Höchstlänge, Mindestradius laut Wiki).
+   */
+  function previewTrack(from: Endpoint, to: Endpoint, split?: { id: string; t: number }): { pts: Vec3[]; len: number; radius: number; problem: string | null } | null {
     const L = live.current;
     try {
-      let pts: Vec3[] | null = null;
+      let out: { pts: Vec3[]; len: number; radius: number; problem: string | null } | null = null;
       produce(L.project, (d: Project) => {
         let target = to;
         if (split) target = { kind: 'node', nodeId: ops.splitSegment(d, split.id, split.t) };
         const r = ops.addTrack(d, L.networkId, from, target);
         const shape = segmentShape(d, d.railSegments[r.segmentId]!);
-        pts = shape ? segmentPolyline(shape, 24) : null;
+        if (!shape) return;
+        const len = lengthAtT(shape, 1);
+        const radius = segmentMinRadius(shape);
+        const lim = trackLimits();
+        const problem =
+          len < lim.minLen - 1e-6
+            ? t('Gleis zu kurz: {len} (mindestens {min} m)', { len: formatM(len), min: lim.minLen })
+            : len > lim.maxLen + 1e-6
+              ? t('Gleis zu lang: {len} (höchstens {max} m) – Zwischenpunkt setzen', { len: formatM(len), max: lim.maxLen })
+              : radius < lim.minR - 1e-6
+                ? t('Kurve zu eng: Radius {r} (mindestens {min} m)', { r: formatM(radius), min: lim.minR })
+                : null;
+        out = { pts: segmentPolyline(shape, 24), len, radius, problem };
       });
-      return pts;
+      return out;
     } catch {
       return null;
     }
@@ -525,18 +609,20 @@ export function RailEditor() {
         ctx.strokeRect(s.x - 5, s.y - 5, 10, 10);
       }
       if (i.from) {
-        const pts = previewTrack(i.from, ep, splitSeg);
-        if (pts) {
-          ctx.strokeStyle = COLORS.selection;
+        const pv = previewTrack(i.from, ep, splitSeg);
+        if (pv) {
+          ctx.strokeStyle = pv.problem ? COLORS.error : COLORS.selection;
           ctx.lineWidth = Math.max(2, vp.scale * 1.6);
           ctx.globalAlpha = 0.6;
-          pathPolyline(ctx, vp, pts);
+          pathPolyline(ctx, vp, pv.pts);
           ctx.stroke();
           ctx.globalAlpha = 1;
-          let len = 0;
-          for (let k = 1; k < pts.length; k++) len += geo.dist(pts[k - 1]!, pts[k]!);
-          const last = vp.toScreen(pts.at(-1)!);
-          drawLabel(ctx, formatM(len), last.x + 12, last.y - 12, { align: 'left', bg: COLORS.labelBg });
+          const last = vp.toScreen(pv.pts.at(-1)!);
+          const parts = [formatM(pv.len)];
+          if (Number.isFinite(pv.radius) && pv.radius < 1000) parts.push(`R ${formatM(pv.radius)}`);
+          if (i.endHeading !== null) parts.push(`∠ ${i.endHeading}°`);
+          drawLabel(ctx, parts.join(' · '), last.x + 12, last.y - 12, { align: 'left', bg: COLORS.labelBg });
+          if (pv.problem) drawLabel(ctx, pv.problem, last.x + 12, last.y + 6, { align: 'left', bg: COLORS.labelBg, color: COLORS.error, size: 10 });
         }
       }
     }
@@ -638,10 +724,13 @@ export function RailEditor() {
       const ref = hitToRef(h);
       if (ref) {
         const already = L.selection.some((s) => s.id === ref.id);
-        if (e.shift) ui.select(already ? L.selection.filter((s) => s.id !== ref.id) : [...L.selection, ref]);
-        else if (!already) ui.select([ref]);
-        if (h?.kind === 'node') i.drag = { kind: 'node', id: h.id, start: e.world, delta: { x: 0, y: 0 }, moved: false };
-        if (h?.kind === 'station') i.drag = { kind: 'station', id: h.id, start: e.world, delta: { x: 0, y: 0 }, moved: false };
+        const next = e.shift ? (already ? L.selection.filter((s) => s.id !== ref.id) : [...L.selection, ref]) : already ? L.selection : [ref];
+        if (next !== L.selection) ui.select(next);
+        const inSel = next.some((s) => s.id === ref.id);
+        // Mehrere Objekte oder ein Gleisstück: alles Ausgewählte gemeinsam verschieben
+        if (inSel && (next.length > 1 || h?.kind === 'segment')) i.drag = { kind: 'group', refs: next, start: e.world, delta: { x: 0, y: 0 }, moved: false };
+        else if (h?.kind === 'node') i.drag = { kind: 'node', id: h.id, start: e.world, delta: { x: 0, y: 0 }, moved: false };
+        else if (h?.kind === 'station') i.drag = { kind: 'station', id: h.id, start: e.world, delta: { x: 0, y: 0 }, moved: false };
       } else {
         if (!e.shift) ui.select([]);
         i.drag = { kind: 'marquee', start: e.world, current: e.world };
@@ -651,19 +740,30 @@ export function RailEditor() {
 
     if (tl.kind === 'track') {
       const { ep, splitSeg } = endpointAt(e.world, tl.z);
-      let target = ep;
-      if (splitSeg) {
-        const nodeId = apply(t('Gleis teilen'), (d) => ops.splitSegment(d, splitSeg.id, splitSeg.t));
-        if (!nodeId) return;
-        target = { kind: 'node', nodeId };
-      }
       if (!i.from) {
-        i.from = target;
+        if (!splitSeg) {
+          i.from = ep;
+          return;
+        }
+        const nodeId = apply(t('Gleis teilen'), (d) => ops.splitSegment(d, splitSeg.id, splitSeg.t));
+        if (nodeId) i.from = { kind: 'node', nodeId };
         return;
       }
       const from = i.from;
-      const r = apply(t('Gleis zeichnen'), (d) => ops.addTrack(d, L.networkId, from, target));
-      if (r) i.from = { kind: 'node', nodeId: r.toNodeId };
+      // Mindestlänge, Höchstlänge und Mindestradius vor dem Bauen prüfen
+      const pv = previewTrack(from, ep, splitSeg);
+      if (pv?.problem && !e.ctrl) {
+        ui.toast(`${pv.problem} ${t('(Strg + Klick: trotzdem bauen)')}`, 'error');
+        return;
+      }
+      const r = apply(t('Gleis zeichnen'), (d) => {
+        const target: Endpoint = splitSeg ? { kind: 'node', nodeId: ops.splitSegment(d, splitSeg.id, splitSeg.t) } : ep;
+        return ops.addTrack(d, L.networkId, from, target);
+      });
+      if (r) {
+        i.from = { kind: 'node', nodeId: r.toNodeId };
+        i.endHeading = null;
+      }
       return;
     }
 
@@ -733,10 +833,19 @@ export function RailEditor() {
     i.shift = e.shift;
     i.alt = e.alt;
     const d = i.drag;
-    if (d && (d.kind === 'node' || d.kind === 'station')) {
+    if (d && (d.kind === 'node' || d.kind === 'station' || d.kind === 'group')) {
       const raw = { x: e.world.x - d.start.x, y: e.world.y - d.start.y };
       const step = snapStep();
-      d.delta = e.alt || step <= 0 ? raw : { x: geo.snap(raw.x, step), y: geo.snap(raw.y, step) };
+      // Bezugspunkt rastet im Gleisraster: Knoten bzw. hinterer Bahnhofsknoten bzw. erster Knoten der Auswahl
+      const L = live.current;
+      const anchorId =
+        d.kind === 'node' ? d.id : d.kind === 'station' ? L.project.stations[d.id]?.backNodeId : ops.nodesOfSelection(L.project, d.refs)[0];
+      const anchor = anchorId ? L.project.railNodes[anchorId]?.position : undefined;
+      if (e.alt || step <= 0 || !anchor) d.delta = raw;
+      else {
+        const target = snapPt(geo.add(anchor, raw), false);
+        d.delta = geo.sub(target, anchor);
+      }
       if (Math.hypot(raw.x, raw.y) * viewport.scale > 3) d.moved = true;
     } else if (d?.kind === 'marquee') d.current = e.world;
     else i.hover = hit(e.world);
@@ -748,6 +857,10 @@ export function RailEditor() {
     const d = it.current.drag;
     it.current.drag = null;
     if (!d) return;
+    if (d.kind === 'group' && d.moved && (d.delta.x || d.delta.y)) {
+      const delta = { x: d.delta.x, y: d.delta.y, z: 0 };
+      apply(t('Auswahl verschieben'), (p) => ops.moveSelection(p, d.refs, delta));
+    }
     if ((d.kind === 'node' || d.kind === 'station') && d.moved && (d.delta.x || d.delta.y)) {
       const delta = { x: d.delta.x, y: d.delta.y, z: 0 };
       if (d.kind === 'station') apply(t('Bahnhof verschieben'), (p) => ops.moveStation(p, d.id, delta));
@@ -776,9 +889,11 @@ export function RailEditor() {
       const ui = useUiStore.getState();
       const tl = L.tool;
       if (e.key === 'Escape') {
-        if (it.current.from || it.current.measureStart) {
+        if (it.current.drag?.kind === 'group') it.current.drag = null;
+        else if (it.current.from || it.current.measureStart) {
           it.current.from = null;
           it.current.measureStart = null;
+          it.current.endHeading = null;
         } else if (tl.kind !== 'select') ui.setRailTool({ kind: 'select' });
         else ui.select([]);
         requestDraw();
@@ -867,10 +982,29 @@ export function RailEditor() {
   return (
     <div className="editor" data-tour="rail-canvas">
       <canvas ref={canvasRef} className="editor-canvas" tabIndex={0} data-tool={tool.kind === 'select' ? 'select' : 'place'} />
+      <RailSnapBar value={railSnap} onChange={(v) => usePrefs.getState().setRailSnap(v)} />
       <div className="editor-status">
         <span ref={statusRef} />
         <span className="editor-hint">{railHint(tool)}</span>
       </div>
+    </div>
+  );
+}
+
+/** Fangraster des Schieneneditors. */
+function RailSnapBar({ value, onChange }: { value: RailSnap; onChange: (v: RailSnap) => void }) {
+  return (
+    <div
+      className="editor-toolbar rail-snap"
+      data-testid="rail-snap"
+      title={t('4 m trifft im Fundamentraster Ecken, Kantenmitten und Mitten der Fundamente; 1 m für Feinarbeit. Alt: ohne Fangen.')}
+    >
+      <span className="dim small-text">{t('Raster')}</span>
+      {RAIL_SNAP_STEPS.map((step) => (
+        <button key={step} className={`small ${value.stepM === step ? 'active' : ''}`} onClick={() => onChange({ stepM: step })} data-testid={`rail-snap-${step}`}>
+          {step} m
+        </button>
+      ))}
     </div>
   );
 }
@@ -884,9 +1018,9 @@ export function formatTime(s: number): string {
 function railHint(tl: RailTool): string {
   switch (tl.kind) {
     case 'select':
-      return t('Klicken: auswählen · Knoten/Bahnhof ziehen: verschieben · R: Bahnhof drehen · F: Knotenachse umkehren · Entf: löschen · T: Simulation');
+      return t('Klicken: auswählen (Umschalt: mehrere, Rahmen aufziehen) · Ziehen: Auswahl verschieben (im Gleisraster, Alt: frei) · R: Bahnhof drehen · F: Knotenachse umkehren · Entf: löschen · T: Simulation');
     case 'track':
-      return t('Klicken: Start/nächster Punkt (tangentialer Bogen) · Knoten/Gleis anklicken: verbinden bzw. abzweigen · Umschalt: gerade · Alt: ohne Fangen · Esc: Zug beenden');
+      return t('Klicken: Start/nächster Punkt (tangentialer Bogen) · Mausrad: Richtung am Gleisende in 15°-Stufen zum Raster (Umschalt: 5°, Strg + Rad: zoomen) · Knoten/Gleis anklicken: verbinden bzw. abzweigen · Umschalt: gerade · Alt: ohne Fangen · Strg + Klick: trotz Mindestmaß bauen · Esc: Zug beenden');
     case 'signal':
       return t('Auf ein Gleis (bis 3 m daneben) oder einen Knoten klicken – Seite neben dem Gleis = Fahrtrichtung (Signal steht rechts, Pfeil zeigt die Fahrt) · auf freiem Gleis in 1-m-Schritten, Alt: stufenlos · erneut klicken: entfernen bzw. Typ wechseln');
     case 'station':

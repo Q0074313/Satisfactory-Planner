@@ -7,6 +7,13 @@
  * 2 × Strecke / Geschwindigkeit + 2 × Andockzeit (Wiki „Truck Station“: 8 s).
  * Ohne eigene Angabe gilt die Höchstgeschwindigkeit laut Wiki (optimistisch).
  *
+ * Drohnen: Laderaum 9 Stapel (Docs); Umlauf = 2 × (Entfernung / Geschwindigkeit
+ * + 2 × 51 s Start bzw. Landung) (Wiki „Drone“, Geschwindigkeit je Brennstoff);
+ * Brennstoff je Umlauf = (24 000 MJ + 6 MJ/m × Entfernung) / Energiewert
+ * (Docs mTripPowerCost, mTripPowerPerMeterCost). Ob die Entfernung einfach
+ * oder doppelt zählt, ist nicht belegt; angenommen: einfach (Wiki: 4 Batterien
+ * + 1 Batterie je km).
+ *
  * Direkte Leitung: Kapazität = Stufe × Anzahl paralleler Leitungen (exakt).
  *
  * Zug:
@@ -127,6 +134,22 @@ export interface OrderVehicleEstimate {
   perMin: number;
 }
 
+export interface OrderDroneEstimate {
+  count: number;
+  /** Nur Feststoffe. */
+  kindOk: boolean;
+  capacityPerTrip: number;
+  speedMps: number;
+  fuelId: string;
+  /** Brennstoff je Umlauf und Drohne (Stück). */
+  fuelPerTrip: number;
+  /** Brennstoff aller Drohnen pro Minute. */
+  fuelPerMin: number;
+  cycleS: number | null;
+  cycleSource: 'estimate' | 'manual';
+  perMin: number;
+}
+
 export interface OrderDirectEstimate {
   tier: string;
   lines: number;
@@ -142,6 +165,7 @@ export interface OrderEstimate {
   mode: TransportMode;
   trains: OrderTrainEstimate[];
   vehicle: OrderVehicleEstimate | null;
+  drone: OrderDroneEstimate | null;
   direct: OrderDirectEstimate | null;
   /** Geschätzter Gesamtdurchsatz (/min bzw. m³/min). */
   perMin: number;
@@ -164,6 +188,33 @@ export function estimateVehicleOrder(gd: GameDataIndex, order: TransportOrder): 
   return { vehicleId: def.id, count: v.count, kindOk, capacityPerTrip, speedKmh, dockingS, cycleS, cycleSource: order.roundTripEstimateS !== null ? 'manual' : 'estimate', perMin };
 }
 
+/** Drohnentransport: Laderaum, Umlaufzeit, Brennstoff und Durchsatz. */
+export function estimateDroneOrder(gd: GameDataIndex, order: TransportOrder): OrderDroneEstimate | null {
+  const d = order.drone;
+  if (!d || order.mode !== 'drone') return null;
+  const kindOk = cargoKind(gd, order.itemId) === 'solid';
+  const capacityPerTrip = kindOk ? (gd.fact('drone.slots') ?? 9) * (gd.item(order.itemId)?.stackSize ?? 0) : 0;
+  const speedMps = gd.fact(`drone.speedMps.${d.fuelId}`) ?? 0;
+  const animS = gd.fact('drone.takeoffLandingS') ?? 51;
+  const estimate = speedMps > 0 ? 2 * (d.distanceM / speedMps + 2 * animS) : null;
+  const cycleS = order.roundTripEstimateS ?? estimate;
+  const energy = gd.item(d.fuelId)?.energyMJ ?? 0;
+  const fuelPerTrip = energy > 0 ? ((gd.fact('drone.tripEnergyMJ') ?? 24000) + (gd.fact('drone.energyPerMeterMJ') ?? 6) * d.distanceM) / energy : 0;
+  const perMinFactor = cycleS && cycleS > 0 ? (d.count * 60) / cycleS : 0;
+  return {
+    count: d.count,
+    kindOk,
+    capacityPerTrip,
+    speedMps,
+    fuelId: d.fuelId,
+    fuelPerTrip,
+    fuelPerMin: fuelPerTrip * perMinFactor,
+    cycleS,
+    cycleSource: order.roundTripEstimateS !== null ? 'manual' : 'estimate',
+    perMin: capacityPerTrip * perMinFactor,
+  };
+}
+
 /** Direkte Leitung: Kapazität aller parallelen Leitungen. */
 export function estimateDirectOrder(gd: GameDataIndex, order: TransportOrder): OrderDirectEstimate | null {
   const d = order.direct;
@@ -184,12 +235,17 @@ export function estimateOrder(
   if (order.mode === 'vehicle') {
     const vehicle = estimateVehicleOrder(gd, order);
     const perMin = vehicle?.perMin ?? 0;
-    return { orderId: order.id, rate: order.ratePerMin, mode: order.mode, trains: [], vehicle, direct: null, perMin, ok: perMin + 1e-6 >= order.ratePerMin };
+    return { orderId: order.id, rate: order.ratePerMin, mode: order.mode, trains: [], vehicle, drone: null, direct: null, perMin, ok: perMin + 1e-6 >= order.ratePerMin };
+  }
+  if (order.mode === 'drone') {
+    const drone = estimateDroneOrder(gd, order);
+    const perMin = drone?.perMin ?? 0;
+    return { orderId: order.id, rate: order.ratePerMin, mode: order.mode, trains: [], vehicle: null, drone, direct: null, perMin, ok: perMin + 1e-6 >= order.ratePerMin };
   }
   if (order.mode === 'belt' || order.mode === 'pipe') {
     const direct = estimateDirectOrder(gd, order);
     const perMin = Math.min(order.ratePerMin, direct?.capacity ?? 0);
-    return { orderId: order.id, rate: order.ratePerMin, mode: order.mode, trains: [], vehicle: null, direct, perMin, ok: (direct?.capacity ?? 0) + 1e-6 >= order.ratePerMin };
+    return { orderId: order.id, rate: order.ratePerMin, mode: order.mode, trains: [], vehicle: null, drone: null, direct, perMin, ok: (direct?.capacity ?? 0) + 1e-6 >= order.ratePerMin };
   }
   const trains: OrderTrainEstimate[] = [];
   for (const trainId of order.trainIds) {
@@ -218,7 +274,7 @@ export function estimateOrder(
     trains.push({ trainId, servesFrom, servesTo, excludedFrom, excludedTo, capacityPerCycle, share, cycleS: cycle.s, cycleSource: cycle.src, perMin });
   }
   const perMin = trains.reduce((s, x) => s + x.perMin, 0);
-  return { orderId: order.id, rate: order.ratePerMin, mode: 'train', trains, vehicle: null, direct: null, perMin, ok: perMin + 1e-6 >= order.ratePerMin };
+  return { orderId: order.id, rate: order.ratePerMin, mode: 'train', trains, vehicle: null, drone: null, direct: null, perMin, ok: perMin + 1e-6 >= order.ratePerMin };
 }
 
 export interface TradeRow {
@@ -236,6 +292,10 @@ export interface TradeRow {
   importGap: number;
   /** Ausfuhr über dem Überschuss (> 0 = Lücke beim Absender). */
   exportGap: number;
+  /** Brennstoffbedarf von Drohnen mit Heimathafen in dieser Fabrik. */
+  transportFuel: number;
+  /** Nicht gedeckter Brennstoffbedarf der Drohnen. */
+  fuelGap: number;
 }
 
 /** Bilanz einer Fabrik mit Ein- und Ausfuhren (lokal vs. extern). */
@@ -244,7 +304,7 @@ export function factoryTrade(p: Project, gd: GameDataIndex, factoryId: string): 
   const row = (itemId: string) => {
     let r = rows.get(itemId);
     if (!r) {
-      r = { itemId, produced: 0, consumed: 0, net: 0, imports: 0, exports: 0, planImports: 0, importGap: 0, exportGap: 0 };
+      r = { itemId, produced: 0, consumed: 0, net: 0, imports: 0, exports: 0, planImports: 0, importGap: 0, exportGap: 0, transportFuel: 0, fuelGap: 0 };
       rows.set(itemId, r);
     }
     return r;
@@ -258,6 +318,9 @@ export function factoryTrade(p: Project, gd: GameDataIndex, factoryId: string): 
   for (const o of Object.values(p.transportOrders)) {
     if (o.toFactoryId === factoryId) row(o.itemId).imports += o.ratePerMin;
     if (o.fromFactoryId === factoryId) row(o.itemId).exports += o.ratePerMin;
+    // Drohnen tanken am Heimathafen beim Absender
+    const drone = o.fromFactoryId === factoryId ? estimateDroneOrder(gd, o) : null;
+    if (drone && drone.fuelPerMin > 0) row(drone.fuelId).transportFuel += drone.fuelPerMin;
   }
   for (const plan of Object.values(p.productionPlans)) {
     if (plan.factoryId !== factoryId) continue;
@@ -273,6 +336,7 @@ export function factoryTrade(p: Project, gd: GameDataIndex, factoryId: string): 
     r.net = r.produced - r.consumed;
     r.importGap = Math.max(0, r.planImports - r.imports);
     r.exportGap = Math.max(0, r.exports - Math.max(0, r.net + r.imports));
+    r.fuelGap = Math.max(0, r.transportFuel - Math.max(0, r.net + r.imports - r.exports));
   }
   return [...rows.values()];
 }
@@ -284,6 +348,12 @@ export function transportAssumptions(p: Project, gd: GameDataIndex): string[] {
     tr('Wagen werden vollständig beladen: {slots} Stapel × Stapelgröße bzw. {m3} m³.', { slots: gd.fact('rail.freightCar.slots') ?? 32, m3: gd.fact('rail.freightCar.fluidM3') ?? 2400 }),
     tr('Keine Wartezeiten an Signalen; mehrere Aufträge teilen sich einen Zug im Verhältnis ihrer Mengen.'),
     tr('Fahrzeuge: Laderaum aus den Docs, Umlauf = 2 × Strecke / Geschwindigkeit + 2 × {s} s Andocken (Wiki „Truck Station“); ohne eigene Angabe mit Höchstgeschwindigkeit laut Wiki, also optimistisch. Treibstoffverbrauch wird nicht geschätzt.', { s: gd.fact('vehicle.docking.durationS') ?? 8 }),
+    tr('Drohnen: {slots} Stapel je Flug, Umlauf = 2 × (Entfernung / Geschwindigkeit + 2 × {s} s Start bzw. Landung); Geschwindigkeit je Brennstoff laut Wiki (ungefähr). Brennstoff je Umlauf = ({e} MJ + {m} MJ/m × Entfernung) / Energiewert (Docs), Entfernung einfach gezählt (Annahme). Drohnen tanken am Hafen des Absenders.', {
+      slots: gd.fact('drone.slots') ?? 9,
+      s: gd.fact('drone.takeoffLandingS') ?? 51,
+      e: gd.fact('drone.tripEnergyMJ') ?? 24000,
+      m: gd.fact('drone.energyPerMeterMJ') ?? 6,
+    }),
     tr('Direkte Bänder und Rohre: Kapazität = Stufe × Anzahl paralleler Leitungen; Förderhöhe zwischen Fabriken wird nicht geprüft.'),
   ];
 }

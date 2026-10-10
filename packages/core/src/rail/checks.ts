@@ -15,6 +15,7 @@ import {
   RAIL_MIXED_ENTRY,
   RAIL_NO_EXIT,
   RAIL_NO_SIGNALS,
+  RAIL_PATH_CHAIN,
   RAIL_PATH_NOT_LEVEL,
   RAIL_RADIUS,
   RAIL_SEGMENT_LENGTH,
@@ -28,6 +29,7 @@ import {
   RAIL_TRAIN_LONGER_THAN_STATION,
   RAIL_UNREACHABLE,
   RAIL_WAGON_PLATFORM,
+  PATH_CHAIN_LIMIT,
 } from './rules.ts';
 import {
   analyzeBlocks,
@@ -35,6 +37,7 @@ import {
   canReverseDirection,
   findRoute,
   isBidirectional,
+  shortestRoute,
   trainLengthM,
   type BlockAnalysis,
   type RailGraph,
@@ -265,6 +268,7 @@ export function checkNetwork(p: Project, gd: GameDataIndex, networkId: string): 
       }),
     );
   }
+  out.push(...pathChainFindings(p, g, blocks, networkId));
   let reversible: boolean | undefined;
   for (const t of g.trains) {
     const tt = t.timetableId ? p.timetables[t.timetableId] : undefined;
@@ -369,6 +373,79 @@ export function checkNetwork(p: Project, gd: GameDataIndex, networkId: string): 
 }
 
 /** Positionen 0 = Bahnhofsgebäude, 1..n = Bahnsteige; Fahrzeug i steht an Position i. */
+/** Kette aufeinanderfolgender Pfadblöcke auf einem Fahrweg. */
+export interface PathChain {
+  /** Pfadblöcke in Fahrtrichtung. */
+  blockIds: string[];
+  /** Erstes Segment je Pfadblock auf dem Weg. */
+  firstSegments: string[];
+  /** Länge des reservierten Wegs durch die Kette (m). */
+  lengthM: number;
+}
+
+/** Ketten von Pfadblöcken auf einem Fahrweg (Folge von Gleiszuständen). */
+export function pathChains(g: RailGraph, blocks: BlockAnalysis, states: { segId: string }[]): PathChain[] {
+  const out: PathChain[] = [];
+  let cur: PathChain | null = null;
+  let lastBlock: string | null = null;
+  for (const st of states) {
+    const bid = blocks.blockOf.get(st.segId);
+    if (!bid) continue;
+    const block = blocks.blocks.get(bid)!;
+    if (!block.isPath) {
+      if (cur) out.push(cur);
+      cur = null;
+      lastBlock = bid;
+      continue;
+    }
+    cur ??= { blockIds: [], firstSegments: [], lengthM: 0 };
+    if (bid !== lastBlock) {
+      cur.blockIds.push(bid);
+      cur.firstSegments.push(st.segId);
+    }
+    cur.lengthM += g.lengths.get(st.segId) ?? 0;
+    lastBlock = bid;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+/** RAIL-026: Fahrwege der Züge über viele Pfadsignale hintereinander. */
+function pathChainFindings(p: Project, g: RailGraph, blocks: BlockAnalysis, networkId: string): Finding[] {
+  const found = new Map<string, { chain: PathChain; trains: Set<string> }>();
+  for (const t of g.trains) {
+    const tt = t.timetableId ? p.timetables[t.timetableId] : undefined;
+    if (!tt || tt.stops.length < 2) continue;
+    for (let i = 0; i < tt.stops.length; i++) {
+      const a = tt.stops[i]!;
+      const b = tt.stops[(i + 1) % tt.stops.length]!;
+      if (a.stationId === b.stationId) continue;
+      const route = shortestRoute(p, g, { fromStationId: a.stationId, toStationId: b.stationId, bidirectional: isBidirectional(t) });
+      if (!route) continue;
+      for (const chain of pathChains(g, blocks, route.states)) {
+        if (chain.blockIds.length < PATH_CHAIN_LIMIT) continue;
+        const key = chain.blockIds.join('>');
+        const hit = found.get(key) ?? { chain, trains: new Set<string>() };
+        hit.trains.add(t.id);
+        found.set(key, hit);
+      }
+    }
+  }
+  return [...found.values()].map(({ chain, trains }) => {
+    const names = [...trains].map((id) => p.trains[id]?.name ?? '?').join(', ');
+    return makeFinding(
+      RAIL_PATH_CHAIN,
+      [...chain.firstSegments.map((id) => ({ table: 'railSegments', id }) as ObjectRef), ...[...trains].map((id) => ({ table: 'trains', id }) as ObjectRef)],
+      {
+        message: tr('{n} Pfadsignale hintereinander ({len} m reserviert) – {trains}', { n: chain.blockIds.length, len: formatNumber(chain.lengthM, 0), trains: names }),
+        explanation: tr(RAIL_PATH_CHAIN.description),
+        suggestion: tr('Zwischen den Weichen bzw. Kreuzungen Blocksignale statt Pfadsignalen setzen, damit ein Zug zwischendurch halten kann und die Reservierung kürzer wird.'),
+      },
+      { location: segLoc(p, chain.firstSegments[0]!, networkId) },
+    );
+  });
+}
+
 export function wagonPlatformIssues(t: Train, st: Station): string[] {
   const issues: string[] = [];
   t.consist.forEach((v, i) => {
