@@ -157,6 +157,9 @@ describe('API', () => {
     expect(r.headers['referrer-policy']).toBe('no-referrer');
     expect(r.headers['x-robots-tag']).toContain('noindex');
     expect(r.headers['content-security-policy']).toContain("frame-ancestors 'none'");
+    // Kartenkacheln: nur Bilder von dieser einen Quelle, keine Skripte oder Verbindungen
+    expect(r.headers['content-security-policy']).toMatch(/img-src [^;]*https:\/\/static\.satisfactory-calculator\.com/);
+    expect(r.headers['content-security-policy']).toMatch(/connect-src 'self';/);
   });
 });
 
@@ -188,6 +191,24 @@ describe('Datenformat-Migration', () => {
     expect(r.statusCode).toBe(201);
     const disk = JSON.parse(await readFile(join(dir, 'projects', `${r.json().id}.json`), 'utf8'));
     expect(disk.formatVersion).toBe(PROJECT_FORMAT_VERSION);
+  });
+
+  it('ein Projekt im Format 2 bekommt Kartenstandort und Vorkommensverknüpfung (leer)', async () => {
+    const id = newProjectId();
+    const v2 = await fixture('project-v2.json');
+    expect(JSON.parse(v2).formatVersion).toBe(2);
+    await writeFile(join(dir, 'projects', `${id}.json`), v2);
+
+    const got = await app.inject({ method: 'GET', url: `/api/factory/${id}` });
+    expect(got.statusCode).toBe(200);
+    const { project, migrations } = got.json();
+    expect(project.formatVersion).toBe(PROJECT_FORMAT_VERSION);
+    expect(migrations[0]).toMatch(/^2 → 3/);
+    expect(project.factories.fac_v2erzwerk01.map).toBeNull();
+    expect(project.buildings.bld_v2miner0001.extraction).toEqual({ itemId: 'Desc_OreIron_C', purity: 'pure', nodeId: null });
+    expect(project.buildings.bld_v2smelter01.extraction).toBeNull();
+    expect(project.groups.grp_v2miners001.members[0].extraction.nodeId).toBeNull();
+    expect(project.groups.grp_v2miners001.members[1].extraction).toBeNull();
   });
 
   it('neuere Formate als unterstützt werden abgelehnt', async () => {

@@ -7,7 +7,7 @@
  */
 import { N_ } from '../i18n';
 
-export type KeyScope = 'global' | 'factory' | 'rail';
+export type KeyScope = 'global' | 'factory' | 'rail' | 'map';
 
 export interface KeyAction {
   id: string;
@@ -32,6 +32,7 @@ export const KEY_ACTIONS: KeyAction[] = [
   { id: 'global.mode.production', scope: 'global', label: N_('Ansicht Produktion'), defaults: ['Alt+2'] },
   { id: 'global.mode.rail', scope: 'global', label: N_('Ansicht Schienennetz'), defaults: ['Alt+3'] },
   { id: 'global.mode.transport', scope: 'global', label: N_('Ansicht Transport'), defaults: ['Alt+4'] },
+  { id: 'global.mode.map', scope: 'global', label: N_('Ansicht Karte'), defaults: ['Alt+5'] },
   // Fabrik
   { id: 'factory.select', scope: 'factory', label: N_('Werkzeug Auswahl'), defaults: ['V'] },
   { id: 'factory.measure', scope: 'factory', label: N_('Werkzeug Messen'), defaults: ['M'] },
@@ -74,12 +75,20 @@ export const KEY_ACTIONS: KeyAction[] = [
   { id: 'rail.zoomIn', scope: 'rail', label: N_('Vergrößern'), defaults: ['+', '='] },
   { id: 'rail.zoomOut', scope: 'rail', label: N_('Verkleinern'), defaults: ['-'] },
   { id: 'rail.play', scope: 'rail', label: N_('Zugsimulation starten/anhalten'), defaults: ['T'] },
+  // Karte
+  { id: 'map.rotate', scope: 'map', label: N_('Fabrik drehen'), defaults: ['R'] },
+  { id: 'map.rotateBack', scope: 'map', label: N_('Fabrik zurückdrehen'), defaults: ['Shift+R'] },
+  { id: 'map.remove', scope: 'map', label: N_('Fabrik von der Karte nehmen'), defaults: ['Delete', 'Backspace'] },
+  { id: 'map.fit', scope: 'map', label: N_('Ganze Karte zeigen'), defaults: ['Home'] },
+  { id: 'map.zoomIn', scope: 'map', label: N_('Vergrößern'), defaults: ['+', '='] },
+  { id: 'map.zoomOut', scope: 'map', label: N_('Verkleinern'), defaults: ['-'] },
 ];
 
 export const SCOPE_LABEL: Record<KeyScope, string> = {
   global: N_('Allgemein'),
   factory: N_('Fabrikgrundriss'),
   rail: N_('Schienennetz'),
+  map: N_('Karte'),
 };
 
 const MOD_ONLY = new Set(['Control', 'Shift', 'Alt', 'Meta', 'AltGraph', 'CapsLock']);

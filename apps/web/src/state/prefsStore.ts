@@ -18,6 +18,9 @@ export interface RailSnap {
 export const RAIL_SNAP_STEPS = [4, 1];
 const DEFAULT_RAIL_SNAP: RailSnap = { stepM: 4 };
 
+/** Kartenbild: Spielkarte, realistische Ansicht oder ohne Bild. */
+export type MapTiles = 'game' | 'realistic' | 'off';
+
 interface Prefs {
   language: Lang;
   theme: ThemePref;
@@ -34,6 +37,9 @@ interface Prefs {
   streamerMode: boolean;
   /** Zuletzt gewählte Stufe und Verlegemodus je Leitungsart (gilt für die nächste Benutzung des Werkzeugs). */
   linkTools: Partial<Record<LinkKind, { tier: string; routing: LinkRouting }>>;
+  mapTiles: MapTiles;
+  /** Deckkraft des Kartenbilds (0,1 … 1). */
+  mapOpacity: number;
 }
 
 interface PrefsState extends Prefs {
@@ -49,13 +55,15 @@ interface PrefsState extends Prefs {
   setStreamerMode(v: boolean): void;
   setRailSnap(v: RailSnap): void;
   setLinkTool(kind: LinkKind, v: { tier: string; routing: LinkRouting }): void;
+  setMapTiles(v: MapTiles): void;
+  setMapOpacity(v: number): void;
 }
 
 const KEY = 'satis-planner:prefs';
 
 function load(): Prefs {
   // Standardsprache Englisch, unabhängig von der Browsersprache
-  const base: Prefs = { language: 'en', theme: 'system', keymap: {}, toursDone: [], welcomed: false, animateFlow: true, detailedTours: false, streamerMode: false, railSnap: DEFAULT_RAIL_SNAP, linkTools: {} };
+  const base: Prefs = { language: 'en', theme: 'system', keymap: {}, toursDone: [], welcomed: false, animateFlow: true, detailedTours: false, streamerMode: false, railSnap: DEFAULT_RAIL_SNAP, linkTools: {}, mapTiles: 'game', mapOpacity: 0.85 };
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return base;
@@ -71,6 +79,8 @@ function load(): Prefs {
       streamerMode: !!v.streamerMode,
       railSnap: v.railSnap && RAIL_SNAP_STEPS.includes(v.railSnap.stepM) ? { stepM: v.railSnap.stepM } : DEFAULT_RAIL_SNAP,
       linkTools: v.linkTools && typeof v.linkTools === 'object' ? v.linkTools : {},
+      mapTiles: v.mapTiles === 'realistic' || v.mapTiles === 'off' ? v.mapTiles : 'game',
+      mapOpacity: typeof v.mapOpacity === 'number' && v.mapOpacity >= 0.1 && v.mapOpacity <= 1 ? v.mapOpacity : base.mapOpacity,
     };
   } catch {
     return base;
@@ -102,6 +112,8 @@ export const usePrefs = create<PrefsState>((set, get) => {
       streamerMode: s.streamerMode,
       railSnap: s.railSnap,
       linkTools: s.linkTools,
+      mapTiles: s.mapTiles,
+      mapOpacity: s.mapOpacity,
     });
   };
   return {
@@ -156,6 +168,14 @@ export const usePrefs = create<PrefsState>((set, get) => {
       const cur = get().linkTools[kind];
       if (cur && cur.tier === v.tier && cur.routing === v.routing) return;
       set({ linkTools: { ...get().linkTools, [kind]: { ...v } } });
+      persist();
+    },
+    setMapTiles(mapTiles) {
+      set({ mapTiles });
+      persist();
+    },
+    setMapOpacity(mapOpacity) {
+      set({ mapOpacity: Math.min(1, Math.max(0.1, mapOpacity)) });
       persist();
     },
   };

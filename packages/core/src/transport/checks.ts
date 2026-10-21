@@ -7,6 +7,7 @@ import type { ObjectRef, Project, TransportOrder } from '../model/schema.ts';
 import { transferCargo, transferInterface } from '../factory/geometry.ts';
 import { makeFinding } from '../validation/registry.ts';
 import type { Finding } from '../validation/types.ts';
+import { orderMapDistance } from '../map/index.ts';
 import { cargoKind, estimateOrder, factoryTrade } from './estimate.ts';
 import {
   TRN_CAPACITY,
@@ -19,6 +20,7 @@ import {
   TRN_NO_VEHICLE,
   TRN_VEHICLE_CAPACITY,
   TRN_IMPORT_GAP,
+  TRN_MAP_DISTANCE,
   TRN_NO_PLATFORM,
   TRN_NO_TRAIN,
   TRN_STATION_FACTORY,
@@ -242,11 +244,30 @@ export function checkTransport(p: Project, gd: GameDataIndex): Finding[] {
 }
 
 /** Prüfungen für Fahrzeugaufträge und direkte Bänder/Rohre. */
+/** Angegebene Strecke gegen die Luftlinie laut Karte (Drohne: höchstens 10 % länger). */
+export function mapDistanceFinding(p: Project, gd: GameDataIndex, o: TransportOrder, ref: ObjectRef, label: string): Finding | null {
+  const given = o.mode === 'vehicle' ? o.vehicle?.distanceM : o.mode === 'drone' ? o.drone?.distanceM : o.direct?.lengthM || undefined;
+  const m = given === undefined ? null : orderMapDistance(p, gd, o);
+  if (given === undefined || !m || m.distM < 1) return null;
+  const tooShort = given < m.distM * 0.95;
+  const tooLong = o.mode === 'drone' && given > m.distM * 1.1 + 50;
+  if (!tooShort && !tooLong) return null;
+  return makeFinding(TRN_MAP_DISTANCE, [ref], {
+    message: tooShort
+      ? tr('{order}: Strecke {given} m ist kürzer als die Luftlinie {map} m', { order: label, given: formatNumber(given, 0), map: formatNumber(m.distM, 0) })
+      : tr('{order}: Strecke {given} m, Drohnen fliegen aber nur die Luftlinie {map} m', { order: label, given: formatNumber(given, 0), map: formatNumber(m.distM, 0) }),
+    explanation: `${tr(TRN_MAP_DISTANCE.description)} ${m.basis === 'ports' ? tr('Gemessen zwischen den Übergabegebäuden.') : tr('Gemessen zwischen den Fabrikmitten (keine platzierten Übergabegebäude).')}`,
+    suggestion: tr('Im Auftrag „Von Karte übernehmen“ wählen oder die Strecke anpassen.'),
+  });
+}
+
 function checkOtherMode(p: Project, gd: GameDataIndex, o: TransportOrder, ref: ObjectRef, label: string): Finding[] {
   const out: Finding[] = [];
   const est = estimateOrder(p, gd, o);
   const u = unit(gd, o.itemId);
   const fname = (id: string) => p.factories[id]?.name ?? '?';
+  const distance = mapDistanceFinding(p, gd, o, ref, label);
+  if (distance) out.push(distance);
   if (o.mode === 'vehicle') {
     const v = est.vehicle;
     if (v && !v.kindOk) {

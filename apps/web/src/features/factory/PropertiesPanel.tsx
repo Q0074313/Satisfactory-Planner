@@ -13,6 +13,10 @@ import {
   linkPath,
   localName,
   machineRates,
+  mapOps,
+  nodesForBuilding,
+  nodeTitle,
+  nodeUsage,
   pathLength,
   type Building,
   type FloorKind,
@@ -23,6 +27,7 @@ import {
 import { N_, t } from '../../i18n';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
+import { useMapStore } from '../../state/mapStore';
 import { Badge, ConfidenceBadge, fmtNum, fmtRate, NumberField, Row, Section, Segmented, TextField } from '../../ui/fields';
 import { ROUTING_LABELS, ROUTING_ORDER } from './EditorToolbar';
 
@@ -68,6 +73,36 @@ function FactoryProps({ factoryId }: { factoryId: string }) {
         </Row>
         <Row label={t('Notizen')}>
           <TextField value={f.notes} onCommit={(notes) => apply(t('Notizen'), (d) => ops.updateFactory(d, factoryId, { notes }))} />
+        </Row>
+        <Row label={t('Kartenstandort')} plain>
+          {f.map ? (
+            <span>
+              {fmtNum(f.map.x, 0)} / {fmtNum(f.map.y, 0)} m · {fmtNum(f.map.rotationDeg, 0)}°{' '}
+              <button
+                className="small"
+                data-testid="factory-show-on-map"
+                onClick={() => {
+                  useUiStore.getState().setMode('map');
+                  useMapStore.getState().select({ kind: 'factory', id: factoryId });
+                  useMapStore.getState().focusOn(f.map!.x, f.map!.y, 1);
+                }}
+              >
+                {t('Auf der Karte zeigen')}
+              </button>
+            </span>
+          ) : (
+            <button
+              className="small"
+              data-testid="factory-place-on-map"
+              onClick={() => {
+                useUiStore.getState().setMode('map');
+                useMapStore.getState().select({ kind: 'factory', id: factoryId });
+                useMapStore.getState().setTool({ kind: 'place-factory', factoryId, rotationDeg: 0 });
+              }}
+            >
+              {t('Auf der Karte platzieren')}
+            </button>
+          )}
         </Row>
       </Section>
       {fl && (
@@ -226,7 +261,7 @@ function BuildingProps({ building: b }: { building: Building }) {
                 <select
                   value={b.extraction?.purity ?? 'normal'}
                   disabled={!b.extraction}
-                  onChange={(e) => b.extraction && upd(t('Reinheit'), { extraction: { ...b.extraction, purity: e.target.value as Purity } })}
+                  onChange={(e) => b.extraction && upd(t('Reinheit'), { extraction: { itemId: b.extraction.itemId, purity: e.target.value as Purity } })}
                 >
                   {(Object.keys(PURITY_LABEL) as Purity[]).map((p) => (
                     <option key={p} value={p}>
@@ -236,6 +271,7 @@ function BuildingProps({ building: b }: { building: Building }) {
                 </select>
               </Row>
             )}
+            {def.nativeClass !== 'FGBuildableWaterPump' && gd.map && <NodeRow building={b} />}
           </>
         )}
         {transferInterface(def) && (
@@ -371,6 +407,15 @@ function BuildingProps({ building: b }: { building: Building }) {
         )}
       </Section>
 
+      {b.stationPart && project.stations[b.stationPart.stationId] && (
+        <Section title={t('Bahnhof')}>
+          <p className="small-text" data-testid="station-part">
+            {t('Teil von „{name}“ im Schienennetz. Verschieben, Drehen, Be-/Entladen und Löschen werden mit dem Schienennetz abgeglichen; ein Bahnsteig, der an Ort und Stelle um 180° gedreht wird, wechselt die Seite seiner Anschlüsse.', {
+              name: project.stations[b.stationPart.stationId]!.name,
+            })}
+          </p>
+        </Section>
+      )}
       {b.groupInstance && <GroupInstanceSection building={b} />}
       <PortsSection building={b} />
 
@@ -391,6 +436,58 @@ function BuildingProps({ building: b }: { building: Building }) {
 }
 
 /** Bearbeiten einer Gruppeninstanz: Vorlage übernehmen, andere Instanzen angleichen, lösen. */
+/** Verknüpfung mit einem Vorkommen der Weltkarte. */
+function NodeRow({ building: b }: { building: Building }) {
+  const project = useProjectStore((s) => s.project)!;
+  const gd = useProjectStore((s) => s.gd)!;
+  const apply = useProjectStore((s) => s.apply);
+  const placed = !!project.factories[b.factoryId]?.map;
+  const usage = useMemo(() => nodeUsage(project), [project]);
+  const options = useMemo(() => {
+    const all = nodesForBuilding(project, gd, b, 1500);
+    // Ohne Kartenstandort: nur Vorkommen des gewählten Rohstoffs
+    return (placed ? all.slice(0, 25) : all.filter((x) => !b.extraction || x.node.itemId === b.extraction.itemId)).filter(
+      (x) => x.node.id === b.extraction?.nodeId || !(usage.get(x.node.id) ?? []).some((id) => id !== b.id),
+    );
+  }, [project, gd, b, placed, usage]);
+  const current = b.extraction?.nodeId ?? '';
+  const node = current ? gd.mapNode(current) : undefined;
+  const show = () => {
+    if (!node) return;
+    useUiStore.getState().setMode('map');
+    useMapStore.getState().select({ kind: 'node', id: node.id });
+    useMapStore.getState().focusOn(node.x, node.y, 2);
+  };
+  return (
+    <>
+      <Row label={t('Vorkommen')} hint={t('Vorkommen der Weltkarte; übernimmt Rohstoff und Reinheit. Ein Vorkommen trägt nur ein Gebäude.')}>
+        <select
+          data-testid="extraction-node"
+          value={current}
+          onChange={(e) => apply(t('Vorkommen zuweisen'), (d, g) => mapOps.assignNode(d, g, b.id, e.target.value || null))}
+        >
+          <option value="">{t('– nicht verknüpft –')}</option>
+          {current && !options.some((x) => x.node.id === current) && <option value={current}>{nodeTitle(gd, current)}</option>}
+          {options.map(({ node: n, distM }) => (
+            <option key={n.id} value={n.id}>
+              {nodeTitle(gd, n.id)}
+              {Number.isFinite(distM) ? ` · ${fmtNum(distM, 0)} m` : ''}
+            </option>
+          ))}
+        </select>
+      </Row>
+      {node && (
+        <p className="dim small-text">
+          <button className="link-button" onClick={show}>
+            {t('Auf der Karte zeigen')}
+          </button>
+        </p>
+      )}
+      {!placed && <p className="dim small-text">{t('Fabrik auf der Karte platzieren, um Vorkommen nach Entfernung zu sehen und Miner darauf einrasten zu lassen.')}</p>}
+    </>
+  );
+}
+
 function GroupInstanceSection({ building: b }: { building: Building }) {
   const project = useProjectStore((s) => s.project)!;
   const apply = useProjectStore((s) => s.apply);

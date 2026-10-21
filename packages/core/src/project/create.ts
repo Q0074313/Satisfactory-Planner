@@ -68,5 +68,5 @@ export function makeFactory(project: Project, name: string): { factory: Factory;
     heightM: 18,
   };
   const color = FACTORY_COLORS[Object.keys(project.factories).length % FACTORY_COLORS.length]!;
-  return { factory: { id: factoryId, name, color, floorIds: [floor.id], notes: '' }, floor };
+  return { factory: { id: factoryId, name, color, floorIds: [floor.id], notes: '', map: null }, floor };
 }

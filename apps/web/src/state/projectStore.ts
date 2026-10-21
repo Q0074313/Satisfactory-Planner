@@ -4,7 +4,7 @@
  */
 import { applyPatches, enablePatches, produceWithPatches, type Patch } from 'immer';
 import { create } from 'zustand';
-import { OpError, tr, type GameDataIndex, type Project } from '@satis/core';
+import { OpError, syncStations, tr, type GameDataIndex, type Project } from '@satis/core';
 
 enablePatches();
 
@@ -67,6 +67,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     try {
       const [next, patches, inverse] = produceWithPatches(project, (draft) => {
         result = fn(draft as Project, gd);
+        // Bahnhöfe ↔ Bahnhofsteile im Grundriss abgleichen (gehört zur selben Änderung, ein Undo-Schritt)
+        syncStations(project, draft as Project, gd);
         draft.updatedAt = new Date().toISOString();
       });
       if (patches.length <= 1) return result; // nur updatedAt geändert

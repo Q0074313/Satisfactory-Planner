@@ -206,3 +206,15 @@ export const TRN_DRONE_FUEL = defineRule({
     'Drohnen nehmen den Brennstoff für einen Umlauf an ihrem Heimathafen (hier: beim Absender). Die Fabrik erzeugt bzw. erhält davon weniger, als die Drohnen geschätzt verbrauchen.',
   sources: [DRONE],
 });
+
+export const TRN_MAP_DISTANCE = defineRule({
+  id: 'TRN-018',
+  title: 'Entfernung passt nicht zur Karte',
+  domain: 'transport',
+  kind: 'recommendation',
+  certainty: 'static',
+  severity: 'warning',
+  description:
+    'Beide Fabriken sind auf der Karte platziert. Die im Auftrag angegebene Strecke ist kürzer als die Luftlinie zwischen den Übergabegebäuden (bzw. den Fabrikmitten), oder bei Drohnen, die geradlinig fliegen, deutlich länger. Die Schätzung des Durchsatzes beruht auf der angegebenen Strecke.',
+  sources: [PLAN],
+});

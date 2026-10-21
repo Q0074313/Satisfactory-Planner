@@ -5,6 +5,7 @@ import type { GameDataIndex } from '../../gamedata/index.ts';
 import { tr } from '../../i18n/index.ts';
 import { newId } from '../../model/ids.ts';
 import { placedPortDefs } from '../../factory/ports.ts';
+import { orderMapDistance } from '../../map/index.ts';
 import type { PortRef, Project, TransportMode, TransportOrder } from '../../model/schema.ts';
 import { OpError } from '../errors.ts';
 
@@ -25,13 +26,13 @@ function checkEndpoint(p: Project, gd: GameDataIndex, ref: PortRef, factoryId: s
 }
 
 /** Standardangaben je Transportmittel (beim Wechsel des Transportmittels). */
-export function defaultsFor(gd: GameDataIndex, mode: TransportMode, itemId: string): Pick<TransportOrder, 'vehicle' | 'drone' | 'direct'> {
+export function defaultsFor(gd: GameDataIndex, mode: TransportMode, itemId: string, distanceM = 1000): Pick<TransportOrder, 'vehicle' | 'drone' | 'direct'> {
   const solid = gd.item(itemId)?.form === 'solid';
   if (mode === 'vehicle') {
     const v = gd.vehicles.filter((x) => (x.cargo.kind === 'solid') === solid).at(-1) ?? gd.vehicles[0];
-    return { vehicle: { type: v?.id ?? '', count: 1, distanceM: 1000, speedKmh: null }, drone: null, direct: null };
+    return { vehicle: { type: v?.id ?? '', count: 1, distanceM, speedKmh: null }, drone: null, direct: null };
   }
-  if (mode === 'drone') return { vehicle: null, drone: { count: 1, distanceM: 1000, fuelId: 'Desc_Battery_C' }, direct: null };
+  if (mode === 'drone') return { vehicle: null, drone: { count: 1, distanceM, fuelId: 'Desc_Battery_C' }, direct: null };
   if (mode === 'belt' || mode === 'pipe') {
     const tiers = mode === 'belt' ? gd.beltTiers : gd.pipeTiers;
     return { vehicle: null, drone: null, direct: { tier: tiers[0]?.id ?? '', lines: 1, lengthM: 0, from: null, to: null } };
@@ -82,7 +83,9 @@ function validate(p: Project, gd: GameDataIndex, o: Omit<TransportOrder, 'id'>):
 export function addOrder(p: Project, gd: GameDataIndex, init: OrderInit): string {
   const { id: _ignored, ...given } = init;
   const mode = given.mode ?? 'train';
-  const rest = { ...defaultsFor(gd, mode, given.itemId), ...given, mode };
+  // Strecke laut Karte, wenn beide Fabriken platziert sind
+  const onMap = orderMapDistance(p, gd, { fromFactoryId: given.fromFactoryId, toFactoryId: given.toFactoryId, mode, direct: null });
+  const rest = { ...defaultsFor(gd, mode, given.itemId, onMap ? Math.round(onMap.distM) : undefined), ...given, mode };
   validate(p, gd, rest);
   const id = newId('transportOrder');
   p.transportOrders[id] = { ...rest, id, trainIds: [...rest.trainIds] };

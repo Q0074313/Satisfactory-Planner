@@ -49,6 +49,24 @@ export const MIGRATIONS: MigrationStep[] = [
       return p;
     },
   },
+  {
+    from: 2,
+    description: 'Fabrikstandort auf der Weltkarte und Verknüpfung von Gewinnungsgebäuden mit Vorkommen ergänzt',
+    migrate(p) {
+      for (const f of Object.values(table(p, 'factories'))) f.map ??= null;
+      for (const b of Object.values(table(p, 'buildings'))) {
+        const ex = b.extraction as Raw | null | undefined;
+        if (ex) ex.nodeId ??= null;
+      }
+      for (const g of Object.values(table(p, 'groups'))) {
+        for (const m of (g.members as Raw[] | undefined) ?? []) {
+          const ex = m.extraction as Raw | null | undefined;
+          if (ex) ex.nodeId ??= null;
+        }
+      }
+      return p;
+    },
+  },
 ];
 
 export function migrateProject(raw: unknown, steps: MigrationStep[] = MIGRATIONS, target = PROJECT_FORMAT_VERSION) {

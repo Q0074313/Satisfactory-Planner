@@ -1,5 +1,5 @@
 /**
- * Projektschema (Dateiformat-Version 1).
+ * Projektschema (Dateiformat-Version 3).
  *
  * Alle Objekte liegen normalisiert in ID-Tabellen auf Projektebene und
  * verweisen über IDs aufeinander. Koordinaten sind Weltkoordinaten in Metern:
@@ -8,7 +8,7 @@
  */
 import { z } from 'zod';
 
-export const PROJECT_FORMAT_VERSION = 2;
+export const PROJECT_FORMAT_VERSION = 3;
 
 const id = z.string().min(1);
 const finite = z.number().finite();
@@ -22,6 +22,14 @@ export type Vec3 = z.infer<typeof Vec3Schema>;
 // Fabrik, Stockwerke, Flächen
 // ---------------------------------------------------------------------------
 
+/**
+ * Lage einer Fabrik auf der Weltkarte: Der lokale Ursprung des Grundrisses
+ * liegt am Weltpunkt (x, y) in Metern, der Grundriss ist um `rotationDeg`
+ * gedreht (im Uhrzeigersinn). Welt = Drehung(lokal) + (x, y).
+ */
+export const FactoryMapPlacementSchema = z.object({ x: finite, y: finite, rotationDeg: finite });
+export type FactoryMapPlacement = z.infer<typeof FactoryMapPlacementSchema>;
+
 export const FactorySchema = z.object({
   id,
   name: z.string(),
@@ -29,6 +37,8 @@ export const FactorySchema = z.object({
   /** Reihenfolge der Stockwerke von unten nach oben. */
   floorIds: z.array(id),
   notes: z.string().default(''),
+  /** Standort auf der Weltkarte; `null` = nicht platziert. */
+  map: FactoryMapPlacementSchema.nullable().default(null),
 });
 export type Factory = z.infer<typeof FactorySchema>;
 
@@ -97,8 +107,12 @@ export const ExtractionSchema = z.object({
   itemId: z.string(),
   /** Reinheit; bei Wasserextraktoren ohne Bedeutung („normal“). */
   purity: PuritySchema,
+  /** Verknüpftes Vorkommen der Weltkarte (ID aus den Kartendaten); legt Rohstoff und Reinheit fest. */
+  nodeId: z.string().nullable().default(null),
 });
 export type Extraction = z.infer<typeof ExtractionSchema>;
+/** Eingabe für Operationen: ohne `nodeId` = nicht verknüpft. */
+export type ExtractionInput = Omit<Extraction, 'nodeId'> & { nodeId?: string | null };
 
 export const TransferSchema = z.object({
   mode: z.enum(['load', 'unload']),
@@ -139,6 +153,11 @@ export const BuildingSchema = z.object({
    * zwischen Fabrik und Transportaufträgen.
    */
   transfer: TransferSchema.nullable().default(null),
+  /**
+   * Teil eines Bahnhofs aus dem Schienennetz (automatisch abgeglichen):
+   * `platformId = null` = Bahnhofsgebäude, sonst der Bahnsteig.
+   */
+  stationPart: z.object({ stationId: id, platformId: id.nullable() }).nullable().default(null),
   notes: z.string().default(''),
 });
 export type Building = z.infer<typeof BuildingSchema>;

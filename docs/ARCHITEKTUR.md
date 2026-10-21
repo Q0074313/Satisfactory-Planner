@@ -88,10 +88,11 @@ satis-planner/
 │  │  │  ├─ production/
 │  │  │  ├─ rail/
 │  │  │  ├─ transport/
+│  │  │  ├─ map/             Weltkarte: Standorte, Weltraster, Vorkommen, Prüfregeln MAP-*, Standortvorschlag
 │  │  │  └─ validation/
 │  │  └─ test/               Vitest-Tests (ohne UI)
 │  └─ gamedata-tools/
-│     ├─ src/                extract.ts, fetch-wiki-infobox.ts, ue-parse.ts
+│     ├─ src/                extract.ts, fetch-wiki-infobox.ts, fetch-map.ts, ue-parse.ts
 │     └─ curated/            Kuratierte Ergänzungen mit Quellenangabe
 └─ apps/
    ├─ web/
@@ -107,6 +108,7 @@ satis-planner/
    │     │  ├─ rail/         Schienen-Editor
    │     │  ├─ production/   Produktionsplanung und Bilanz
    │     │  ├─ transport/    Transportaufträge, Schätzung, Bilanz lokal/extern
+   │     │  ├─ map/          Weltkarte: Kartenbild (Kacheln live), Vorkommen, Standorte, Standortvorschlag
    │     │  ├─ settings/     Sprache, Farbschema, Tastenbelegung, Spieldatensatz
    │     │  ├─ tutorial/     Geführte Touren
    │     │  ├─ link/         Projekt-Link (Leiste mit Kopieren)

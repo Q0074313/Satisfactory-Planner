@@ -272,7 +272,7 @@ describe('Förderhöhe von Rohren', () => {
     const p = newProject();
     const { factory, floorId } = firstFactory(p);
     const src = fac.addBuilding(p, gd, { factoryId: factory.id, type: 'Build_WaterPump_C', placement: { floorId, x: 0, y: 0, zOffsetM: 0, rotationDeg: 0 } });
-    p.buildings[src]!.extraction = { itemId: 'Desc_Water_C', purity: 'normal' };
+    p.buildings[src]!.extraction = { itemId: 'Desc_Water_C', purity: 'normal', nodeId: null };
     const dst = fac.addBuilding(p, gd, { factoryId: factory.id, type: 'Build_PipeStorageTank_C', placement: { floorId, x: 60, y: 0, zOffsetM: dz, rotationDeg: 0 } });
     if (!pump) {
       const l = fac.addLink(p, gd, { kind: 'pipe', tier: 'Build_PipelineMK2_C', from: { buildingId: src, portId: 'pipe-out-0' }, to: { buildingId: dst, portId: 'pipe-in-0' }, waypoints: [] });

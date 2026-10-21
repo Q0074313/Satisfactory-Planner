@@ -14,6 +14,7 @@ import { cachedFactoryFlow } from '../factory/flow.ts';
 import { checkCrossNetwork, checkNetwork } from '../rail/checks.ts';
 import { checkPlan } from '../production/checks.ts';
 import { checkTransport } from '../transport/checks.ts';
+import { checkMap } from '../map/checks.ts';
 import type { Project } from '../model/schema.ts';
 import type { Finding } from './types.ts';
 
@@ -104,6 +105,14 @@ export const transportScope: ScopeDef = {
   check: (p, gd) => checkTransport(p, gd),
 };
 
+export const mapScope: ScopeDef = {
+  name: 'map',
+  scopes: (p) =>
+    Object.values(p.factories).some((f) => f.map) || Object.values(p.buildings).some((b) => b.extraction?.nodeId) ? ['all'] : [],
+  dependencies: (p) => [p.factories, p.buildings, p.areas],
+  check: (p, gd) => checkMap(p, gd),
+};
+
 const sameList = (a: unknown[], b: unknown[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 export interface ValidationResult {
@@ -112,7 +121,7 @@ export interface ValidationResult {
   recomputed: string[];
 }
 
-export function createValidator(scopes: ScopeDef[] = [factoryScope, railScope, railCrossScope, productionScope, transportScope]) {
+export function createValidator(scopes: ScopeDef[] = [factoryScope, railScope, railCrossScope, productionScope, transportScope, mapScope]) {
   const cache = new Map<string, { deps: unknown[]; findings: Finding[]; gd: GameDataIndex; lang: Lang }>();
   return function validate(p: Project, gd: GameDataIndex): ValidationResult {
     const findings: Finding[] = [];

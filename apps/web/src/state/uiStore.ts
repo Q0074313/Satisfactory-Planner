@@ -3,7 +3,7 @@ import type { AreaKind, LinkKind, LinkRouting, ObjectRef } from '@satis/core';
 import { N_ } from '../i18n';
 import { usePrefs } from './prefsStore';
 
-export type Mode = 'factory' | 'rail' | 'production' | 'transport';
+export type Mode = 'factory' | 'rail' | 'production' | 'transport' | 'map';
 
 export type Tool =
   | { kind: 'select' }
@@ -22,7 +22,7 @@ export type RailTool =
   | { kind: 'station'; platforms: number; platformType: 'freight' | 'fluid' | 'empty'; rotationDeg: number }
   | { kind: 'measure' };
 
-export type RailLayerKey = 'blocks' | 'crossings' | 'nodes' | 'otherNetworks' | 'labels' | 'grid' | 'trains';
+export type RailLayerKey = 'blocks' | 'crossings' | 'nodes' | 'otherNetworks' | 'labels' | 'grid' | 'trains' | 'map' | 'resources' | 'factories';
 
 /** Deutsche Bezeichner; Anzeige über t(). */
 export const RAIL_LAYER_LABELS: Record<RailLayerKey, string> = {
@@ -33,9 +33,12 @@ export const RAIL_LAYER_LABELS: Record<RailLayerKey, string> = {
   labels: N_('Beschriftungen'),
   grid: N_('Raster'),
   trains: N_('Züge (Simulation)'),
+  map: N_('Kartenbild'),
+  resources: N_('Vorkommen'),
+  factories: N_('Fabriken (auf der Karte)'),
 };
 
-export type LayerKey = 'grid' | 'areas' | 'buildings' | 'ports' | 'belts' | 'pipes' | 'flow' | 'labels' | 'measurements' | 'otherFloors';
+export type LayerKey = 'grid' | 'areas' | 'buildings' | 'ports' | 'belts' | 'pipes' | 'flow' | 'labels' | 'measurements' | 'otherFloors' | 'map' | 'nodes' | 'rail';
 
 export const LAYER_LABELS: Record<LayerKey, string> = {
   grid: N_('Raster'),
@@ -48,6 +51,9 @@ export const LAYER_LABELS: Record<LayerKey, string> = {
   labels: N_('Beschriftungen'),
   measurements: N_('Maße'),
   otherFloors: N_('Andere Stockwerke (blass)'),
+  map: N_('Kartenbild (Fabrik auf der Karte)'),
+  nodes: N_('Vorkommen (Fabrik auf der Karte)'),
+  rail: N_('Gleise (Fabrik auf der Karte)'),
 };
 
 export type BottomTab = 'findings' | 'balance' | 'areas';
@@ -120,7 +126,7 @@ export const useUiStore = create<UiState>((set) => ({
   floorId: null,
   networkId: null,
   railTool: { kind: 'select' },
-  railLayers: { blocks: true, crossings: true, nodes: true, otherNetworks: true, labels: true, grid: true, trains: true },
+  railLayers: { blocks: true, crossings: true, nodes: true, otherNetworks: true, labels: true, grid: true, trains: true, map: true, resources: true, factories: true },
   selection: [],
   tool: { kind: 'select' },
   layers: {
@@ -134,6 +140,9 @@ export const useUiStore = create<UiState>((set) => ({
     labels: true,
     measurements: true,
     otherFloors: true,
+    map: true,
+    nodes: true,
+    rail: true,
   },
   factoryView: 'plan',
   bottomTab: 'findings',

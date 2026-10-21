@@ -29,6 +29,9 @@ export interface RenderInput {
   flow?: FactoryFlow;
   /** Phase der Flussanimation (0 … 1). */
   phase?: number;
+  /** Zusätzliche Ebenen: unter dem Raster (Kartenbild) bzw. über den Flächen (Vorkommen). */
+  underlay?: (ctx: CanvasRenderingContext2D, vp: Viewport) => void;
+  afterAreas?: (ctx: CanvasRenderingContext2D, vp: Viewport) => void;
 }
 
 /**
@@ -61,6 +64,7 @@ export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: Re
   const selected = new Set(r.selection.map((s) => s.id));
   ctx.fillStyle = COLORS.bg;
   ctx.fillRect(0, 0, vp.width, vp.height);
+  r.underlay?.(ctx, vp);
   if (layers.grid) drawGrid(ctx, vp, project.settings.gridM, project.settings.snapM >= 0.5 ? project.settings.snapM : 1);
 
   // Andere Stockwerke blass
@@ -104,6 +108,8 @@ export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: Re
       }
     }
   }
+
+  r.afterAreas?.(ctx, vp);
 
   // Leitungen
   for (const sl of scene.links) {

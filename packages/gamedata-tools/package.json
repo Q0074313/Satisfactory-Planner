@@ -6,6 +6,7 @@
   "description": "Extrahiert Spieldaten aus den offiziellen Satisfactory-Docs (CommunityResources) in das normalisierte Planer-Format.",
   "scripts": {
     "extract": "tsx src/extract.ts",
-    "wiki": "tsx src/fetch-wiki-infobox.ts"
+    "wiki": "tsx src/fetch-wiki-infobox.ts",
+    "map": "tsx src/fetch-map.ts"
   }
 }

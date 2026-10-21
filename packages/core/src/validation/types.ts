@@ -17,7 +17,7 @@ export type FindingKind = 'game-rule' | 'recommendation' | 'unchecked';
  */
 export type Certainty = 'static' | 'dynamic';
 
-export type Domain = 'project' | 'factory' | 'production' | 'rail' | 'transport';
+export type Domain = 'project' | 'factory' | 'production' | 'rail' | 'transport' | 'map';
 
 export interface RuleSource {
   label: string;

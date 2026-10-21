@@ -4,6 +4,7 @@ import { N_, t } from '../../i18n';
 import { findingInView, useActiveFindings } from '../../state/derived';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
+import { useMapStore } from '../../state/mapStore';
 import { Badge, Segmented } from '../../ui/fields';
 
 const SEVERITY = { error: [N_('Fehler'), 'err'], warning: [N_('Warnung'), 'warn'], info: [N_('Hinweis'), 'info'] } as const;
@@ -18,6 +19,7 @@ const DOMAIN_LABEL: Record<Finding['domain'], string> = {
   production: N_('Produktion'),
   rail: N_('Schiene'),
   transport: N_('Transport'),
+  map: N_('Karte'),
 };
 
 /** Ort eines Befunds bestimmen und Ansicht dorthin bewegen. */
@@ -40,6 +42,15 @@ export function revealFinding(f: Finding, p: Project) {
   if (f.domain === 'transport') {
     if (ui.mode !== 'transport') ui.setMode('transport');
     ui.select(f.objects.filter((o) => o.table === 'transportOrders').slice(0, 1));
+    return;
+  }
+  // Kartenbefunde zu Fabrikstandorten auf der Karte zeigen, solche zu Gebäuden im Grundriss
+  if (f.domain === 'map' && f.objects.every((o) => o.table === 'factories')) {
+    if (ui.mode !== 'map') ui.setMode('map');
+    const fid = f.objects[0]?.id;
+    const m = fid ? p.factories[fid]?.map : null;
+    if (fid) useMapStore.getState().select({ kind: 'factory', id: fid });
+    if (m) useMapStore.getState().focusOn(m.x, m.y);
     return;
   }
   if (ui.mode !== 'factory') ui.setMode('factory');
@@ -96,7 +107,7 @@ export function FindingsPanel() {
     });
 
   const viewLabel =
-    mode === 'factory' ? t('dieser Fabrik') : mode === 'production' ? t('Produktionspläne dieser Fabrik') : mode === 'rail' ? t('dieses Netzes') : t('des Transports');
+    mode === 'factory' ? t('dieser Fabrik') : mode === 'production' ? t('Produktionspläne dieser Fabrik') : mode === 'rail' ? t('dieses Netzes') : mode === 'map' ? t('der Karte') : t('des Transports');
 
   return (
     <div className="findings" data-tour="findings">

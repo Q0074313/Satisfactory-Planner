@@ -1,4 +1,5 @@
 import { localName } from '../i18n/index.ts';
+import type { MapData, MapNode } from '../map/types.ts';
 import type { BuildingCategory, GameData, GdBuilding, GdItem, GdRecipe, GdVehicle, ItemId } from './types.ts';
 
 export * from './types.ts';
@@ -28,9 +29,13 @@ export interface GameDataIndex {
   vehicle(id: string): GdVehicle | undefined;
   /** Name in der Oberflächensprache. */
   name(id: string): string;
+  /** Rohstoffvorkommen der Weltkarte; `null`, wenn der Datensatz keine Kartendaten hat. */
+  map: MapData | null;
+  mapNode(id: string): MapNode | undefined;
 }
 
-export function createGameDataIndex(data: GameData): GameDataIndex {
+export function createGameDataIndex(data: GameData, map: MapData | null = null): GameDataIndex {
+  const nodes = new Map((map?.nodes ?? []).map((n) => [n.id, n]));
   const producing = new Map<string, GdRecipe[]>();
   const consuming = new Map<string, GdRecipe[]>();
   for (const r of Object.values(data.recipes)) {
@@ -74,5 +79,7 @@ export function createGameDataIndex(data: GameData): GameDataIndex {
       const n = data.items[id]?.name ?? data.recipes[id]?.name ?? data.buildings[id]?.name ?? data.vehicles?.[id]?.name;
       return n ? localName(n) : id;
     },
+    map,
+    mapNode: (id) => nodes.get(id),
   };
 }

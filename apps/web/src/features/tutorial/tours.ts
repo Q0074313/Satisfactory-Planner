@@ -410,4 +410,47 @@ export const TOURS: Tour[] = [
       },
     ],
   },
+  {
+    id: 'map',
+    title: N_('Karte'),
+    steps: [
+      {
+        title: N_('Die Weltkarte'),
+        body: N_(
+          'Die Karte zeigt die Spielwelt mit allen Rohstoffvorkommen: Ring = Rohstoff, Punkt in der Mitte = Reinheit (rot unrein, orange normal, grün rein). Mausrad zoomt, rechte Maustaste verschiebt. Ein Klick auf ein Vorkommen zeigt rechts, wie viel jeder Miner dort fördert.',
+        ),
+        detail: N_(
+          'Lage und Reinheit der Vorkommen stammen von satisfactory-calculator.com, ebenso das Kartenbild. Quellen (Stickstoff, Wasser, Öl) bestehen aus mehreren Satelliten um eine Mitte; Geysire sind Dreiecke. Belegte Vorkommen tragen einen Haken.',
+        ),
+        target: '[data-tour="map-canvas"]',
+        mode: 'map',
+      },
+      {
+        title: N_('Kartenbild und Filter'),
+        body: N_('Links wählst du Spielkarte oder realistische Ansicht und blendest Rohstoffe, Reinheiten und Ebenen ein oder aus.'),
+        target: '[data-tour="map-left"]',
+        mode: 'map',
+      },
+      {
+        title: N_('Fabrik auf die Karte setzen'),
+        body: N_(
+          'Klicke bei einer Fabrik auf „Platzieren“ und dann auf die Karte. Danach kannst du sie ziehen und mit R drehen. Als Grundriss dienen die Bau- und Fundamentflächen der Fabrik.',
+        ),
+        detail: N_(
+          'Mit Standort zeigt der Fabrikgrundriss das Kartenbild und die Vorkommen darunter. Setzt du dort einen Miner auf ein Vorkommen, rastet er ein und übernimmt Rohstoff und Reinheit. Transportaufträge zwischen platzierten Fabriken kennen die Luftlinie, und Schienennetze zeichnest du direkt über der Karte.',
+        ),
+        target: '[data-testid="map-factories"]',
+        mode: 'map',
+        until: ({ p }) => !!p && Object.values(p.factories).some((f) => f.map),
+      },
+      {
+        title: N_('Standortvorschlag'),
+        body: N_(
+          'Wähle einen Produktionsplan und „Standorte suchen“: Der Planer sucht Orte, an denen freie Vorkommen den Rohstoffbedarf möglichst nah beieinander decken. Mit „Fabrik hier platzieren“ übernimmst du einen Vorschlag.',
+        ),
+        target: '[data-testid="site-run"]',
+        mode: 'map',
+      },
+    ],
+  },
 ];

@@ -99,7 +99,7 @@ Nützlich: `docker compose logs -f app`, `docker compose ps`, `curl -s localhost
 
 ## Datenformat und Migrationen
 
-Jedes gespeicherte Projekt trägt auf oberster Ebene das Feld **`formatVersion`** (derzeit **2**; definiert als `PROJECT_FORMAT_VERSION` in [packages/core/src/model/schema.ts](packages/core/src/model/schema.ts)). Beim Laden – vom Server, aus IndexedDB oder per JSON-Import – führt die zentrale Funktion `migrateProject()` in [packages/core/src/project/migrations.ts](packages/core/src/project/migrations.ts) ältere Stände Schritt für Schritt ins aktuelle Format über (1→2→3 …) und prüft danach das Schema. Gespeichert wird immer im aktuellen Format; auf der Platte bleibt eine alte Datei bis zum nächsten Speichern unverändert.
+Jedes gespeicherte Projekt trägt auf oberster Ebene das Feld **`formatVersion`** (derzeit **3**; definiert als `PROJECT_FORMAT_VERSION` in [packages/core/src/model/schema.ts](packages/core/src/model/schema.ts)). Beim Laden – vom Server, aus IndexedDB oder per JSON-Import – führt die zentrale Funktion `migrateProject()` in [packages/core/src/project/migrations.ts](packages/core/src/project/migrations.ts) ältere Stände Schritt für Schritt ins aktuelle Format über (1→2→3 …) und prüft danach das Schema. Gespeichert wird immer im aktuellen Format; auf der Platte bleibt eine alte Datei bis zum nächsten Speichern unverändert.
 
 **Neue Migration hinzufügen** (bei jeder Formatänderung, die alte Daten unlesbar oder falsch machen würde – neue Pflichtfelder, Umbenennungen, geänderte Bedeutung):
 
@@ -135,6 +135,7 @@ Ein Projekt mit einer **neueren** Version als der Server kennt, wird abgelehnt s
 | 6 | Transportplanung zwischen Fabriken: Aufträge, Zugkapazität, Schätzung, Lücken | ✅ |
 | 7 | Zugsimulation, Server, Migrationen, Docker, Spieldatenwechsel | ✅ |
 | 8 | Betrieb auf dem Heimserver: Projekte unter geheimen Links (/f/&lt;id&gt;), Dateiablage, Tailscale Funnel, update.sh | ✅ |
+| 0.6 | Weltkarte: Kartenbild, Rohstoffvorkommen, Fabrikstandort im Weltraster, Miner auf Vorkommen, Entfernungen, Standortvorschlag | ✅ |
 
 Details und Abnahmekriterien: [docs/ENTWICKLUNGSPLAN.md](docs/ENTWICKLUNGSPLAN.md).
 
@@ -157,7 +158,7 @@ Alle Kürzel lassen sich unter ⚙ → Tastenkürzel ändern. Standardbelegung:
 |---|---|
 | Strg+Z / Strg+Y | rückgängig / wiederholen |
 | Strg+S / Strg+E / Strg+F | speichern / exportieren / Katalogsuche |
-| Alt+1 … Alt+4 | Ansicht Grundriss / Produktion / Schiene / Transport |
+| Alt+1 … Alt+5 | Ansicht Grundriss / Produktion / Schiene / Transport / Karte |
 | F1 / Strg+, | Tutorial / Einstellungen |
 
 ### Grundriss
@@ -191,3 +192,13 @@ Alle Kürzel lassen sich unter ⚙ → Tastenkürzel ändern. Standardbelegung:
 | F | Achse des gewählten Knotens umkehren |
 | T | Zugsimulation starten/anhalten |
 | Esc | Gleiszug beenden / Werkzeug verlassen |
+
+### Karte
+
+| Taste | Funktion |
+|---|---|
+| Klick / Ziehen | Vorkommen bzw. Fabrik auswählen / Fabrik verschieben (Fundamente im Weltraster, Alt: frei) |
+| R, Umschalt+R | gewählte Fabrik (bzw. beim Platzieren) drehen |
+| Entf | Fabrik von der Karte nehmen |
+| Doppelklick | Fabrikgrundriss öffnen |
+| Pos1, + / − | ganze Karte, zoomen |

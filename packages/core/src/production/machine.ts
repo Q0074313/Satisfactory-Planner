@@ -24,7 +24,7 @@ export interface MachineSetup {
   recipeId: string | null;
   clock: number;
   somersloops: number;
-  extraction?: Extraction | null;
+  extraction?: Pick<Extraction, 'itemId' | 'purity'> | null;
 }
 
 export interface Rate {
@@ -68,7 +68,7 @@ export function machinePower(def: GdBuilding, recipe: GdRecipe | undefined, cloc
 }
 
 /** Förderrate eines Gewinnungsgebäudes pro Minute (Feststoffe Stück, Flüssigkeiten m³). */
-export function extractionRate(gd: GameDataIndex, def: GdBuilding, extraction: Extraction, clock: number): number {
+export function extractionRate(gd: GameDataIndex, def: GdBuilding, extraction: Pick<Extraction, 'itemId' | 'purity'>, clock: number): number {
   const ex = def.extractor;
   if (!ex) return 0;
   const item = gd.item(extraction.itemId);

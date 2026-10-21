@@ -99,6 +99,7 @@ export function materializePlan(
         groupInstance: null,
         extraction: null,
         transfer: null,
+        stationPart: null,
         notes: '',
       };
       p.buildings[id] = b;

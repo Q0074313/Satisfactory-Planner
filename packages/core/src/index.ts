@@ -37,3 +37,8 @@ export * from './transport/checks.ts';
 export * as transportOps from './project/ops/transport.ts';
 export * from './project/gamedataMigration.ts';
 export * from './project/examples.ts';
+export * from './map/index.ts';
+export * from './map/checks.ts';
+export * from './map/suggest.ts';
+export * as mapOps from './project/ops/map.ts';
+export * from './project/ops/stationSync.ts';

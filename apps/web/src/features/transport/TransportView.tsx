@@ -10,6 +10,7 @@ import {
   factoryTrade,
   getLanguage,
   localName,
+  orderMapDistance,
   placedPortDefs,
   transferCargo,
   transferInterface,
@@ -355,7 +356,8 @@ function OrderProps({ order: o, measured }: { order: TransportOrder; measured: M
               const mode = e.target.value as TransportMode;
               if (mode === o.mode) return;
               // Vorhandene Angaben bleiben erhalten; fehlende bzw. unpassende werden vorbelegt
-              const def = ops.defaultsFor(gd, mode, o.itemId);
+              const onMap = orderMapDistance(project, gd, { ...o, mode });
+              const def = ops.defaultsFor(gd, mode, o.itemId, onMap ? Math.round(onMap.distM) : undefined);
               const patch: ops.OrderPatch = { mode };
               if (mode === 'vehicle' && !o.vehicle) patch.vehicle = def.vehicle;
               if (mode === 'drone' && !o.drone) patch.drone = def.drone;
@@ -528,6 +530,7 @@ function VehicleSection({ order: o, est }: { order: TransportOrder; est: OrderEs
       <Row label={t('Strecke (einfach)')} hint={t('Länge der Fahrstrecke von der Lade- zur Entladestation')}>
         <NumberField value={v.distanceM} min={0} suffix="m" onCommit={(n) => updV(t('Strecke'), { distanceM: n })} />
       </Row>
+      <MapDistanceHint order={o} current={v.distanceM} road onTake={(n) => updV(t('Strecke von der Karte'), { distanceM: n })} />
       <Row label={t('Ø Geschwindigkeit')} hint={t('Leer = Höchstgeschwindigkeit laut Wiki. Kurven, Steigungen und Anfahren machen das Fahrzeug langsamer.')}>
         <NumberField value={v.speedKmh ?? NaN} min={1} max={200} suffix="km/h" allowEmpty placeholder={def ? String(def.maxSpeedKmh) : ''} onCommit={(n) => updV(t('Geschwindigkeit'), { speedKmh: Number.isFinite(n) ? n : null })} />
       </Row>
@@ -559,6 +562,28 @@ function VehicleSection({ order: o, est }: { order: TransportOrder; est: OrderEs
   );
 }
 
+/** Luftlinie laut Karte unter einer Streckenangabe, mit Übernahme. */
+function MapDistanceHint({ order: o, current, road, onTake }: { order: TransportOrder; current: number; road?: boolean; onTake: (m: number) => void }) {
+  const project = useProjectStore((s) => s.project)!;
+  const gd = useProjectStore((s) => s.gd)!;
+  const m = orderMapDistance(project, gd, o);
+  if (!m) {
+    return <p className="dim small-text">{t('Sind beide Fabriken auf der Karte platziert, steht hier die Luftlinie.')}</p>;
+  }
+  const value = Math.round(m.distM);
+  return (
+    <p className="small-text" data-testid="map-distance">
+      {t('Karte: {d} m Luftlinie', { d: fmtNum(value, 0) })} <span className="dim">({m.basis === 'ports' ? t('zwischen den Übergabegebäuden') : t('zwischen den Fabrikmitten')})</span>{' '}
+      {Math.abs(value - current) > 0.5 && (
+        <button className="small" onClick={() => onTake(value)} data-testid="map-distance-take">
+          {t('Von Karte übernehmen')}
+        </button>
+      )}
+      {road && <span className="dim"> · {t('Wege sind meist länger als die Luftlinie.')}</span>}
+    </p>
+  );
+}
+
 function DroneSection({ order: o, est }: { order: TransportOrder; est: OrderEstimate }) {
   const project = useProjectStore((s) => s.project)!;
   const gd = useProjectStore((s) => s.gd)!;
@@ -577,6 +602,7 @@ function DroneSection({ order: o, est }: { order: TransportOrder; est: OrderEsti
       <Row label={t('Entfernung')} hint={t('Luftlinie zwischen den Drohnenhäfen')}>
         <NumberField value={d.distanceM} min={0} suffix="m" onCommit={(n) => updD(t('Entfernung'), { distanceM: n })} />
       </Row>
+      <MapDistanceHint order={o} current={d.distanceM} onTake={(n) => updD(t('Entfernung von der Karte'), { distanceM: n })} />
       <Row label={t('Brennstoff')} hint={t('Bestimmt Geschwindigkeit (Wiki) und Verbrauch (Energiewert aus den Docs)')}>
         <select value={d.fuelId} data-testid="drone-fuel" onChange={(e) => updD(t('Brennstoff'), { fuelId: e.target.value })}>
           {ops.droneFuels(gd).map((id) => (
@@ -693,6 +719,7 @@ function DirectSection({ order: o, est }: { order: TransportOrder; est: OrderEst
       <Row label={t('Länge')} hint={t('Planungsangabe, z. B. für den Materialbedarf')}>
         <NumberField value={d.lengthM} min={0} suffix="m" onCommit={(n) => updD(t('Länge'), { lengthM: n })} />
       </Row>
+      <MapDistanceHint order={o} current={d.lengthM} road onTake={(n) => updD(t('Länge von der Karte'), { lengthM: n })} />
       <Row label={t('Kapazität')}>
         {est.direct?.kindOk === false ? (
           <Badge kind="err">{kind === 'belt' ? t('Förderbänder tragen nur Feststoffe') : t('Rohre tragen nur Flüssigkeiten und Gase')}</Badge>

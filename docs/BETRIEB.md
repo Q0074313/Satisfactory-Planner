@@ -80,7 +80,7 @@ Entwicklung mit Hot-Reload: `npm run dev:server` (Port 8080) und parallel `npm r
 - Projekte werden atomar geschrieben (temporäre Datei, fsync, rename) und serverseitig migriert und gegen das Schema geprüft. Ungültiges JSON wird mit 400 abgewiesen.
 - Größenlimit, Obergrenze für die Gesamtzahl und Rate-Limit pro IP.
 - Schreibende Anfragen verlangen den Kopf `X-Requested-With: satis-planner`.
-- `Referrer-Policy: no-referrer` (der Link ist das Geheimnis), `X-Robots-Tag: noindex` und Content-Security-Policy.
+- `Referrer-Policy: no-referrer` (der Link ist das Geheimnis), `X-Robots-Tag: noindex` und Content-Security-Policy. Einzige fremde Quelle: Bilder von `https://static.satisfactory-calculator.com` (Kartenkacheln, ohne Referrer geladen); Skripte und Verbindungen nur zur eigenen Adresse.
 - Projekt-IDs erscheinen in den Logs nur gekürzt.
 
 **Lizenzhinweis:** Für einen öffentlichen Betrieb ist zu klären, ob die aus den Docs-Dateien des Spiels extrahierten Daten weitergegeben werden dürfen (siehe [SPIELDATEN.md](SPIELDATEN.md)).

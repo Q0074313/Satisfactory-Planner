@@ -48,7 +48,7 @@ describe('Gewinnung', () => {
   it('Wasserextraktor erhält Wasser automatisch; falsche Rohstoffe werden abgelehnt', () => {
     const { p, add } = factory();
     const w = add('Build_WaterPump_C');
-    expect(p.buildings[w]!.extraction).toEqual({ itemId: 'Desc_Water_C', purity: 'normal' });
+    expect(p.buildings[w]!.extraction).toEqual({ itemId: 'Desc_Water_C', purity: 'normal', nodeId: null });
     const m = add('Build_MinerMk1_C');
     expect(() => ops.updateBuildings(p, gd, [m], { extraction: { itemId: 'Desc_Water_C', purity: 'normal' } })).toThrow(/nicht fördern/);
     ops.updateBuildings(p, gd, [m], { extraction: { itemId: 'Desc_OreCopper_C', purity: 'pure' } });

@@ -22,6 +22,9 @@ import { ProductionView } from '../features/production/ProductionView';
 import { RailLeftPanel } from '../features/rail/RailLeftPanel';
 import { RailProperties } from '../features/rail/RailProperties';
 import { TransportView } from '../features/transport/TransportView';
+import { MapView } from '../features/map/MapView';
+import { MapLeftPanel } from '../features/map/MapLeftPanel';
+import { MapProperties } from '../features/map/MapProperties';
 import { SettingsDialog } from '../features/settings/SettingsDialog';
 import { DiagnoseDialog } from '../features/findings/DiagnoseDialog';
 import { HelpMenu, TourOverlay, WelcomeCard } from '../features/tutorial/Tour';
@@ -36,6 +39,7 @@ const MODES: { mode: Mode; label: string }[] = [
   { mode: 'production', label: N_('Produktion') },
   { mode: 'rail', label: N_('Schienennetz') },
   { mode: 'transport', label: N_('Transport') },
+  { mode: 'map', label: N_('Karte') },
 ];
 
 const SAVE_LABEL: Record<SaveStatus, string> = {
@@ -187,6 +191,7 @@ function Workspace({ onOpenList }: { onOpenList: () => void }) {
         case 'global.mode.production':
         case 'global.mode.rail':
         case 'global.mode.transport':
+        case 'global.mode.map':
           if (typing) return;
           e.preventDefault();
           ui.setMode(action.slice('global.mode.'.length) as Mode);
@@ -292,6 +297,15 @@ function Workspace({ onOpenList }: { onOpenList: () => void }) {
           <ProductionView bottom={<BottomPanel />} />
         ) : mode === 'transport' ? (
           <TransportView bottom={<BottomPanel />} />
+        ) : mode === 'map' ? (
+          <>
+            <MapLeftPanel />
+            <div className="center">
+              <MapView />
+              <BottomPanel />
+            </div>
+            <MapProperties />
+          </>
         ) : mode === 'rail' ? (
           <>
             <RailLeftPanel />

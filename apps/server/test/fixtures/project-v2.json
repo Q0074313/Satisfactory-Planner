@@ -1,0 +1,96 @@
+{
+  "formatVersion": 2,
+  "id": "prj_v2fixture00",
+  "name": "Erzwerk (Format 2)",
+  "description": "",
+  "createdAt": "2026-10-01T12:00:00.000Z",
+  "updatedAt": "2026-10-01T12:00:00.000Z",
+  "gameData": {
+    "datasetId": "sf-1.2.4.0",
+    "gameVersion": "1.2.4.0"
+  },
+  "settings": {
+    "gridM": 8,
+    "snapM": 1,
+    "snapAngleDeg": 90,
+    "simulation": {
+      "trainAverageSpeedKmh": 80,
+      "dockingS": 27.08,
+      "timeStepS": 0.5,
+      "durationS": 3600
+    }
+  },
+  "factories": {
+    "fac_v2erzwerk01": {
+      "id": "fac_v2erzwerk01",
+      "name": "Erzwerk",
+      "color": "#e8a33d",
+      "floorIds": ["flr_v2erzwerk01"],
+      "notes": ""
+    }
+  },
+  "floors": {
+    "flr_v2erzwerk01": {
+      "id": "flr_v2erzwerk01",
+      "factoryId": "fac_v2erzwerk01",
+      "name": "Erdgeschoss",
+      "kind": "production",
+      "elevationM": 0,
+      "heightM": 18
+    }
+  },
+  "areas": {},
+  "buildings": {
+    "bld_v2miner0001": {
+      "id": "bld_v2miner0001",
+      "factoryId": "fac_v2erzwerk01",
+      "type": "Build_MinerMk2_C",
+      "label": "",
+      "recipeId": null,
+      "clock": 1,
+      "somersloops": 0,
+      "placement": { "floorId": "flr_v2erzwerk01", "x": 0, "y": 0, "zOffsetM": 0, "rotationDeg": 0 },
+      "groupInstance": null,
+      "extraction": { "itemId": "Desc_OreIron_C", "purity": "pure" },
+      "transfer": null,
+      "notes": ""
+    },
+    "bld_v2smelter01": {
+      "id": "bld_v2smelter01",
+      "factoryId": "fac_v2erzwerk01",
+      "type": "Build_SmelterMk1_C",
+      "label": "",
+      "recipeId": "Recipe_IngotIron_C",
+      "clock": 1,
+      "somersloops": 0,
+      "placement": { "floorId": "flr_v2erzwerk01", "x": 24, "y": 0, "zOffsetM": 0, "rotationDeg": 0 },
+      "groupInstance": null,
+      "extraction": null,
+      "transfer": null,
+      "notes": ""
+    }
+  },
+  "links": {},
+  "groups": {
+    "grp_v2miners001": {
+      "id": "grp_v2miners001",
+      "name": "Minerpaar",
+      "members": [
+        { "key": "m1", "type": "Build_MinerMk1_C", "recipeId": null, "clock": 1, "somersloops": 0, "x": 0, "y": 0, "zOffsetM": 0, "rotationDeg": 0, "extraction": { "itemId": "Desc_OreCopper_C", "purity": "normal" } },
+        { "key": "m2", "type": "Build_MinerMk1_C", "recipeId": null, "clock": 1, "somersloops": 0, "x": 16, "y": 0, "zOffsetM": 0, "rotationDeg": 0, "extraction": null }
+      ],
+      "links": []
+    }
+  },
+  "productionPlans": {},
+  "railNetworks": {},
+  "railNodes": {},
+  "railSegments": {},
+  "railSignals": {},
+  "stations": {},
+  "trains": {},
+  "timetables": {},
+  "transportOrders": {},
+  "measurements": {},
+  "findingStates": {}
+}

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createGameDataIndex, type GameData, type GameDataIndex } from '../src/gamedata/index.ts';
+import type { MapData } from '../src/map/types.ts';
 import { createProject } from '../src/project/create.ts';
 import type { Project } from '../src/model/schema.ts';
 
@@ -11,8 +12,10 @@ let cached: GameDataIndex | undefined;
 /** Echter Spieldatensatz 1.2.4.0 aus dem Repository. */
 export function gameData(): GameDataIndex {
   if (!cached) {
-    const raw = readFileSync(join(here, '../../../data/gamedata/1.2.4.0/gamedata.json'), 'utf8');
-    cached = createGameDataIndex(JSON.parse(raw) as GameData);
+    const dir = join(here, '../../../data/gamedata/1.2.4.0');
+    const raw = readFileSync(join(dir, 'gamedata.json'), 'utf8');
+    const map = JSON.parse(readFileSync(join(dir, 'map.json'), 'utf8')) as MapData;
+    cached = createGameDataIndex(JSON.parse(raw) as GameData, map);
   }
   return cached;
 }

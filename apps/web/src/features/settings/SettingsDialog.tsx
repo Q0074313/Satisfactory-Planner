@@ -93,6 +93,9 @@ export function AboutNote() {
     <div className="about-note small-text" data-testid="about-note">
       <p>{t('Satis Planner ist ein privates Fanprojekt und steht in keiner Verbindung zu Coffee Stain Studios.')}</p>
       <p>{t('Der Planer wurde zusammen mit Claude (KI von Anthropic) entwickelt. Berechnungen, Prüfregeln und Spieldaten können Fehler enthalten – wichtige Werte bitte im Spiel nachprüfen.')}</p>
+      <p>
+        {t('Spielinhalte (Namen, Werte, Kartenbild) stammen aus Satisfactory; alle Rechte und Marken liegen bei Coffee Stain Studios. Lage der Rohstoffvorkommen und Kartenkacheln: satisfactory-calculator.com, die Kacheln lädt der Browser direkt von dort.')}
+      </p>
     </div>
   );
 }
@@ -126,7 +129,7 @@ function KeysTab() {
     return () => window.removeEventListener('keydown', onKey, { capture: true });
   }, [capture, bindings, setBinding]);
 
-  const scopes: KeyScope[] = ['global', 'factory', 'rail'];
+  const scopes: KeyScope[] = ['global', 'factory', 'rail', 'map'];
   return (
     <div className="keymap" data-testid="keymap">
       <div className="inline pad">

@@ -6,6 +6,13 @@ import {
   buildingFootprint,
   buildingOutline,
   cachedFactoryFlow,
+  canUseNode,
+  mapOps,
+  segmentPolyline,
+  segmentShape,
+  nodeUsage,
+  toLocalOf,
+  toWorldOf,
   controlPoints,
   factoryOps as ops,
   geo,
@@ -22,6 +29,8 @@ import {
 import { useCanvas, type PointerInfo } from '../../canvas/useCanvas';
 import type { Viewport } from '../../canvas/viewport';
 import { COLORS, drawChevrons, drawDimension, drawLabel, formatM, pathPolygon, pathPolyline } from '../../canvas/draw';
+import { drawMapTiles, onTileLoad } from '../../canvas/mapTiles';
+import { drawNode, drawNodeLabel, nodeRadiusPx, visibleNodes } from '../../canvas/mapDraw';
 import { t } from '../../i18n';
 import { matchAction } from '../../state/keymap';
 import { useFindingMarks } from '../../state/derived';
@@ -37,7 +46,8 @@ import { linkToolFor, nextRouting, nextTier } from '../../state/linkTool';
 type Drag =
   | { kind: 'move'; start: geo.Vec2; delta: geo.Vec2; buildingIds: string[]; areaIds: string[]; moved: boolean }
   | { kind: 'marquee'; start: geo.Vec2; current: geo.Vec2; additive: boolean }
-  | { kind: 'area-rect'; start: geo.Vec2; current: geo.Vec2; screenStart: geo.Vec2 };
+  | { kind: 'area-rect'; start: geo.Vec2; current: geo.Vec2; screenStart: geo.Vec2 }
+  | { kind: 'vertex'; areaId: string; index: number; current: geo.Vec2; moved: boolean };
 
 interface LinkDraft {
   from: WorldPort;
@@ -80,6 +90,8 @@ function PlanEditor() {
   const focus = useUiStore((s) => s.focus);
   const animateFlow = usePrefs((s) => s.animateFlow);
   const theme = usePrefs((s) => s.theme);
+  const tiles = usePrefs((s) => s.mapTiles);
+  const tileOpacity = usePrefs((s) => s.mapOpacity);
   const marks = useFindingMarks();
   const statusRef = useRef<HTMLSpanElement | null>(null);
 
@@ -100,8 +112,9 @@ function PlanEditor() {
   });
 
   // Aktuelle Werte für die Ereignisbehandlung (ohne Neuregistrierung)
-  const live = useRef({ project, gd, scene, floorId, factoryId, selection, tool, layers, marks, flow, animate: animateFlow && anyFlow });
-  live.current = { project, gd, scene, floorId, factoryId, selection, tool, layers, marks, flow, animate: animateFlow && anyFlow };
+  const usage = useMemo(() => nodeUsage(project), [project]);
+  const live = useRef({ project, gd, scene, floorId, factoryId, selection, tool, layers, marks, flow, animate: animateFlow && anyFlow, usage, tiles, tileOpacity });
+  live.current = { project, gd, scene, floorId, factoryId, selection, tool, layers, marks, flow, animate: animateFlow && anyFlow, usage, tiles, tileOpacity };
 
   const floorElevation = (p: Project, id: string) => p.floors[id]?.elevationM ?? 0;
 
@@ -118,7 +131,8 @@ function PlanEditor() {
     },
   });
 
-  useEffect(requestDraw, [scene, selection, tool, layers, marks, flow, theme, requestDraw]);
+  useEffect(requestDraw, [scene, selection, tool, layers, marks, flow, theme, tiles, tileOpacity, project.factories[factoryId]?.map, requestDraw]);
+  useEffect(() => onTileLoad(requestDraw), [requestDraw]);
 
   // Neue Fabrik: Ansicht auf Inhalt einpassen
   useEffect(() => {
@@ -167,10 +181,81 @@ function PlanEditor() {
     const el = statusRef.current;
     if (!el) return;
     const c = it.current.cursor;
-    el.textContent = `x ${c.x.toFixed(1)} m · y ${c.y.toFixed(1)} m · ${t('Maßstab')} ${formatM(100 / viewport.scale)} / 100 px`;
+    const m = live.current.project.factories[live.current.factoryId]?.map;
+    const w = m ? toWorldOf(m, c) : null;
+    el.textContent =
+      `x ${c.x.toFixed(1)} m · y ${c.y.toFixed(1)} m · ${t('Maßstab')} ${formatM(100 / viewport.scale)} / 100 px` +
+      (w ? ` · ${t('Welt')} ${w.x.toFixed(0)} / ${w.y.toFixed(0)} m` : '');
   }
 
   const tolM = () => 6 / viewport.scale;
+
+  /**
+   * Gewinnungsgebäude rasten auf einem passenden, freien Vorkommen ein, wenn
+   * die Fabrik auf der Karte steht (Ursprung des Gebäudes über der Mitte des
+   * Vorkommens, Annahme). Alt: ohne Einrasten.
+   */
+  function nodeSnap(type: string, cursor: geo.Vec2, free: boolean, ownBuildingId?: string): { nodeId: string; at: geo.Vec2 } | null {
+    const L = live.current;
+    const m = L.project.factories[L.factoryId]?.map;
+    if (free || !m || !L.gd.map || !L.layers.nodes || !L.gd.building(type)?.extractor) return null;
+    const w = toWorldOf(m, cursor);
+    const reach = Math.max(10, 12 / viewport.scale);
+    let best: { nodeId: string; at: geo.Vec2; d: number } | null = null;
+    for (const n of L.gd.map.nodes) {
+      const d = geo.dist(w, n);
+      if (d > reach || (best && d >= best.d) || !canUseNode(L.gd, type, n)) continue;
+      const users = L.usage.get(n.id) ?? [];
+      if (users.some((id) => id !== ownBuildingId)) continue;
+      best = { nodeId: n.id, at: toLocalOf(m, n), d };
+    }
+    return best;
+  }
+
+  /** Kartenbild unter dem Grundriss. */
+  function drawUnderlay(ctx: CanvasRenderingContext2D, vp: Viewport) {
+    const L = live.current;
+    const m = L.project.factories[L.factoryId]?.map;
+    if (!m || !L.gd.map || !L.layers.map || L.tiles === 'off') return;
+    drawMapTiles(ctx, vp, L.gd.map, L.tiles, L.tileOpacity * 0.35, m);
+  }
+
+  /** Gleise aller Schienennetze unter dem Grundriss (in lokalen Koordinaten). */
+  function drawRails(ctx: CanvasRenderingContext2D, vp: Viewport) {
+    const L = live.current;
+    const m = L.project.factories[L.factoryId]?.map;
+    if (!m || !L.layers.rail) return;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const seg of Object.values(L.project.railSegments)) {
+      const shape = segmentShape(L.project, seg);
+      if (!shape) continue;
+      const pts = segmentPolyline(shape, 16).map((q) => toLocalOf(m, q));
+      const net = L.project.railNetworks[seg.networkId];
+      // Schwellen-Breite: Gleis 3 m, darin die Netzfarbe
+      ctx.strokeStyle = COLORS.outlineSoft;
+      ctx.lineWidth = Math.max(3, 3.2 * vp.scale);
+      pathPolyline(ctx, vp, pts);
+      ctx.stroke();
+      ctx.strokeStyle = net?.color ?? COLORS.text;
+      ctx.lineWidth = Math.max(1.5, 1.2 * vp.scale);
+      pathPolyline(ctx, vp, pts);
+      ctx.stroke();
+    }
+  }
+
+  /** Vorkommen unter dem Grundriss (in lokalen Koordinaten). */
+  function drawNodes(ctx: CanvasRenderingContext2D, vp: Viewport) {
+    const L = live.current;
+    const m = L.project.factories[L.factoryId]?.map;
+    if (!m || !L.gd.map || !L.layers.nodes) return;
+    for (const { node, s } of visibleNodes(vp, L.gd.map.nodes, (n) => toLocalOf(m, n), () => true)) {
+      const r = nodeRadiusPx(vp.scale, node);
+      drawNode(ctx, s, node, r, { used: L.usage.has(node.id) });
+      // Belegte Vorkommen verdeckt das Gebäude; die Beschriftung stünde unter ihm
+      if (L.layers.labels && node.kind !== 'well' && !L.usage.has(node.id)) drawNodeLabel(ctx, L.gd, s, node, r);
+    }
+  }
 
   /** Fangen am Raster (Ursprung: Fundamentecke unter dem Punkt, sonst Weltursprung). */
   function snapPoint(p: geo.Vec2, free: boolean): geo.Vec2 {
@@ -189,6 +274,30 @@ function PlanEditor() {
     const r0 = geo.rectOf(buildingOutline(def, { x: 0, y: 0, rotationDeg, vertical }));
     const corner = snapPoint({ x: cursor.x + r0.minX, y: cursor.y + r0.minY }, false);
     return { floorId: fl, x: corner.x - r0.minX, y: corner.y - r0.minY, zOffsetM: 0, rotationDeg, ...v };
+  }
+
+  /**
+   * Punkte von Bau- und Fundamentflächen rasten im Hauptraster (8 m ab
+   * Ursprung, deckungsgleich mit dem Weltraster); Alt: feines Fangraster.
+   */
+  function areaPoint(p: geo.Vec2, fine: boolean): geo.Vec2 {
+    const step = live.current.project.settings.gridM;
+    if (fine || step <= 0) return snapPoint(p, false);
+    return { x: geo.snap(p.x, step), y: geo.snap(p.y, step) };
+  }
+
+  /** Eckpunkt der gewählten Fläche unter dem Mauszeiger. */
+  function vertexAt(screen: geo.Vec2): { areaId: string; index: number } | null {
+    const L = live.current;
+    const sel = L.selection;
+    if (sel.length !== 1 || sel[0]!.table !== 'areas') return null;
+    const a = L.project.areas[sel[0]!.id];
+    if (!a || a.floorId !== L.floorId) return null;
+    const index = a.polygon.findIndex((q) => {
+      const s = viewport.toScreen(q);
+      return Math.hypot(s.x - screen.x, s.y - screen.y) <= 7;
+    });
+    return index >= 0 ? { areaId: a.id, index } : null;
   }
 
   function snapDelta(raw: geo.Vec2, free: boolean): geo.Vec2 {
@@ -224,6 +333,11 @@ function PlanEditor() {
       hidden,
       flow: L.flow,
       phase: i.phase,
+      underlay: drawUnderlay,
+      afterAreas: (c, v) => {
+        drawRails(c, v);
+        drawNodes(c, v);
+      },
     });
 
     // Verschieben: Vorschau + Abstände
@@ -269,8 +383,30 @@ function PlanEditor() {
     const tl = L.tool;
     if ((tl.kind === 'place' || tl.kind === 'group' || tl.kind === 'paste') && !i.drag) drawPlacementGhost(ctx, vp, tl);
 
+    // Gewählte Fläche: Eckpunkte zum Ziehen, beim Ziehen die neue Form
+    const selArea = L.selection.length === 1 && L.selection[0]!.table === 'areas' ? L.project.areas[L.selection[0]!.id] : undefined;
+    if (selArea && selArea.floorId === L.floorId && tl.kind === 'select') {
+      const poly = i.drag?.kind === 'vertex' && i.drag.moved ? editedPolygon(selArea.polygon, i.drag.index, i.drag.current) : selArea.polygon;
+      if (i.drag?.kind === 'vertex' && i.drag.moved) {
+        pathPolygon(ctx, vp, poly);
+        ctx.strokeStyle = COLORS.selection;
+        ctx.setLineDash([5, 4]);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        const r = geo.rectOf(poly);
+        drawDimension(ctx, vp, { x: r.minX, y: r.minY - 1 }, { x: r.maxX, y: r.minY - 1 });
+        drawDimension(ctx, vp, { x: r.maxX + 1, y: r.minY }, { x: r.maxX + 1, y: r.maxY });
+      }
+      ctx.fillStyle = COLORS.selection;
+      for (const q of poly) {
+        const s = vp.toScreen(q);
+        ctx.fillRect(s.x - 4, s.y - 4, 8, 8);
+      }
+    }
+
     if (tl.kind === 'area') {
-      const pts = i.drag?.kind === 'area-rect' ? rectPoly(i.drag.start, i.drag.current) : [...i.areaPoints, snapPoint(i.cursor, i.alt)];
+      const pts = i.drag?.kind === 'area-rect' ? rectPoly(i.drag.start, i.drag.current) : [...i.areaPoints, areaPoint(i.cursor, i.alt)];
       if (pts.length >= 2) {
         pathPolyline(ctx, vp, i.drag?.kind === 'area-rect' ? [...pts, pts[0]!] : pts);
         ctx.strokeStyle = COLORS.selection;
@@ -285,7 +421,7 @@ function PlanEditor() {
           drawDimension(ctx, vp, pts.at(-2)!, pts.at(-1)!);
         }
       }
-      const s = vp.toScreen(snapPoint(i.cursor, i.alt));
+      const s = vp.toScreen(areaPoint(i.cursor, i.alt));
       ctx.fillStyle = COLORS.selection;
       ctx.fillRect(s.x - 3, s.y - 3, 6, 6);
     }
@@ -330,11 +466,20 @@ function PlanEditor() {
     const L = live.current;
     const i = it.current;
     if (tl.kind === 'place') {
-      const pl = snappedPlacement(L.gd, tl.type, i.cursor, tl.rotationDeg, i.alt, L.floorId, tl.vertical);
+      const snap = nodeSnap(tl.type, i.cursor, i.alt, tl.buildingId);
+      const pl = snap ? { floorId: L.floorId, x: snap.at.x, y: snap.at.y, zOffsetM: 0, rotationDeg: tl.rotationDeg } : snappedPlacement(L.gd, tl.type, i.cursor, tl.rotationDeg, i.alt, L.floorId, tl.vertical);
       const def = L.gd.building(tl.type);
       if (!def) return;
+      if (snap) {
+        const s = vp.toScreen(snap.at);
+        ctx.strokeStyle = COLORS.selection;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, nodeRadiusPx(vp.scale, { kind: 'node' }) + 6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       const parts = buildingFootprint(def, pl, L.project.floors[L.floorId]);
-      const fake = { id: '_ghost', factoryId: L.factoryId, type: tl.type, label: '', recipeId: tl.recipeId ?? null, clock: 1, somersloops: 0, placement: pl, groupInstance: null, extraction: null, transfer: null, notes: '' };
+      const fake = { id: '_ghost', factoryId: L.factoryId, type: tl.type, label: '', recipeId: tl.recipeId ?? null, clock: 1, somersloops: 0, placement: pl, groupInstance: null, extraction: null, transfer: null, stationPart: null, notes: '' };
       drawBuilding(ctx, vp, L.gd, { building: fake, parts }, { ghost: true, labels: true });
       const rect = geo.rectOf(parts.flatMap((x) => x.polygon));
       drawGaps(ctx, vp, rect, new Set());
@@ -363,7 +508,7 @@ function PlanEditor() {
       if (!def) continue;
       const r = geo.rotate({ x: m.x, y: m.y }, tl.rotationDeg);
       const pl: Placement = { floorId: L.floorId, x: c.x + r.x, y: c.y + r.y, zOffsetM: m.zOffsetM, rotationDeg: m.rotationDeg + tl.rotationDeg };
-      const fake = { id: '_g', factoryId: L.factoryId, type: m.type, label: '', recipeId: m.recipeId, clock: m.clock, somersloops: 0, placement: pl, groupInstance: null, extraction: null, transfer: null, notes: '' };
+      const fake = { id: '_g', factoryId: L.factoryId, type: m.type, label: '', recipeId: m.recipeId, clock: m.clock, somersloops: 0, placement: pl, groupInstance: null, extraction: null, transfer: null, stationPart: null, notes: '' };
       drawBuilding(ctx, vp, L.gd, { building: fake, parts: buildingFootprint(def, pl, L.project.floors[L.floorId]) }, { ghost: true });
     }
   }
@@ -432,6 +577,11 @@ function PlanEditor() {
     const tl = L.tool;
 
     if (tl.kind === 'select') {
+      const v = vertexAt(e.screen);
+      if (v) {
+        i.drag = { kind: 'vertex', ...v, current: e.world, moved: false };
+        return;
+      }
       const h = hit(e.world);
       const ref = hitToRef(h);
       if (ref) {
@@ -453,17 +603,25 @@ function PlanEditor() {
     }
 
     if (tl.kind === 'place') {
-      const pl = snappedPlacement(L.gd, tl.type, e.world, tl.rotationDeg, e.alt, L.floorId, tl.vertical);
+      const snap = nodeSnap(tl.type, e.world, e.alt, tl.buildingId);
+      const pl = snap ? { floorId: L.floorId, x: snap.at.x, y: snap.at.y, zOffsetM: 0, rotationDeg: tl.rotationDeg } : snappedPlacement(L.gd, tl.type, e.world, tl.rotationDeg, e.alt, L.floorId, tl.vertical);
       if (tl.buildingId) {
         const id = tl.buildingId;
-        apply(t('Maschine aufstellen'), (d) => ops.placeBuilding(d, id, pl));
+        apply(t('Maschine aufstellen'), (d, g) => {
+          ops.placeBuilding(d, id, pl);
+          if (snap) mapOps.assignNode(d, g, id, snap.nodeId);
+        });
         const next = Object.values(useProjectStore.getState().project!.buildings).find(
           (b) => b.factoryId === L.factoryId && !b.placement && b.type === tl.type && b.recipeId === (tl.recipeId ?? null),
         );
         useUiStore.getState().select([{ table: 'buildings', id }]);
         useUiStore.getState().setTool(next ? { ...tl, buildingId: next.id } : { kind: 'select' });
       } else {
-        const id = apply(t('Gebäude platzieren'), (d, g) => ops.addBuilding(d, g, { factoryId: L.factoryId, type: tl.type, recipeId: tl.recipeId ?? null, placement: pl }));
+        const id = apply(t('Gebäude platzieren'), (d, g) => {
+          const nid = ops.addBuilding(d, g, { factoryId: L.factoryId, type: tl.type, recipeId: tl.recipeId ?? null, placement: pl });
+          if (snap) mapOps.assignNode(d, g, nid, snap.nodeId);
+          return nid;
+        });
         if (id) useUiStore.getState().select([{ table: 'buildings', id }]);
       }
       return;
@@ -486,7 +644,7 @@ function PlanEditor() {
     }
 
     if (tl.kind === 'area') {
-      const p = snapPoint(e.world, e.alt);
+      const p = areaPoint(e.world, e.alt);
       if (i.areaPoints.length === 0) {
         i.drag = { kind: 'area-rect', start: p, current: p, screenStart: e.screen };
       } else {
@@ -576,12 +734,17 @@ function PlanEditor() {
     i.alt = e.alt;
     if (i.drag?.kind === 'move') {
       const raw = { x: e.world.x - i.drag.start.x, y: e.world.y - i.drag.start.y };
-      i.drag.delta = snapDelta(raw, e.alt);
+      // Nur Flächen: im Hauptraster verschieben, damit Fundamente im Weltraster bleiben
+      const onlyAreas = i.drag.buildingIds.length === 0 && L.project.settings.gridM > 0;
+      i.drag.delta = onlyAreas && !e.alt ? { x: geo.snap(raw.x, L.project.settings.gridM), y: geo.snap(raw.y, L.project.settings.gridM) } : snapDelta(raw, e.alt);
       if (Math.hypot(raw.x, raw.y) * viewport.scale > 3) i.drag.moved = true;
     } else if (i.drag?.kind === 'marquee') {
       i.drag.current = e.world;
     } else if (i.drag?.kind === 'area-rect') {
-      i.drag.current = snapPoint(e.world, e.alt);
+      i.drag.current = areaPoint(e.world, e.alt);
+    } else if (i.drag?.kind === 'vertex') {
+      i.drag.current = areaPoint(e.world, e.alt);
+      i.drag.moved = true;
     } else if (L.tool.kind === 'select') {
       i.hover = hit(e.world);
     }
@@ -606,6 +769,13 @@ function PlanEditor() {
       const refs: ObjectRef[] = L.scene.buildings.filter((b) => b.onActiveFloor && geo.rectsOverlap(b.rect, r)).map((b) => ({ table: 'buildings', id: b.building.id }));
       const base = drag.additive ? L.selection.filter((s) => !refs.some((x) => x.id === s.id)) : [];
       useUiStore.getState().select([...base, ...refs]);
+    } else if (drag.kind === 'vertex') {
+      const a = L.project.areas[drag.areaId];
+      if (!a || !drag.moved) return;
+      const poly = editedPolygon(a.polygon, drag.index, drag.current);
+      const r = geo.rectOf(poly);
+      if (r.maxX - r.minX > 0 && r.maxY - r.minY > 0 && poly.some((q, k) => q.x !== a.polygon[k]?.x || q.y !== a.polygon[k]?.y))
+        apply(t('Fläche bearbeiten'), (d) => ops.updateArea(d, drag.areaId, { polygon: poly }));
     } else if (drag.kind === 'area-rect') {
       const moved = Math.hypot(e.screen.x - drag.screenStart.x, e.screen.y - drag.screenStart.y) > 4;
       if (moved) {
@@ -886,6 +1056,29 @@ function PlanEditor() {
   );
 }
 
+/** Achsparalleles Rechteck (vier Ecken, jede Kante waagrecht oder senkrecht)? */
+function isAxisRect(poly: geo.Vec2[]): boolean {
+  if (poly.length !== 4) return false;
+  return poly.every((q, k) => {
+    const n = poly[(k + 1) % 4]!;
+    return Math.abs(q.x - n.x) < 1e-9 || Math.abs(q.y - n.y) < 1e-9;
+  });
+}
+
+/** Form nach dem Ziehen eines Eckpunkts; Rechtecke bleiben Rechtecke (die gegenüberliegende Ecke bleibt stehen). */
+function editedPolygon(poly: geo.Vec2[], index: number, to: geo.Vec2): geo.Vec2[] {
+  if (isAxisRect(poly)) {
+    const opp = poly[(index + 2) % 4]!;
+    return poly.map((q, k) => {
+      if (k === index) return { ...to };
+      if (k === (index + 2) % 4) return { ...q };
+      // Nachbarecken: eine Koordinate von der gezogenen, eine von der gegenüberliegenden Ecke
+      return Math.abs(q.x - opp.x) < 1e-9 ? { x: opp.x, y: to.y } : { x: to.x, y: opp.y };
+    });
+  }
+  return poly.map((q, k) => (k === index ? { ...to } : q));
+}
+
 function rectPoly(a: geo.Vec2, b: geo.Vec2): geo.Vec2[] {
   const r = geo.rectOf([a, b]);
   return [
@@ -899,7 +1092,7 @@ function rectPoly(a: geo.Vec2, b: geo.Vec2): geo.Vec2[] {
 function toolHint(tl: Tool): string {
   switch (tl.kind) {
     case 'select':
-      return t('Klicken: auswählen · Ziehen: verschieben/Rahmen · R drehen · Entf löschen · Strg+C/V/D · U Aufstellung aufheben · Leertaste/rechte Maustaste: Ansicht verschieben');
+      return t('Klicken: auswählen · Ziehen: verschieben/Rahmen · gewählte Fläche: Ecken ziehen (8-m-Raster, Alt: fein) · R drehen · Entf löschen · Strg+C/V/D · U Aufstellung aufheben · Leertaste/rechte Maustaste: Ansicht verschieben');
     case 'place':
       return t('Klicken: platzieren · R / Umschalt+R drehen · O: Pumpe senkrecht/waagrecht · Alt: ohne Fangen · Esc: beenden');
     case 'paste':
@@ -907,7 +1100,7 @@ function toolHint(tl: Tool): string {
     case 'group':
       return t('Klicken: Gruppe einfügen · R drehen · Esc: beenden');
     case 'area':
-      return t('Ziehen: Rechteck · Klicken: Eckpunkte setzen, Doppelklick/Enter/Startpunkt: abschließen · Rücktaste: Punkt entfernen');
+      return t('Ziehen: Rechteck · Klicken: Eckpunkte setzen, Doppelklick/Enter/Startpunkt: abschließen · Rücktaste: Punkt entfernen · Raster 8 m (Alt: fein)');
     case 'link':
       return t('Anschluss anklicken (Ein- oder Ausgang) → Zwischenpunkte setzen (Bild↑/↓ für Lifte) → Gegenstück anklicken · B bzw. P erneut: Verlegemodus · N: Stufe (Mk) · Rücktaste: Punkt zurück · Esc: abbrechen');
     case 'measure':

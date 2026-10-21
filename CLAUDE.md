@@ -24,7 +24,7 @@ npm-Workspaces, TypeScript überall, Node ≥ 22 (lokal: `~/.local/bin/node`).
 - ID-Format wird vor jedem Dateizugriff geprüft (`isProjectId`).
 - Atomares Schreiben (tmp, fsync, rename) mit Sperre pro ID (`storage.ts`).
 - Größenlimit, Gesamtzahl und Rate-Limit pro IP (`rateLimit.ts`, Werte über Umgebungsvariablen).
-- Referrer-Policy no-referrer, CSP, noindex. IDs werden in Logs gekürzt.
+- Referrer-Policy no-referrer, CSP, noindex. IDs werden in Logs gekürzt. CSP erlaubt als einzige fremde Quelle Bilder von `static.satisfactory-calculator.com` (Kartenkacheln).
 - Der Container läuft als `node`, mit read-only Dateisystem, und der Port ist nur an 127.0.0.1 gebunden.
 
 ## Befehle
@@ -57,6 +57,6 @@ Docker gibt es **nur auf dem Server**, nicht auf dem Laptop.
 
   Nie eine bestehende Migration nachträglich ändern. Gespeicherte Dateien auf dem Server enthalten alte Formate und werden erst beim Laden migriert. Anleitung: README → „Datenformat und Migrationen“.
 - **i18n:** Jeder sichtbare Text steht auf Deutsch in `t()` (Web), `tr()` (Core) oder `N_()` (Label-Tabellen); der deutsche Text ist der Schlüssel. Die englische Übersetzung gehört in `apps/web/src/i18n/en.ts` bzw. `packages/core/src/i18n/en.ts`. Die Abdeckungstests schlagen sonst fehl.
-- **Spieldaten:** Nur belegte Werte aus den offiziellen Docs-Dateien bzw. kuratierten Quellen (`docs/SPIELDATEN.md`), nichts erfinden.
+- **Spieldaten:** Nur belegte Werte aus den offiziellen Docs-Dateien bzw. kuratierten Quellen (`docs/SPIELDATEN.md`), nichts erfinden. Rohstoffvorkommen der Karte: `data/gamedata/<version>/map.json` aus satisfactory-calculator.com (`npm run gamedata:map`); Kartenkacheln werden nur live geladen, nie eingecheckt.
 - **Server-Daten** (`storage/`, `backups/`) und `.env` sind nie im Git.
 - Code-Stil: Kommentare auf Deutsch, knapp. An umliegenden Code anpassen.

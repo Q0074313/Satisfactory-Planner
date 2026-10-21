@@ -176,6 +176,10 @@ code {
   background: var(--panel);
   border-bottom: 1px solid var(--border);
 }
+.topbar button,
+.topbar > span {
+  white-space: nowrap;
+}
 .brand {
   font-weight: 700;
   color: var(--accent);
@@ -183,7 +187,9 @@ code {
   border: none;
 }
 .project-name {
-  width: 200px;
+  width: 170px;
+  min-width: 90px;
+  flex-shrink: 1;
   font-weight: 600;
 }
 .modes {
@@ -198,7 +204,7 @@ code {
 .save-status {
   font-size: 12px;
   color: var(--dim);
-  min-width: 150px;
+  min-width: 120px;
   text-align: right;
 }
 .save-pending,
@@ -1197,4 +1203,38 @@ g.fn-shortfall rect {
 .power-row {
   flex-wrap: wrap;
   margin: 4px 0;
+}
+
+/* Karte */
+.map-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin-bottom: 4px;
+}
+.map-filter .check-row {
+  margin: 0;
+}
+.item-list li.dim {
+  opacity: 0.55;
+}
+.item-list li input[type='checkbox'] {
+  margin: 0 4px 0 0;
+  vertical-align: middle;
+  pointer-events: none;
+}
+.site-list {
+  margin-top: 6px;
+}
+.site-detail {
+  margin-top: 6px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.hint {
+  color: var(--accent-2);
+}
+.pad-x {
+  padding: 0 10px;
 }

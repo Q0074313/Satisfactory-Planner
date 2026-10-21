@@ -255,15 +255,39 @@ Umgesetzt aus „zukünftige Pläne bzw. Änderungen“ (zweiter Teil des Abschn
 - Vorschläge für Alternativrezepte: Die Kombination umfasst höchstens 4 Rezepte (schrittweise aus den besten Ergänzungen statt aller Alternativen auf einmal); höchstens 8 Einzelvorschläge. *(Unit-Test)*
 - Kraftwerke planen statt Strom durchrechnen: Im Produktionsplan gibt man unter „Kraftwerke“ Kraftwerk, Brennstoff und Anzahl an (z. B. 16 Kohlegeneratoren); der Plan berechnet Brennstoff und Wasser bzw. deren Herstellung. Kein Gegenrechnen des Maschinenstroms mehr, keine Leistungsvorgabe in MW. Die Kraftwerksrezepte stehen nicht mehr in der Rezeptauswahl. *(Unit- und E2E-Test)*
 
-## Version 0.6 – Karte (vorgemerkt)
+## Version 0.6 – Karte ✅
 
-Alles rund um die Spielkarte kommt gemeinsam in 0.6 (aus „Sag mir mal …“ im Planungsdokument):
+Alles rund um die Spielkarte (aus „Sag mir mal …“ im Planungsdokument), in einem Durchgang umgesetzt.
 
-- Kartenansicht mit Kartenbild (topografisch/real) unter Fabriken, Schienennetz und Transporten.
-- Weltraster wie im Spiel: Planer-Koordinaten = Spielkoordinaten, das Raster liegt deckungsgleich mit dem Weltraster des Spiels (Verankerung vorher belegen).
-- Fabrikstandort auf der Karte festlegen (Ursprung der Fabrik in Weltkoordinaten; Grundriss dadurch fest verortet).
-- Rohstoffvorkommen (Lage, Reinheit) auf der Karte, aus belegter Quelle (möglichst Spieldateien).
-- Bessere Schätzung der Transportfahrzeuge aus echten Entfernungen und Gleislagen auf der Karte.
-- Standortvorschlag: passender Ort für eine Fabrik nach Produktionsplan und nahen Rohstoffvorkommen.
-- Hinweis zu Rechten an Spielinhalten (wie bei satisfactory-calculator.com: Assets stammen aus Satisfactory, Rechte und Marken bei Coffee Stain Studios) in „Über“/Einstellungen.
-- Formatänderung mit Migration (Standort, Weltkoordinaten).
+**Abnahmekriterien**
+- [x] Neuer Reiter „Karte“: Kartenbild (Spielkarte bzw. realistisch, abschaltbar, Deckkraft) aus den Kacheln von satisfactory-calculator.com, live im Browser geladen; Spielbereich, Weltraster, Schienennetze, Bahnhöfe, Fabrikgrundrisse und Transportaufträge (Linie je Auftrag mit Gegenstand, Menge und Luftlinie). *(E2E)*
+- [x] Rohstoffvorkommen aus belegter Quelle (satisfactory-calculator.com, Abrufskript `npm run gamedata:map`): Nodes, Satelliten und Mitten der Quellen, Geysire; Filter nach Rohstoff, Reinheit, Art und „nur freie“; Klick zeigt Lage, Belegung und Förderrate je passendem Gebäude bei 100 % und 250 %. *(Unit-Test: Anzahl wie im Wiki, Förderraten; E2E)*
+- [x] Fabrikstandort: Platzieren (Grundrissmitte am Mauszeiger), Ziehen, Drehen (R), Entfernen (Entf), Zahlenfelder; Grundriss aus Bau- und Fundamentflächen, sonst aus den Gebäuden geschätzt. Weltraster (Wiki „World grid“: ein globales 8-m-Raster): Fundamente der Fabrik liegen nach dem Einrasten auf dem Weltraster, für alle Himmelsrichtungen (Kanten auf Vielfachen von 8 m, seit 0.6.1). *(Unit- und E2E-Test)*
+- [x] Fabrikgrundriss einer platzierten Fabrik: Kartenbild und Vorkommen darunter (Ebenen „Kartenbild“, „Vorkommen“), Weltkoordinaten in der Statuszeile; Gewinnungsgebäude rasten auf einem passenden freien Vorkommen ein und übernehmen Rohstoff und Reinheit; Auswahl des Vorkommens in den Eigenschaften (nach Entfernung). *(Unit- und E2E-Test)*
+- [x] Prüfregeln MAP-001 … MAP-008 (doppelt belegt, neben dem Vorkommen, falscher Rohstoff bzw. Reinheit, unbekanntes Vorkommen, Überschneidung, außerhalb der Welt, nicht verknüpft, Gelände nicht geprüft). Kartenbefunde zu Gebäuden erscheinen auch im Fabrikgrundriss. *(Unit-Tests)*
+- [x] Transport: Luftlinie zwischen Drohnenhäfen, Lkw-Stationen bzw. Übergabeanschlüssen (sonst Fabrikmitten); neue Aufträge übernehmen sie als Strecke, „Von Karte übernehmen“ im Auftrag; TRN-018 meldet zu kurze bzw. (Drohne) zu lange Strecken. *(Unit- und E2E-Test)*
+- [x] Standortvorschlag aus einem Produktionsplan: Rohstoffbedarf aus eigener Gewinnung (ohne Wasser und Importe), Minerstufe, Takt, Suchradius; bis zu fünf Orte mit Deckung und mittlerer Entfernung, belegte Vorkommen anderer Fabriken ausgelassen; „Fabrik hier platzieren“. *(Unit- und E2E-Test)*
+- [x] Schieneneditor: Kartenbild, Vorkommen und Fabrikgrundrisse als Unterlage (Schienennetze liegen in Weltkoordinaten).
+- [x] Formatversion 3 mit Migration 2 → 3 (`factories.*.map`, `extraction.nodeId`), Fixture `project-v2.json`. *(API-Test)*
+- [x] Hinweis zu Rechten an Spielinhalten und zur Quelle der Kartendaten in Einstellungen → Allgemein; Tutorial-Tour „Karte“; Tastenkürzel Alt+5 und Kartenaktionen einstellbar.
+
+**Vereinfachungen / bekannte Grenzen**
+- Kartenbild und Vorkommen kommen von einer Drittseite ohne ausdrückliche Lizenz; das Bild wird nicht gespeichert, sondern live geladen. Ändert die Seite ihre Kachel-URLs, bleibt die Karte ohne Bild.
+- Kein Gelände: Hänge, Wasser und Höhen werden nicht geprüft (MAP-008). Entfernungen sind Luftlinien; Straßen- und Bandwege sind länger.
+- Gewinnungsgebäude rasten mit ihrem Ursprung auf der Mitte des Vorkommens ein (Annahme); Quellenmitten sind gemittelt; Geothermie (Geysire) und Quellenkompressor werden angezeigt, aber nicht verknüpft.
+- Standortvorschlag ist eine Heuristik (nächste freie Vorkommen je Rohstoff, mengengewichtete Entfernung), kein Optimum; Bandkapazitäten zum Standort werden nicht geprüft.
+- Bestehende Schienennetze behalten ihre Koordinaten und liegen damit um den Weltursprung; zum Ausrichten das Netz verschieben.
+
+### Hotfix 0.6.1
+
+- Weltraster: Fundamentkanten bzw. Fabrikursprung liegen auf Vielfachen von 8 m, deckungsgleich mit dem gezeichneten Weltraster (vorher um 4 m versetzt). *(Unit- und E2E-Test)*
+- Vorkommen von der Karte belegen: Fabrik und Gebäude wählen, „Vorkommen belegen“ legt ein verknüpftes Gewinnungsgebäude an (über dem Vorkommen aufgestellt, wenn die Fabrik auf der Karte steht und das Vorkommen höchstens 150 m außerhalb des Grundrisses liegt; sonst geplant); „Freigeben“ löst die Verknüpfung. *(Unit- und E2E-Test)*
+- Rohstoffbedarf je Fabrik gegen belegte Vorkommen (Bedarf aus den Produktionsplänen, Förderung verknüpfter Gebäude, Anzahl Vorkommen, gedeckt / fehlt). *(Unit- und E2E-Test)*
+- „Vorkommen in der Nähe“: Überfahren hebt das Vorkommen auf der Karte hervor. *(E2E)*
+- Fabrikgrundriss: Bau- und Fundamentflächen rasten im 8-m-Raster ein (Alt: fein), reine Flächen werden im 8-m-Raster verschoben, Ecken einer gewählten Fläche lassen sich ziehen (Rechtecke bleiben Rechtecke). *(E2E)*
+- Fabrikgrundriss: Ebene „Gleise“ zeigt die Gleise aller Netze unter einer platzierten Fabrik.
+- Bahnhöfe ↔ Grundriss in beide Richtungen: Ein Bahnhof, der einer Fabrik auf der Karte zugeordnet ist, steht mit Bahnhofsgebäude und Bahnsteigen im Grundriss (Be-/Entladen, Bahnhofszuordnung). Änderungen im Schienennetz verschieben bzw. ergänzen die Gebäude; Verschieben, Drehen, Be-/Entladen und Löschen im Grundriss ändern den Bahnhof; ein an Ort und Stelle um 180° gedrehter Bahnsteig wechselt die Anschlussseite; Verschieben der Fabrik auf der Karte nimmt den Bahnhof mit. Vorhandene Bahnsteige mit Bahnhofszuordnung werden übernommen. Der Abgleich läuft nach jeder Änderung im selben Undo-Schritt. *(Unit- und E2E-Test)*
+- Standortvorschlag wahlweise auf der ganzen Karte oder im aktuellen Kartenausschnitt. *(Unit-Test)*
+- Beispielprojekte: Gebäude in Flussrichtung gedreht, Anschlüsse auf einer Linie, Bänder rechtwinklig verlegt. *(Unit-Test)*
+
+**Grenzen:** Die Höhe der Bahnhofsteile folgt dem vorderen Bahnhofsknoten (Gleishöhe = Grundfläche, Annahme). Löschen des Bahnhofsgebäudes im Grundriss entfernt den ganzen Bahnhof aus dem Netz (rückgängig machbar). Neue Bahnsteige entstehen nur im Schienennetz, nicht durch Bauen im Grundriss.

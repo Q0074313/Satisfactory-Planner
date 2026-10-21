@@ -192,8 +192,34 @@ Schätzung: Kapazität je Umlauf = Wagen × 32 Stapel × Stapelgröße (Feststof
 | TRN-015 | Keine Übergabe im Grundriss (Lkw-Station, Drohnenhafen bzw. Übergabeanschluss) | Empfehlung | statisch | Hinweis | Planungskonsistenz |
 | TRN-016 | Geschätzte Drohnenkapazität reicht nicht | Empfehlung | möglich | Warnung | Spieldaten, Wiki „Drone“ |
 | TRN-017 | Brennstoff für Drohnen fehlt beim Absender | Empfehlung | statisch | Warnung | Spieldaten, Wiki „Drone“ |
+| TRN-018 | Entfernung passt nicht zur Karte (kürzer als die Luftlinie; Drohne mehr als 10 % + 50 m länger) | Empfehlung | statisch | Warnung | Planungskonsistenz |
 
 *Nicht berechnet:* Treibstoffverbrauch der Fahrzeuge (Drohnen schon), gleichzeitiger Rücktransport einer Drohne (ein Hafen ist im Planer entweder beladend oder entladend), Förderhöhe von Rohren zwischen Fabriken, Fahrwege der Fahrzeuge (die Strecke wird angegeben).
+
+### Karte (Version 0.6)
+
+| Mechanik | Wert | Quelle |
+|---|---|---|
+| Weltraster | ein Raster in globalen Koordinaten, 8 m waagrecht und 1 m senkrecht, nur in Himmelsrichtungen | Wiki „World grid“ |
+| Lage der Fundamente im Weltraster | Planer: Fundamentkanten auf Vielfachen von 8 m, deckungsgleich mit dem gezeichneten Weltraster. **Annahme** – welcher Punkt des Fundaments im Spiel einrastet, ist nicht belegt | Annahme (Rückmeldung 0.6.1) |
+| Vorkommen und Quellen | liegen **nicht** im Weltraster; Gewinnungsgebäude richten sich nach der Mitte des Vorkommens | Wiki „World grid“ |
+| Belegung | ein Gewinnungsgebäude je Vorkommen | Wiki „Resource node“ |
+| Lage, Rohstoff und Reinheit der Vorkommen | 625 Einträge (Nodes, Quellen-Satelliten, Geysire; Quellenmitten gemittelt) | satisfactory-calculator.com (`data/gamedata/1.2.4.0/map.json`) |
+
+Der Planer legt den Fabrikstandort beim Platzieren und Verschieben so, dass die Ecke der ersten Fundamentfläche (ohne Fundamentfläche: der Ursprung des Grundrisses) auf einem Punkt des Weltrasters (Vielfache von 8 m) liegt. Bau- und Fundamentflächen rasten im Grundriss im 8-m-Raster ein (Alt: feines Fangraster). Bei Drehungen in Himmelsrichtungen liegen dann alle im 8-m-Raster gezeichneten Fundamente auf dem Weltraster. Gewinnungsgebäude rasten im Grundriss mit ihrem Ursprung auf der Mitte eines Vorkommens ein (Annahme: Ursprung = Bohrkopf).
+
+| ID | Titel | Art | Gewissheit | Schwere | Quelle |
+|---|---|---|---|---|---|
+| MAP-001 | Vorkommen mehrfach belegt | Spielregel | statisch | Fehler | Wiki „Resource node“ |
+| MAP-002 | Gebäude steht nicht auf dem verknüpften Vorkommen (Abstand > 8 m) | Empfehlung | statisch | Warnung | Kartendaten, Annahme zum Gebäudeursprung |
+| MAP-003 | Rohstoff oder Reinheit passt nicht zum Vorkommen | Spielregel | statisch | Fehler | Kartendaten, Wiki „Resource node“ |
+| MAP-004 | Verknüpftes Vorkommen fehlt in den Kartendaten | Empfehlung | statisch | Warnung | Kartendaten |
+| MAP-005 | Fabrikgrundrisse überschneiden sich (konvexe Hülle, ohne Höhen) | Empfehlung | statisch | Warnung | Planungskonsistenz |
+| MAP-006 | Fabrik außerhalb der Spielwelt | Empfehlung | statisch | Warnung | Kartendaten |
+| MAP-007 | Gebäude steht auf einem Vorkommen, ist aber nicht verknüpft | Empfehlung | statisch | Hinweis | Kartendaten |
+| MAP-008 | Gelände und Höhe nicht geprüft | nicht geprüft | statisch | Hinweis | – |
+
+*Nicht geprüft:* Gelände (Hänge, Wasser, Felsen), Höhe der Vorkommen gegenüber den Stockwerken, Wege für Fahrzeuge und Bänder (die Karte kennt nur Luftlinien), Leistung der Geysire, Lage des Quellenkompressors über der Quellenmitte.
 
 ### Produktion (umgesetzt)
 

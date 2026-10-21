@@ -20,6 +20,7 @@ import type {
   Building,
   BuildingGroup,
   Extraction,
+  ExtractionInput,
   Floor,
   FloorKind,
   LinkKind,
@@ -187,7 +188,7 @@ export interface NewBuilding {
   somersloops?: number;
   placement?: Placement | null;
   label?: string;
-  extraction?: Extraction | null;
+  extraction?: ExtractionInput | null;
   transfer?: Transfer | null;
 }
 
@@ -237,7 +238,7 @@ export function extractableResources(gd: GameDataIndex, type: string): string[] 
     .map((i) => i.id);
 }
 
-function checkExtraction(gd: GameDataIndex, type: string, ex: Extraction): void {
+function checkExtraction(gd: GameDataIndex, type: string, ex: ExtractionInput): void {
   if (!gd.building(type)?.extractor) throw new OpError(tr('Nur Gewinnungsgebäude fördern Rohstoffe.'));
   if (!extractableResources(gd, type).includes(ex.itemId))
     throw new OpError(tr('{building} kann {item} nicht fördern.', { building: gd.name(type), item: gd.name(ex.itemId) }));
@@ -261,8 +262,9 @@ export function addBuilding(p: Project, gd: GameDataIndex, nb: NewBuilding): str
     somersloops: nb.somersloops ?? 0,
     placement: nb.placement ? { ...nb.placement } : null,
     groupInstance: null,
-    extraction: nb.extraction ?? defaultExtraction(gd, nb.type),
+    extraction: nb.extraction ? { nodeId: null, ...nb.extraction } : defaultExtraction(gd, nb.type),
     transfer: nb.transfer ?? (transferInterface(def) ? { mode: 'unload', stationId: null } : null),
+    stationPart: null,
     notes: '',
   };
   p.buildings[b.id] = b;
@@ -272,7 +274,7 @@ export function addBuilding(p: Project, gd: GameDataIndex, nb: NewBuilding): str
 /** Wasserextraktor: Wasser ist der einzige Rohstoff; sonst bleibt die Auswahl offen. */
 function defaultExtraction(gd: GameDataIndex, type: string): Extraction | null {
   const res = extractableResources(gd, type);
-  return res.length === 1 ? { itemId: res[0]!, purity: 'normal' } : null;
+  return res.length === 1 ? { itemId: res[0]!, purity: 'normal', nodeId: null } : null;
 }
 
 export interface BuildingPatch {
@@ -282,7 +284,7 @@ export interface BuildingPatch {
   somersloops?: number;
   notes?: string;
   type?: string;
-  extraction?: Extraction | null;
+  extraction?: ExtractionInput | null;
   transfer?: Transfer | null;
 }
 
@@ -304,7 +306,9 @@ export function updateBuildings(p: Project, gd: GameDataIndex, ids: string[], pa
     if (patch.somersloops !== undefined) checkSomersloops(gd, type, patch.somersloops);
     if (patch.extraction) checkExtraction(gd, type, patch.extraction);
     if (patch.transfer) checkTransfer(p, gd, type, patch.transfer);
-    Object.assign(b, patch, { recipeId });
+    // Rohstoff oder Reinheit von Hand geändert: Verknüpfung mit dem Vorkommen löst sich, außer sie wird mitgegeben
+    const extraction = patch.extraction ? { nodeId: null, ...patch.extraction } : patch.extraction;
+    Object.assign(b, patch, { recipeId }, patch.extraction !== undefined ? { extraction } : {});
     const def = gd.building(type);
     if (!def?.clock) b.clock = 1;
     if ((def?.somersloopSlots ?? 0) < b.somersloops) b.somersloops = 0;
@@ -419,6 +423,10 @@ export function duplicateBuildings(p: Project, ids: string[], offset: Vec3, targ
     const copy: Building = clone(src);
     copy.id = newId('building');
     copy.groupInstance = null;
+    // Kopien von Bahnhofsteilen gehören nicht zum Bahnhof
+    copy.stationPart = null;
+    // Ein Vorkommen trägt nur ein Gebäude: die Kopie ist nicht verknüpft
+    if (copy.extraction) copy.extraction.nodeId = null;
     if (copy.placement) {
       copy.placement.x += offset.x;
       copy.placement.y += offset.y;
@@ -653,7 +661,7 @@ function groupFromBuildings(p: Project, members: Building[], origin: { x: number
         zOffsetM: b.placement!.zOffsetM + (floorIds.size > 1 ? fl.elevationM - baseFloor.elevationM : 0),
         rotationDeg: (((b.placement!.rotationDeg - origin.rotationDeg) % 360) + 360) % 360,
         ...(b.placement!.vertical ? { vertical: b.placement!.vertical } : {}),
-        extraction: b.extraction ? { ...b.extraction } : null,
+        extraction: b.extraction ? { ...b.extraction, nodeId: null } : null,
       };
     }),
     links: Object.values(p.links)
@@ -728,8 +736,9 @@ export function instantiateGroup(
         ...(m.vertical ? { vertical: m.vertical } : {}),
       },
       groupInstance: { groupId, instanceId, memberKey: m.key },
-      extraction: m.extraction ? { ...m.extraction } : null,
+      extraction: m.extraction ? { ...m.extraction, nodeId: null } : null,
       transfer: transferInterface(def) ? { mode: 'unload', stationId: null } : null,
+      stationPart: null,
       notes: '',
     };
     ids.set(m.key, id);
@@ -813,8 +822,15 @@ export function syncGroupInstances(p: Project, gd: GameDataIndex, groupId: strin
       const inB = ids.has(l.to.buildingId);
       if (inA !== inB) lostLinks++;
     }
+    // Verknüpfte Vorkommen je Mitglied über den Neuaufbau retten
+    const nodeOf = new Map(buildings.filter((b) => b.extraction?.nodeId && b.groupInstance?.memberKey).map((b) => [b.groupInstance!.memberKey!, b.extraction!.nodeId]));
     removeBuildings(p, [...ids]);
-    instantiateGroup(p, gd, groupId, { factoryId, floorId: t.floorId, x: t.x, y: t.y, rotationDeg: t.rotationDeg }, instanceId);
+    const created = instantiateGroup(p, gd, groupId, { factoryId, floorId: t.floorId, x: t.x, y: t.y, rotationDeg: t.rotationDeg }, instanceId);
+    for (const id of created) {
+      const b = p.buildings[id]!;
+      const nodeId = nodeOf.get(b.groupInstance!.memberKey ?? '');
+      if (nodeId && b.extraction) b.extraction.nodeId = nodeId;
+    }
     count++;
   }
   return { instances: count, lostLinks };

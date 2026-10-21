@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import {
   closestT,
   factoryOps,
+  factoryWorldOutline,
+  nodeUsage,
   segmentMinRadius,
   geo,
   lengthAtT,
@@ -21,6 +23,8 @@ import {
 import { useCanvas, type PointerInfo } from '../../canvas/useCanvas';
 import type { Viewport } from '../../canvas/viewport';
 import { COLORS, drawDimension, drawGrid, drawLabel, formatM, pathPolygon, pathPolyline } from '../../canvas/draw';
+import { drawMapTiles, onTileLoad } from '../../canvas/mapTiles';
+import { drawNode, nodeRadiusPx, visibleNodes } from '../../canvas/mapDraw';
 import { t } from '../../i18n';
 import { matchAction } from '../../state/keymap';
 import { useFindingMarks } from '../../state/derived';
@@ -134,14 +138,17 @@ export function RailEditor() {
   const focus = useUiStore((s) => s.focus);
   const theme = usePrefs((s) => s.theme);
   const playing = useSimStore((s) => s.playing);
+  const tiles = usePrefs((s) => s.mapTiles);
+  const tileOpacity = usePrefs((s) => s.mapOpacity);
   const marks = useFindingMarks();
   const statusRef = useRef<HTMLSpanElement | null>(null);
   const scene = useMemo(() => buildRailScene(project, networkId), [project, networkId]);
 
   const it = useRef<Interaction>({ cursor: { x: 0, y: 0 }, hover: null, from: null, drag: null, measureStart: null, shift: false, alt: false, endHeading: null, wheelAcc: 0 });
   const railSnap = usePrefs((s) => s.railSnap);
-  const live = useRef({ project, scene, selection, tool, layers, marks, networkId, gd });
-  live.current = { project, scene, selection, tool, layers, marks, networkId, gd };
+  const usage = useMemo(() => nodeUsage(project), [project]);
+  const live = useRef({ project, scene, selection, tool, layers, marks, networkId, gd, tiles, tileOpacity, usage });
+  live.current = { project, scene, selection, tool, layers, marks, networkId, gd, tiles, tileOpacity, usage };
 
   const { canvasRef, viewport, requestDraw } = useCanvas({
     draw: (ctx, vp) => draw(ctx, vp),
@@ -154,7 +161,8 @@ export function RailEditor() {
     onFrame: (dt) => useSimStore.getState().advance(dt),
   });
 
-  useEffect(requestDraw, [scene, selection, tool, layers, marks, theme, playing, railSnap, requestDraw]);
+  useEffect(requestDraw, [scene, selection, tool, layers, marks, theme, playing, railSnap, tiles, tileOpacity, project.factories, requestDraw]);
+  useEffect(() => onTileLoad(requestDraw), [requestDraw]);
   useEffect(() => {
     fitView();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -310,7 +318,13 @@ export function RailEditor() {
     const sel = new Set(L.selection.map((s) => s.id));
     ctx.fillStyle = COLORS.bg;
     ctx.fillRect(0, 0, vp.width, vp.height);
+    // Schienennetze liegen in Weltkoordinaten: Kartenbild direkt darunter
+    if (L.layers.map && L.gd.map && L.tiles !== 'off') drawMapTiles(ctx, vp, L.gd.map, L.tiles, L.tileOpacity * 0.5);
     if (L.layers.grid) drawGrid(ctx, vp, L.project.settings.gridM, 0);
+    if (L.layers.factories) drawFactoryOutlines(ctx, vp);
+    if (L.layers.resources && L.gd.map) {
+      for (const { node, s } of visibleNodes(vp, L.gd.map.nodes, (n) => n, () => true)) drawNode(ctx, s, node, nodeRadiusPx(vp.scale, node), { used: L.usage.has(node.id), dim: true });
+    }
 
     if (L.layers.otherNetworks) {
       ctx.strokeStyle = COLORS.otherNetwork;
@@ -484,6 +498,31 @@ export function RailEditor() {
       ctx.setLineDash([4, 3]);
       ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
       ctx.setLineDash([]);
+    }
+  }
+
+  /** Grundrisse der Fabriken mit Kartenstandort (blass, mit Namen). */
+  function drawFactoryOutlines(ctx: CanvasRenderingContext2D, vp: Viewport) {
+    const L = live.current;
+    for (const f of Object.values(L.project.factories)) {
+      const outline = factoryWorldOutline(L.project, L.gd, f.id);
+      if (!outline) continue;
+      for (const poly of outline) {
+        pathPolygon(ctx, vp, poly);
+        ctx.globalAlpha = 0.18;
+        ctx.fillStyle = f.color;
+        ctx.fill();
+        ctx.globalAlpha = 0.8;
+        ctx.strokeStyle = f.color;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      if (L.layers.labels) {
+        const r = geo.rectOf(outline.flat());
+        const s = vp.toScreen({ x: (r.minX + r.maxX) / 2, y: r.minY });
+        drawLabel(ctx, f.name, s.x, s.y - 10, { size: 11, color: f.color, bg: COLORS.labelBg });
+      }
     }
   }
 

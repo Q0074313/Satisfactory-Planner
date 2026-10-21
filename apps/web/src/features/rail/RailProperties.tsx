@@ -354,6 +354,13 @@ function StationProps({ id }: { id: string }) {
         </select>
       </Row>
       <Row label={t('Länge')}>{t('{len} m (Gebäude + {n} Bahnsteige)', { len: 16 * (1 + st.platforms.length), n: st.platforms.length })}</Row>
+      {st.factoryId && (
+        <p className="dim small-text" data-testid="station-sync-hint">
+          {project.factories[st.factoryId]?.map
+            ? t('Bahnhofsgebäude und Bahnsteige stehen im Grundriss der Fabrik und werden in beide Richtungen abgeglichen.')
+            : t('Steht die Fabrik auf der Karte, erscheinen Bahnhofsgebäude und Bahnsteige automatisch in ihrem Grundriss.')}
+        </p>
+      )}
       <div className="platforms">
         <div className="platform-row head">
           <span>{t('Pos.')}</span>

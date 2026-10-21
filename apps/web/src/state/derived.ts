@@ -52,7 +52,9 @@ export function domainOfMode(mode: Mode): Finding['domain'] {
  * der aktiven Fabrik. Transportbefunde gelten projektweit.
  */
 export function findingInView(f: Finding, p: Project, mode: Mode, factoryId: string | null, networkId: string | null): boolean {
-  if (f.domain !== domainOfMode(mode)) return false;
+  // Kartenbefunde zu Gebäuden erscheinen auch im Fabrikgrundriss
+  const mapInFactory = mode === 'factory' && f.domain === 'map' && f.objects.some((o) => o.table === 'buildings');
+  if (f.domain !== domainOfMode(mode) && !mapInFactory) return false;
   if (mode === 'factory') {
     if (f.location?.factoryId) return f.location.factoryId === factoryId;
     return f.objects.some((o) => {
@@ -84,10 +86,11 @@ export function useFindingCounts(): Record<Mode, { error: number; warning: numbe
       production: { error: 0, warning: 0 },
       rail: { error: 0, warning: 0 },
       transport: { error: 0, warning: 0 },
+      map: { error: 0, warning: 0 },
     };
     for (const f of active) {
       if (f.severity === 'info') continue;
-      const m: Mode = f.domain === 'production' ? 'production' : f.domain === 'rail' ? 'rail' : f.domain === 'transport' ? 'transport' : 'factory';
+      const m: Mode = f.domain === 'production' ? 'production' : f.domain === 'rail' ? 'rail' : f.domain === 'transport' ? 'transport' : f.domain === 'map' ? 'map' : 'factory';
       c[m][f.severity]++;
     }
     return c;
