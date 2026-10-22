@@ -211,6 +211,22 @@ describe('Datenformat-Migration', () => {
     expect(project.groups.grp_v2miners001.members[1].extraction).toBeNull();
   });
 
+  it('ein Projekt im Format 3 bekommt das Blackbox-Merkmal (aus) und behält Kartenstandort und Plan', async () => {
+    const id = newProjectId();
+    const v3 = await fixture('project-v3.json');
+    expect(JSON.parse(v3).formatVersion).toBe(3);
+    await writeFile(join(dir, 'projects', `${id}.json`), v3);
+
+    const got = await app.inject({ method: 'GET', url: `/api/factory/${id}` });
+    expect(got.statusCode).toBe(200);
+    const { project, migrations } = got.json();
+    expect(project.formatVersion).toBe(PROJECT_FORMAT_VERSION);
+    expect(migrations[0]).toMatch(/^3 → 4/);
+    expect(project.factories.fac_v3platten01.blackbox).toBe(false);
+    expect(project.factories.fac_v3platten01.map).toEqual({ x: -120000, y: 80000, rotationDeg: 0 });
+    expect(project.productionPlans.pln_v3platten01.targets).toEqual([{ itemId: 'Desc_IronPlate_C', ratePerMin: 40 }]);
+  });
+
   it('neuere Formate als unterstützt werden abgelehnt', async () => {
     const p = { ...newProj('Zukunft'), formatVersion: PROJECT_FORMAT_VERSION + 1 };
     const r = await app.inject({ method: 'POST', url: '/api/factory', headers: H, payload: { project: p } });

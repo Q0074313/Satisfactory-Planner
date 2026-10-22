@@ -57,6 +57,10 @@ export function ProjectList({ onClose }: { onClose?: () => void }) {
           {t('Beispiel: Eisenwerk')}
         </button>
         <button onClick={async () => done(await createExample('complex'))}>{t('Beispiel: Montage mit Transport')}</button>
+        <button onClick={async () => done(await createExample('medium'))} data-testid="list-example-medium">
+          {t('Beispiel: Computerfabrik (Auto-Layout)')}
+        </button>
+        <button onClick={async () => done(await createExample('large'))}>{t('Beispiel: Schwere modulare Rahmen (Auto-Layout, groß)')}</button>
       </div>
       {server ? (
         <>

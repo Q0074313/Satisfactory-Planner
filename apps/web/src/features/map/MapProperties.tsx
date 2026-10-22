@@ -230,7 +230,7 @@ function FactoryDetails({ factoryId }: { factoryId: string }) {
             </Row>
             <Row label={t('Grundriss')}>
               {fmtNum(fp.rect.maxX - fp.rect.minX, 0)} × {fmtNum(fp.rect.maxY - fp.rect.minY, 0)} m{' '}
-              {fp.source !== 'areas' && <Badge kind="warn">{fp.source === 'buildings' ? t('geschätzt') : t('Platzhalter')}</Badge>}
+              {fp.source !== 'areas' && <Badge kind="warn">{fp.source === 'buildings' || fp.source === 'estimate' ? t('geschätzt') : t('Platzhalter')}</Badge>}
             </Row>
             <div className="button-row">
               <button onClick={open}>{t('Grundriss öffnen')}</button>

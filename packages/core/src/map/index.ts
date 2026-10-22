@@ -10,6 +10,7 @@ import type { GameDataIndex } from '../gamedata/index.ts';
 import { add, dist, rectOf, rotate, snap, sub, type Rect, type Vec2 } from '../geometry/index.ts';
 import type { Building, Factory, FactoryMapPlacement, Project, TransportOrder } from '../model/schema.ts';
 import { extractionRate } from '../production/machine.ts';
+import { solveProduction } from '../production/solver.ts';
 import type { MapNode } from './types.ts';
 
 export * from './types.ts';
@@ -39,9 +40,10 @@ export interface FactoryFootprint {
   rect: Rect;
   /**
    * `areas`: aus Bau- und Fundamentflächen; `buildings`: aus den platzierten
-   * Gebäuden geschätzt; `none`: Platzhalter (32 × 32 m um den Ursprung).
+   * Gebäuden geschätzt; `estimate`: Blackbox, Fläche aus den Maschinen der
+   * Produktionspläne geschätzt; `none`: Platzhalter (32 × 32 m um den Ursprung).
    */
-  source: 'areas' | 'buildings' | 'none';
+  source: 'areas' | 'buildings' | 'estimate' | 'none';
 }
 
 /** Grundriss einer Fabrik für die Karte (alle Stockwerke übereinander). */
@@ -63,8 +65,34 @@ export function factoryFootprint(p: Project, gd: GameDataIndex, factoryId: strin
     const rect = { minX: r.minX - m, minY: r.minY - m, maxX: r.maxX + m, maxY: r.maxY + m };
     return { polygons: [rectPolygon(rect)], rect, source: 'buildings' };
   }
+  if (p.factories[factoryId]?.blackbox) {
+    const side = blackboxSideM(p, gd, factoryId);
+    if (side > 0) {
+      const rect = { minX: -side / 2, minY: -side / 2, maxX: side / 2, maxY: side / 2 };
+      return { polygons: [rectPolygon(rect)], rect, source: 'estimate' };
+    }
+  }
   const rect = { minX: -16, minY: -16, maxX: 16, maxY: 16 };
   return { polygons: [rectPolygon(rect)], rect, source: 'none' };
+}
+
+/** Faktor Grundfläche der Maschinen → Fabrikfläche (Leitungen, Splitter, Wege). Planungsannahme. */
+export const BLACKBOX_AREA_FACTOR = 3;
+
+/**
+ * Geschätzte Seitenlänge einer Blackbox-Fabrik (Quadrat, 8-m-Raster): Summe
+ * der Maschinengrundflächen aus den Produktionsplänen × BLACKBOX_AREA_FACTOR.
+ */
+export function blackboxSideM(p: Project, gd: GameDataIndex, factoryId: string): number {
+  let area = 0;
+  for (const plan of Object.values(p.productionPlans)) {
+    if (plan.factoryId !== factoryId) continue;
+    for (const r of solveProduction(gd, plan).recipes) {
+      const b = gd.building(r.building)?.bounds;
+      if (b) area += r.machinesCeil * (b.maxX - b.minX + 2) * (b.maxY - b.minY + 2);
+    }
+  }
+  return area > 0 ? Math.ceil(Math.sqrt(area * BLACKBOX_AREA_FACTOR) / 8) * 8 : 0;
 }
 
 const rectPolygon = (r: Rect): Vec2[] => [

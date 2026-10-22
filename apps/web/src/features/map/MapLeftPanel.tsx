@@ -1,6 +1,6 @@
 /** Linke Leiste der Karte: Kartenbild, Ebenen, Vorkommen, Fabriken, Standortvorschlag. */
 import { useMemo } from 'react';
-import { factoryFootprint, factoryWorldCenter, mapOps, nodeUsage, siteDemandFromPlan, suggestSites, usedNodes, type Purity } from '@satis/core';
+import { BLACKBOX_AREA_FACTOR, factoryFootprint, factoryWorldCenter, mapOps, nodeUsage, siteDemandFromPlan, suggestSites, usedNodes, type Purity } from '@satis/core';
 import { RESOURCE_COLORS, PURITY_COLORS } from '../../canvas/mapDraw';
 import { N_, t } from '../../i18n';
 import { MAP_LAYER_LABELS, mapView, useMapStore, type MapLayerKey } from '../../state/mapStore';
@@ -182,7 +182,9 @@ function FootprintHint() {
     <p className="hint small-text pad-x">
       {fp.source === 'buildings'
         ? t('Die Fabrik hat noch keine Baufläche; der Grundriss auf der Karte ist aus den Gebäuden geschätzt (gestrichelt).')
-        : t('Die Fabrik hat weder Fläche noch Gebäude; auf der Karte steht ein Platzhalter von 32 × 32 m.')}
+        : fp.source === 'estimate'
+          ? t('Blackbox: Die Fläche auf der Karte ist aus den Maschinen der Produktionspläne geschätzt (gestrichelt, Faktor {f} für Leitungen und Wege).', { f: BLACKBOX_AREA_FACTOR })
+          : t('Die Fabrik hat weder Fläche noch Gebäude; auf der Karte steht ein Platzhalter von 32 × 32 m.')}
     </p>
   );
 }

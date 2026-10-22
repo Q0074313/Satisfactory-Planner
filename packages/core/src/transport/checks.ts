@@ -30,6 +30,9 @@ import {
   TRN_WRONG_WAGON,
 } from './rules.ts';
 
+/** Blackbox-Fabriken haben keinen Grundriss: Übergaben gelten als vorhanden. */
+const isBlackbox = (p: Project, factoryId: string) => p.factories[factoryId]?.blackbox === true;
+
 const unit = (gd: GameDataIndex, itemId: string) => (cargoKind(gd, itemId) === 'solid' ? '/min' : 'm³/min');
 
 export function checkTransport(p: Project, gd: GameDataIndex): Finding[] {
@@ -145,9 +148,9 @@ export function checkTransport(p: Project, gd: GameDataIndex): Finding[] {
       [o.fromFactoryId, 'load'],
       [o.toFactoryId, 'unload'],
     ] as const) {
-      const has = Object.values(p.buildings).some(
-        (b) => b.factoryId === factoryId && b.placement && b.transfer?.mode === mode && transferInterface(gd.building(b.type)) === 'train',
-      );
+      const has =
+        isBlackbox(p, factoryId) ||
+        Object.values(p.buildings).some((b) => b.factoryId === factoryId && b.placement && b.transfer?.mode === mode && transferInterface(gd.building(b.type)) === 'train');
       if (!has) {
         out.push(
           makeFinding(
@@ -308,7 +311,7 @@ function checkOtherMode(p: Project, gd: GameDataIndex, o: TransportOrder, ref: O
       [o.fromFactoryId, 'load'],
       [o.toFactoryId, 'unload'],
     ] as const) {
-      const has = Object.values(p.buildings).some((b) => {
+      const has = isBlackbox(p, factoryId) || Object.values(p.buildings).some((b) => {
         const def = gd.building(b.type);
         return b.factoryId === factoryId && b.placement && b.transfer?.mode === mode && transferInterface(def) === 'vehicle' && (transferCargo(def!) === 'solid') === solid;
       });
@@ -365,7 +368,9 @@ function checkOtherMode(p: Project, gd: GameDataIndex, o: TransportOrder, ref: O
       [o.fromFactoryId, 'load'],
       [o.toFactoryId, 'unload'],
     ] as const) {
-      const has = Object.values(p.buildings).some((b) => b.factoryId === factoryId && b.placement && b.transfer?.mode === mode && transferInterface(gd.building(b.type)) === 'drone');
+      const has =
+        isBlackbox(p, factoryId) ||
+        Object.values(p.buildings).some((b) => b.factoryId === factoryId && b.placement && b.transfer?.mode === mode && transferInterface(gd.building(b.type)) === 'drone');
       if (!has) {
         out.push(
           makeFinding(
@@ -419,7 +424,7 @@ function checkOtherMode(p: Project, gd: GameDataIndex, o: TransportOrder, ref: O
     [o.direct?.from, o.fromFactoryId, 'from'],
     [o.direct?.to, o.toFactoryId, 'to'],
   ] as const) {
-    if (end) continue;
+    if (end || isBlackbox(p, factoryId)) continue;
     out.push(
       makeFinding(
         TRN_NO_INTERFACE,

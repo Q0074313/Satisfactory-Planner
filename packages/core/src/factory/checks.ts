@@ -13,6 +13,7 @@ import { pipeHeads } from './headLift.ts';
 import { buildingFootprint, buildingHeight, type FootprintPart } from './geometry.ts';
 import { linkPath, verticalSections } from './linkPath.ts';
 import {
+  FAB_BLACKBOX,
   FAB_FLOOR_CHANGE_WITHOUT_LIFT,
   FAB_FLOW_ASSUMPTIONS,
   FAB_HARD_OVERLAP,
@@ -172,6 +173,16 @@ export function checkFactory(p: Project, gd: GameDataIndex, factoryId: string, o
   const findings: Finding[] = [];
   const f = p.factories[factoryId];
   if (!f) return findings;
+  if (f.blackbox) {
+    findings.push(
+      makeFinding(FAB_BLACKBOX, [{ table: 'factories', id: factoryId }], {
+        message: tr('„{name}“ ist als Blackbox geplant', { name: f.name }),
+        explanation: tr(FAB_BLACKBOX.description),
+        suggestion: tr('Für die Prüfung des Grundrisses die Blackbox ausschalten oder ein Layout erzeugen.'),
+      }),
+    );
+    return findings;
+  }
   const buildings = Object.values(p.buildings).filter((b) => b.factoryId === factoryId);
   const nameOf = (b: Building) => b.label || gd.name(b.type);
 

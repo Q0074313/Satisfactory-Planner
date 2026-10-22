@@ -67,6 +67,14 @@ export const MIGRATIONS: MigrationStep[] = [
       return p;
     },
   },
+  {
+    from: 3,
+    description: 'Fabriken können als Blackbox (ohne Grundriss) geplant werden',
+    migrate(p) {
+      for (const f of Object.values(table(p, 'factories'))) f.blackbox ??= false;
+      return p;
+    },
+  },
 ];
 
 export function migrateProject(raw: unknown, steps: MigrationStep[] = MIGRATIONS, target = PROJECT_FORMAT_VERSION) {

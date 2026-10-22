@@ -6,6 +6,9 @@
  *   alles genau ausgelastet, mit passendem Produktionsplan.
  * - `complex`: Eisenwerk liefert Platten per Lkw und Stangen über ein direktes
  *   Band an eine Montage (verstärkte Eisenplatten), Produktionspläne mit Import.
+ * - `medium` / `large`: mit dem automatischen Layout erzeugte Fabriken
+ *   (Computer bzw. schwere modulare Rahmen); eine Blackbox-Fabrik
+ *   „Rohstoffversorgung“ beliefert die Eingänge über direkte Bänder und Rohre.
  */
 import type { GameDataIndex } from '../gamedata/index.ts';
 import { tr } from '../i18n/index.ts';
@@ -14,8 +17,10 @@ import { createProject } from './create.ts';
 import * as fac from './ops/factory.ts';
 import * as prod from './ops/production.ts';
 import * as trn from './ops/transport.ts';
+import { applyLayout, generateLayouts, type AutoLayoutOptions, type LayoutVariant } from '../factory/autoLayout.ts';
+import { solveProduction } from '../production/solver.ts';
 
-export type ExampleKind = 'simple' | 'complex';
+export type ExampleKind = 'simple' | 'complex' | 'medium' | 'large';
 
 const MK1 = 'Build_ConveyorBeltMk1_C';
 /** Eingänge liegen lokal hinten (−y), Ausgänge vorn (+y); 270° dreht die Ausgänge in Flussrichtung (+x). */
@@ -58,8 +63,80 @@ function smelting(b: ReturnType<typeof builder>) {
   return merge;
 }
 
+/** Beispiel mit automatischem Layout und Blackbox-Rohstoffversorgung. */
+function layoutExample(
+  p: Project,
+  gd: GameDataIndex,
+  init: { name: string; notes: string; itemId: string; ratePerMin: number; variant: LayoutVariant; options: Partial<AutoLayoutOptions> },
+): void {
+  const fid = Object.keys(p.factories)[0]!;
+  fac.updateFactory(p, fid, { name: init.name, notes: init.notes });
+  const planId = prod.addPlan(p, fid, gd.name(init.itemId));
+  prod.updatePlan(p, gd, planId, { targets: [{ itemId: init.itemId, ratePerMin: init.ratePerMin }] });
+  const res = solveProduction(gd, p.productionPlans[planId]!);
+  const drafts = generateLayouts(gd, res, init.options);
+  const draft = drafts.find((d) => d.variant === init.variant) ?? drafts[0]!;
+  const r = applyLayout(p, gd, fid, draft, { x: 0, y: 0 }, { foundations: true });
+  // Rohstoffe kommen aus einer Blackbox-Fabrik über direkte Leitungen an die Eingänge
+  const supplier = fac.addFactory(p, tr('Rohstoffversorgung'));
+  fac.updateFactory(p, supplier, { notes: tr('Blackbox: steht für Miner, Extraktoren und Züge, die die Eingänge der Fabrik beliefern.') });
+  p.factories[supplier]!.blackbox = true;
+  const need = new Map<string, number>();
+  for (const t of draft.terminals) if (t.dir === 'in') need.set(t.itemId, (need.get(t.itemId) ?? 0) + t.perMin);
+  const sPlan = prod.addPlan(p, supplier, tr('Rohstoffe'));
+  prod.updatePlan(p, gd, sPlan, { targets: [...need].map(([itemId, ratePerMin]) => ({ itemId, ratePerMin: Math.ceil(ratePerMin * 1e4) / 1e4 })) });
+  for (const t of draft.terminals) {
+    if (t.dir !== 'in') continue;
+    const fluid = gd.item(t.itemId)?.form !== 'solid';
+    const tier = fluid ? (init.options.pipeTier ?? 'Build_PipelineMK2_C') : (init.options.beltTier ?? 'Build_ConveyorBeltMk5_C');
+    const cap = fluid ? gd.building(tier)!.pipe!.m3PerMin : gd.building(tier)!.conveyor!.itemsPerMin;
+    trn.addOrder(p, gd, {
+      name: '',
+      itemId: t.itemId,
+      ratePerMin: Math.ceil(t.perMin * 1e4) / 1e4,
+      fromFactoryId: supplier,
+      toFactoryId: fid,
+      fromStationId: null,
+      toStationId: null,
+      trainIds: [],
+      roundTripEstimateS: null,
+      mode: fluid ? 'pipe' : 'belt',
+      direct: { tier, lines: Math.max(1, Math.ceil(t.perMin / cap - 1e-9)), lengthM: 300, from: null, to: { buildingId: r.keyToId.get(t.key)!, portId: t.portId } },
+    });
+  }
+}
+
+const EXAMPLE_NAMES: Record<ExampleKind, string> = {
+  simple: 'Beispiel: Eisenwerk',
+  complex: 'Beispiel: Montage mit Transport',
+  medium: 'Beispiel: Computerfabrik (Auto-Layout)',
+  large: 'Beispiel: Schwere modulare Rahmen (Auto-Layout, groß)',
+};
+
 export function buildExampleProject(gd: GameDataIndex, kind: ExampleKind, base: { datasetId: string; gameVersion: string; now?: Date }): Project {
-  const p = createProject({ ...base, name: kind === 'simple' ? tr('Beispiel: Eisenwerk') : tr('Beispiel: Montage mit Transport') });
+  const p = createProject({ ...base, name: tr(EXAMPLE_NAMES[kind]) });
+  if (kind === 'medium') {
+    layoutExample(p, gd, {
+      name: tr('Computerfabrik'),
+      notes: tr('Mittelgroßes Beispiel, mit dem automatischen Layout erzeugt (Bauart „Kompakter Block“): 5 Computer pro Minute mit Raffinerien, Rohren und Hauptbus.'),
+      itemId: 'Desc_Computer_C',
+      ratePerMin: 5,
+      variant: 'compact',
+      options: { beltTier: 'Build_ConveyorBeltMk4_C', pipeTier: 'Build_Pipeline_C', crossings: 'avoid', distribution: 'manifold', spacing: 'compact' },
+    });
+    return p;
+  }
+  if (kind === 'large') {
+    layoutExample(p, gd, {
+      name: tr('Rahmenwerk'),
+      notes: tr('Großes Beispiel, mit dem automatischen Layout erzeugt (Bauart „Hochbau“): 5 schwere modulare Rahmen pro Minute, rund 150 Maschinen auf drei Etagen.'),
+      itemId: 'Desc_ModularFrameHeavy_C',
+      ratePerMin: 5,
+      variant: 'floors',
+      options: { beltTier: 'Build_ConveyorBeltMk5_C', pipeTier: 'Build_PipelineMK2_C', crossings: 'avoid', distribution: 'manifold', spacing: 'compact', maxFloors: 3 },
+    });
+    return p;
+  }
   const first = Object.keys(p.factories)[0]!;
   if (kind === 'simple') {
     fac.updateFactory(p, first, { name: tr('Eisenwerk'), notes: tr('Beispiel: Ein Miner auf einem normalen Eisenvorkommen versorgt zwei Schmelzöfen. Die Barren gehen zu einem Konstruktor für Platten und zwei für Stangen. Alle Maschinen laufen genau mit 100 %.') });

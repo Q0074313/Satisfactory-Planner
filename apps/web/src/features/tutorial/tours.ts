@@ -453,4 +453,47 @@ export const TOURS: Tour[] = [
       },
     ],
   },
+  {
+    id: 'autolayout',
+    title: N_('Auto-Layout und Blackbox'),
+    steps: [
+      {
+        title: N_('Layout aus dem Produktionsplan'),
+        body: N_(
+          'Unter dem Ergebnis eines Plans erzeugt „Layout erzeugen …“ einen Grundriss mit Maschinen, Splittern, Zusammenführungen, Bändern und Rohren. Dasselbe geht im Fabrikgrundriss rechts bei den Fabrikeigenschaften.',
+        ),
+        detail: N_(
+          'Die Maschinen eines Rezepts stehen in Linien; jede Linie hat oben Zuführungen und unten Sammelleitungen. Ein Hauptbus verbindet die Linien. Ein- und Ausgänge sind Lager bzw. Flüssigkeitspuffer – dort schließt du Transportaufträge oder Gewinnungsgebäude an.',
+        ),
+        target: '[data-testid="plan-autolayout"]',
+        mode: 'production',
+      },
+      {
+        title: N_('Vorgaben und Varianten'),
+        body: N_(
+          'Im Dialog legst du Fläche, Etagen, höchste Band- und Rohrstufe, Abstände, Verteilung (Manifold oder Splitterbaum) und Takt fest. Der Planer zeigt bis zu drei Varianten – Reihen, kompakt, Etagen – mit Vorschau und prüft jede mit dem Durchsatzmodell.',
+        ),
+        detail: N_(
+          'Die Prüfung nimmt an, dass die Eingänge voll versorgt sind, und meldet die kleinste Auslastung der Maschinen sowie Überschneidungen. „Layout übernehmen“ setzt die Variante auf eine freie Fläche (oder in die gewählte Baufläche) – mit Strg+Z ist alles wieder weg.',
+        ),
+        mode: 'production',
+      },
+      {
+        title: N_('Blackbox'),
+        body: N_(
+          'Keine Lust auf Grundriss? Mit „Als Blackbox planen“ zählt eine Fabrik nur über ihre Produktionspläne: Ein- und Ausgänge, Maschinen, Strom und eine geschätzte Fläche für die Karte. Grundrissprüfungen entfallen.',
+        ),
+        target: '[data-testid="factory-blackbox"]',
+        mode: 'factory',
+      },
+      {
+        title: N_('Rezepte nachschlagen'),
+        body: N_(
+          '„Rezepte nachschlagen …“ vergleicht alle Rezepte eines Gegenstands: Ein- und Ausgänge je Maschine, Strom und was 60 Stück pro Minute an Rohstoffen kosten. Ein Klick auf einen Gegenstand springt zu dessen Rezepten.',
+        ),
+        target: '[data-testid="open-recipe-book"]',
+        mode: 'production',
+      },
+    ],
+  },
 ];

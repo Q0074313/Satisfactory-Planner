@@ -279,7 +279,7 @@ export function estimateOrder(
 
 export interface TradeRow {
   itemId: string;
-  /** Erzeugung der angelegten Maschinen. */
+  /** Erzeugung der angelegten Maschinen (Blackbox: laut Produktionsplänen). */
   produced: number;
   consumed: number;
   /** Erzeugung − Verbrauch (ohne Transport). */
@@ -309,11 +309,24 @@ export function factoryTrade(p: Project, gd: GameDataIndex, factoryId: string): 
     }
     return r;
   };
-  for (const b of Object.values(p.buildings)) {
-    if (b.factoryId !== factoryId) continue;
-    const r = machineRates(gd, b);
-    for (const o of r.outputs) row(o.item).produced += o.perMin;
-    for (const i of r.inputs) row(i.item).consumed += i.perMin;
+  const plans = Object.values(p.productionPlans).filter((pl) => pl.factoryId === factoryId);
+  if (p.factories[factoryId]?.blackbox && plans.length > 0) {
+    // Blackbox: Herstellung und Verbrauch laut Plan; eigene Gewinnung zählt als Herstellung
+    for (const plan of plans) {
+      const res = solveProduction(gd, plan);
+      const imported = new Set(plan.supplies.filter((s) => s.origin === 'import').map((s) => s.itemId));
+      for (const it of res.items) {
+        row(it.itemId).produced += it.produced + (imported.has(it.itemId) ? 0 : it.supplied);
+        row(it.itemId).consumed += it.consumed;
+      }
+    }
+  } else {
+    for (const b of Object.values(p.buildings)) {
+      if (b.factoryId !== factoryId) continue;
+      const r = machineRates(gd, b);
+      for (const o of r.outputs) row(o.item).produced += o.perMin;
+      for (const i of r.inputs) row(i.item).consumed += i.perMin;
+    }
   }
   for (const o of Object.values(p.transportOrders)) {
     if (o.toFactoryId === factoryId) row(o.itemId).imports += o.ratePerMin;
@@ -322,8 +335,7 @@ export function factoryTrade(p: Project, gd: GameDataIndex, factoryId: string): 
     const drone = o.fromFactoryId === factoryId ? estimateDroneOrder(gd, o) : null;
     if (drone && drone.fuelPerMin > 0) row(drone.fuelId).transportFuel += drone.fuelPerMin;
   }
-  for (const plan of Object.values(p.productionPlans)) {
-    if (plan.factoryId !== factoryId) continue;
+  for (const plan of plans) {
     const imports = plan.supplies.filter((s) => s.origin === 'import');
     if (imports.length === 0) continue;
     const res = solveProduction(gd, plan, { existingMachines: Object.values(p.buildings).filter((b) => b.factoryId === factoryId) });

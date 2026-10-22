@@ -170,6 +170,9 @@ code {
 }
 .topbar {
   display: flex;
+  /* Bei wenig Platz in eine zweite Zeile umbrechen statt die Seite zu verschieben */
+  flex-wrap: wrap;
+  row-gap: 4px;
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
@@ -191,6 +194,11 @@ code {
   min-width: 90px;
   flex-shrink: 1;
   font-weight: 600;
+}
+.project-name input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .modes {
   display: flex;
@@ -1237,4 +1245,154 @@ g.fn-shortfall rect {
 }
 .pad-x {
   padding: 0 10px;
+}
+
+/* --- Dialog extra breit --- */
+.dialog.xwide {
+  width: min(1280px, calc(100vw - 32px));
+}
+
+/* --- Auto-Layout --- */
+.al-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) 1fr;
+  gap: 8px;
+  min-height: 0;
+}
+.al-options {
+  overflow: auto;
+}
+.al-variants {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 8px;
+}
+.al-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.al-tabs button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px 10px;
+  min-width: 150px;
+  text-align: left;
+}
+.al-tabs button.active {
+  background: var(--active-bg);
+  color: var(--active-text);
+  border-color: var(--accent);
+}
+.al-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.al-canvas {
+  width: 100%;
+  height: 380px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+}
+.al-stats th {
+  width: 110px;
+  white-space: nowrap;
+}
+.al-notes {
+  color: var(--warn);
+  margin: 4px 0;
+}
+.al-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* --- Blackbox --- */
+.blackbox {
+  display: grid;
+  grid-template-columns: 1fr minmax(240px, 320px) 1fr;
+  gap: 16px;
+  padding: 16px;
+  align-items: start;
+}
+.bb-col h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.bb-flows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bb-flows li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  background: var(--panel-2);
+  border-radius: 4px;
+}
+.bb-box {
+  border: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--panel);
+}
+.bb-box h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+.bb-machines {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+/* --- Rezepte nachschlagen --- */
+.rb-title {
+  margin: 6px 0 0 8px;
+  font-size: 15px;
+}
+.rb-rates {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.rb-rates .strong {
+  font-weight: 600;
+}
+.rb-table td {
+  vertical-align: top;
+}
+.scroll-x {
+  overflow-x: auto;
+}
+.rb-used {
+  margin: 8px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  align-items: baseline;
+}
+@media (max-width: 900px) {
+  .al-grid,
+  .blackbox {
+    grid-template-columns: 1fr;
+  }
 }

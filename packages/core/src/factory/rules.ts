@@ -101,7 +101,7 @@ export const FAB_NO_RECIPE = defineRule({
   domain: 'factory',
   kind: 'recommendation',
   certainty: 'static',
-  severity: 'info',
+  severity: 'warning',
   description: 'Ein Produktionsgebäude ohne Rezept trägt nichts zur Bilanz bei.',
   sources: [{ label: 'Planungsstand' }],
 });
@@ -240,4 +240,16 @@ export const FAB_FLOOR_CHANGE_WITHOUT_LIFT = defineRule({
   description:
     'Die Verbindung überwindet mehr als 1 m Höhe ohne senkrechten Abschnitt (Förderlift bzw. senkrechtes Rohr). Die zulässige Steigung von Bändern steht nicht in den Spieldaten und wird nicht geprüft.',
   sources: [{ label: 'Bekannte Einschränkung des Planers' }],
+});
+
+export const FAB_BLACKBOX = defineRule({
+  id: 'FAB-021',
+  title: 'Fabrik als Blackbox geplant',
+  domain: 'factory',
+  kind: 'unchecked',
+  certainty: 'static',
+  severity: 'info',
+  description:
+    'Die Fabrik wird nur über ihre Produktionspläne geplant. Grundriss, Leitungen, Übergaben und Durchsatz werden nicht geprüft; der Planer nimmt an, dass die Fabrik wie geplant läuft.',
+  sources: [{ label: 'Eigene Planungsvorgabe' }],
 });

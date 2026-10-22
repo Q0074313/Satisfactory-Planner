@@ -101,7 +101,7 @@ test('Export und Import als versioniertes JSON', async ({ page }) => {
   const file = await download.path();
   const json = JSON.parse(readFileSync(file!, 'utf8'));
   expect(json.kind).toBe('satis-planner-project');
-  expect(json.formatVersion).toBe(3);
+  expect(json.formatVersion).toBe(4);
   expect(Object.keys(json.project.buildings)).toHaveLength(2);
 
   // Projekt leeren und wieder importieren

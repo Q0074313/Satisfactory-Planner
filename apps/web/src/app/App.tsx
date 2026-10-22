@@ -27,6 +27,9 @@ import { MapLeftPanel } from '../features/map/MapLeftPanel';
 import { MapProperties } from '../features/map/MapProperties';
 import { SettingsDialog } from '../features/settings/SettingsDialog';
 import { DiagnoseDialog } from '../features/findings/DiagnoseDialog';
+import { AutoLayoutDialog } from '../features/autolayout/AutoLayoutDialog';
+import { BlackboxView } from '../features/factory/BlackboxView';
+import { RecipeBook } from '../features/production/RecipeBook';
 import { HelpMenu, TourOverlay, WelcomeCard } from '../features/tutorial/Tour';
 import { ProjectLinkBar, ProjectLinkButton, useLinkBar } from '../features/link/ProjectLink';
 import { TextField } from '../ui/fields';
@@ -72,6 +75,8 @@ export function App() {
   const lang = usePrefs((s) => s.language);
   const settingsOpen = useUiStore((s) => s.settingsOpen);
   const diagnoseOpen = useUiStore((s) => s.diagnoseOpen);
+  const autoLayoutOpen = useUiStore((s) => s.autoLayout !== null);
+  const recipeBookOpen = useUiStore((s) => s.recipeBook !== null);
   const [booting, setBooting] = useState(true);
   const [showList, setShowList] = useState(false);
   useTheme();
@@ -100,6 +105,8 @@ export function App() {
       <Toasts />
       {settingsOpen && <SettingsDialog />}
       {diagnoseOpen && project && !showList && <DiagnoseDialog />}
+      {autoLayoutOpen && project && !showList && <AutoLayoutDialog />}
+      {recipeBookOpen && project && !showList && <RecipeBook />}
       <TourOverlay />
     </div>
   );
@@ -315,6 +322,8 @@ function Workspace({ onOpenList }: { onOpenList: () => void }) {
             </div>
             <RailProperties />
           </>
+        ) : mode === 'factory' && factoryId && project.factories[factoryId]?.blackbox ? (
+          <BlackboxView factoryId={factoryId} bottom={<BottomPanel />} />
         ) : mode === 'factory' && factoryId ? (
           <>
             <LeftPanel />

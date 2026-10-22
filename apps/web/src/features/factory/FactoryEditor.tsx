@@ -19,6 +19,8 @@ import {
   orientPorts,
   portStubZ,
   routePath,
+  worldPorts,
+  type Building,
   type GameDataIndex,
   type ObjectRef,
   type Placement,
@@ -481,6 +483,7 @@ function PlanEditor() {
       const parts = buildingFootprint(def, pl, L.project.floors[L.floorId]);
       const fake = { id: '_ghost', factoryId: L.factoryId, type: tl.type, label: '', recipeId: tl.recipeId ?? null, clock: 1, somersloops: 0, placement: pl, groupInstance: null, extraction: null, transfer: null, stationPart: null, notes: '' };
       drawBuilding(ctx, vp, L.gd, { building: fake, parts }, { ghost: true, labels: true });
+      drawGhostPorts(ctx, vp, fake);
       const rect = geo.rectOf(parts.flatMap((x) => x.polygon));
       drawGaps(ctx, vp, rect, new Set());
       const s = vp.toScreen({ x: rect.maxX, y: rect.minY });
@@ -497,6 +500,7 @@ function PlanEditor() {
         if (!b?.placement || !def) continue;
         const pl = { ...b.placement, floorId: L.floorId, x: b.placement.x + off.x, y: b.placement.y + off.y };
         drawBuilding(ctx, vp, L.gd, { building: { ...b, placement: pl }, parts: buildingFootprint(def, pl, L.project.floors[L.floorId]) }, { ghost: true });
+        drawGhostPorts(ctx, vp, { ...b, placement: pl });
       }
       return;
     }
@@ -510,7 +514,16 @@ function PlanEditor() {
       const pl: Placement = { floorId: L.floorId, x: c.x + r.x, y: c.y + r.y, zOffsetM: m.zOffsetM, rotationDeg: m.rotationDeg + tl.rotationDeg };
       const fake = { id: '_g', factoryId: L.factoryId, type: m.type, label: '', recipeId: m.recipeId, clock: m.clock, somersloops: 0, placement: pl, groupInstance: null, extraction: null, transfer: null, stationPart: null, notes: '' };
       drawBuilding(ctx, vp, L.gd, { building: fake, parts: buildingFootprint(def, pl, L.project.floors[L.floorId]) }, { ghost: true });
+      drawGhostPorts(ctx, vp, fake);
     }
+  }
+
+  /** Ein- und Ausgänge eines noch nicht abgesetzten Gebäudes (Vorschau). */
+  function drawGhostPorts(ctx: CanvasRenderingContext2D, vp: Viewport, b: Building) {
+    const L = live.current;
+    const def = L.gd.building(b.type);
+    if (!def) return;
+    for (const p of worldPorts(b, def, L.project.floors[L.floorId])) drawPort(ctx, vp, p.world, p.kind, p.direction, false, false, p.role);
   }
 
   /** Passt ein Anschluss als Gegenstück zum Startanschluss des Entwurfs? */

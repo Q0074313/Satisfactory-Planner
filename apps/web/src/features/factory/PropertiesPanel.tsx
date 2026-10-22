@@ -74,6 +74,18 @@ function FactoryProps({ factoryId }: { factoryId: string }) {
         <Row label={t('Notizen')}>
           <TextField value={f.notes} onCommit={(notes) => apply(t('Notizen'), (d) => ops.updateFactory(d, factoryId, { notes }))} />
         </Row>
+        <label className="check-row" title={t('Nur über die Produktionspläne planen (Ein- und Ausgänge, Maschinen, Strom), ohne Grundriss')}>
+          <input
+            type="checkbox"
+            data-testid="factory-blackbox"
+            checked={f.blackbox}
+            onChange={(e) => apply(e.target.checked ? t('Blackbox an') : t('Blackbox aus'), (d) => ops.updateFactory(d, factoryId, { blackbox: e.target.checked }))}
+          />
+          {t('Als Blackbox planen (kein Grundriss)')}
+        </label>
+        <button className="small" data-testid="factory-autolayout" onClick={() => useUiStore.getState().openAutoLayout(factoryId)}>
+          {t('Layout automatisch erzeugen …')}
+        </button>
         <Row label={t('Kartenstandort')} plain>
           {f.map ? (
             <span>

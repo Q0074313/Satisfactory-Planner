@@ -12,7 +12,7 @@ import {
   pathPolygon,
   pathPolyline,
 } from '../../canvas/draw';
-import { formatNumber } from '../../i18n';
+import { formatNumber, t } from '../../i18n';
 import type { LayerKey } from '../../state/uiStore';
 import { portKey, type FactoryScene, type SceneBuilding } from './scene';
 
@@ -344,6 +344,8 @@ export function drawBuilding(
       lines.push({ text: `${formatNumber(opts.utilization * 100, 0)} %`, size: 10, color: opts.utilization < 0.01 ? '#ff8a8a' : '#ffd27f' });
     }
     if (sub) lines.splice(1, 0, { text: sub, size: 10, color: '#c8ccd2' });
+    // Produktionsgebäude ohne Rezept: deutlich kennzeichnen (steht immer still)
+    else if (def.category === 'production' && !sb.building.recipeId && !sb.building.id.startsWith('_')) lines.splice(1, 0, { text: t('kein Rezept'), size: 10, color: '#ff8a8a' });
     // So viele Zeilen wie in die Höhe passen; die Auslastung hat Vorrang vor der Rezeptzeile
     const fit = Math.max(1, Math.min(lines.length, Math.floor(boxH / 14)));
     const shown = fit < lines.length && sub && lines.length === 3 ? [lines[0]!, lines[2]!].slice(0, fit) : lines.slice(0, fit);

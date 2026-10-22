@@ -61,6 +61,16 @@ export function DiagnoseDialog() {
       .map((m) => ({ id: m.buildingId, util: m.utilization, name: project.buildings[m.buildingId]?.label || gd.name(project.buildings[m.buildingId]?.type ?? '') }))
       .sort((a, b) => a.util - b.util || a.name.localeCompare(b.name, getLanguage()));
   }, [flow, project, gd]);
+  // Auffällige Gebäude: Produktionsgebäude ohne Rezept, stillstehende und nicht voll laufende Maschinen
+  const noRecipe = useMemo(
+    () =>
+      Object.values(project.buildings)
+        .filter((b) => b.factoryId === factoryId && !b.recipeId && gd.building(b.type)?.category === 'production')
+        .map((b) => ({ id: b.id, name: b.label || gd.name(b.type), placed: !!b.placement })),
+    [project, gd, factoryId],
+  );
+  const idle = machines.filter((m) => m.util < 1e-3);
+  const partial = machines.filter((m) => m.util >= 1e-3 && m.util < 0.999);
   const items = useMemo(() => {
     const set = new Set<string>();
     for (const m of flow?.machines.values() ?? []) for (const x of [...m.inputs, ...m.outputs]) set.add(x.itemId);
@@ -119,7 +129,48 @@ export function DiagnoseDialog() {
         )}
       </Section>
 
-      <Section title={t('2. Was stimmt nicht?')}>
+      <Section title={t('2. Auffällige Gebäude')}>
+        {noRecipe.length + idle.length + partial.length === 0 ? (
+          <p className="small-text" data-testid="diagnose-conspicuous-none">
+            {machines.length > 0 ? t('Alle aufgestellten Maschinen laufen voll, und jedes Produktionsgebäude hat ein Rezept.') : t('Keine Maschinen aufgestellt.')}
+          </p>
+        ) : (
+          <ul className="diagnosis" data-testid="diagnose-conspicuous">
+            {noRecipe.map((b) => (
+              <li
+                key={b.id}
+                className={`lvl-error ${b.placed ? 'clickable' : ''}`}
+                onClick={() => {
+                  if (!b.placed) return;
+                  reveal(project, factoryId, [{ table: 'buildings', id: b.id }]);
+                  close();
+                }}
+              >
+                <Badge kind="err">{t('kein Rezept')}</Badge> {b.name}
+                {!b.placed && <span className="dim"> · {t('nicht platziert')}</span>}
+              </li>
+            ))}
+            {idle.map((m) => (
+              <li key={m.id} className="lvl-error clickable" onClick={() => {
+                  setQuestion('machine');
+                  setMachineId(m.id);
+                }} title={t('Ursache unten anzeigen')}>
+                <Badge kind="err">{t('steht still')}</Badge> {m.name} (0 %)
+              </li>
+            ))}
+            {partial.map((m) => (
+              <li key={m.id} className="lvl-warning clickable" onClick={() => {
+                  setQuestion('machine');
+                  setMachineId(m.id);
+                }} title={t('Ursache unten anzeigen')}>
+                <Badge kind="warn">{t('läuft nicht voll')}</Badge> {m.name} ({Math.round(m.util * 100)} %)
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section title={t('3. Was stimmt nicht?')}>
         <Segmented
           value={question}
           onChange={setQuestion}
@@ -134,7 +185,7 @@ export function DiagnoseDialog() {
               <option value="">{t('– wählen –')}</option>
               {machines.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.name} ({Math.round(m.util * 100)} %)
+                  {m.util < 1e-3 ? `⛔ ${m.name} (${t('steht still')})` : `${m.name} (${Math.round(m.util * 100)} %)`}
                 </option>
               ))}
             </select>
@@ -173,7 +224,7 @@ export function DiagnoseDialog() {
         )}
       </Section>
 
-      <Section title={t('3. Was der Planer nicht prüft')}>
+      <Section title={t('4. Was der Planer nicht prüft')}>
         <p className="dim small-text">{t('Findet der Planer nichts, liegt die Ursache oft hier:')}</p>
         <ul className="small-text">
           {uncheckedCauses().map((c) => (

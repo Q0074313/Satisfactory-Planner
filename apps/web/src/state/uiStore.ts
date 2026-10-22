@@ -87,6 +87,10 @@ interface UiState {
   settingsOpen: boolean;
   /** Dialog „Etwas stimmt nicht?“ (geführte Fehlersuche). */
   diagnoseOpen: boolean;
+  /** Dialog „Layout automatisch erzeugen“ (Fabrik und vorgewählter Plan). */
+  autoLayout: { factoryId: string; planId: string | null } | null;
+  /** Dialog „Rezepte nachschlagen“ (vorgewählter Gegenstand). */
+  recipeBook: { itemId: string | null } | null;
   /** Aktive Führung (Tutorial) und Schritt. */
   tour: { id: string; step: number } | null;
   /** Bitte an den Editor, einen Punkt zu zentrieren. */
@@ -108,6 +112,10 @@ interface UiState {
   setFindingsScope(s: 'view' | 'all'): void;
   setSettingsOpen(open: boolean): void;
   setDiagnoseOpen(open: boolean): void;
+  openAutoLayout(factoryId: string, planId?: string | null): void;
+  closeAutoLayout(): void;
+  openRecipeBook(itemId?: string | null): void;
+  closeRecipeBook(): void;
   startTour(id: string): void;
   setTourStep(step: number): void;
   endTour(): void;
@@ -150,6 +158,8 @@ export const useUiStore = create<UiState>((set) => ({
   findingsScope: 'view',
   settingsOpen: false,
   diagnoseOpen: false,
+  autoLayout: null,
+  recipeBook: null,
   tour: null,
   focus: null,
   clipboard: null,
@@ -173,6 +183,10 @@ export const useUiStore = create<UiState>((set) => ({
   setFindingsScope: (findingsScope) => set({ findingsScope }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setDiagnoseOpen: (diagnoseOpen) => set({ diagnoseOpen }),
+  openAutoLayout: (factoryId, planId = null) => set({ autoLayout: { factoryId, planId } }),
+  closeAutoLayout: () => set({ autoLayout: null }),
+  openRecipeBook: (itemId = null) => set({ recipeBook: { itemId } }),
+  closeRecipeBook: () => set({ recipeBook: null }),
   startTour: (id) => set({ tour: { id, step: 0 } }),
   setTourStep: (step) => set((s) => (s.tour ? { tour: { ...s.tour, step } } : {})),
   endTour: () => set({ tour: null }),

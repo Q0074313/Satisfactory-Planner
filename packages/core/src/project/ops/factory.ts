@@ -52,7 +52,7 @@ export function addFactory(p: Project, name: string): string {
   return factory.id;
 }
 
-export function updateFactory(p: Project, id: string, patch: { name?: string; color?: string; notes?: string }): void {
+export function updateFactory(p: Project, id: string, patch: { name?: string; color?: string; notes?: string; blackbox?: boolean }): void {
   const f = must(p.factories[id], tr('Fabrik'));
   Object.assign(f, patch);
 }

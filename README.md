@@ -99,7 +99,7 @@ Nützlich: `docker compose logs -f app`, `docker compose ps`, `curl -s localhost
 
 ## Datenformat und Migrationen
 
-Jedes gespeicherte Projekt trägt auf oberster Ebene das Feld **`formatVersion`** (derzeit **3**; definiert als `PROJECT_FORMAT_VERSION` in [packages/core/src/model/schema.ts](packages/core/src/model/schema.ts)). Beim Laden – vom Server, aus IndexedDB oder per JSON-Import – führt die zentrale Funktion `migrateProject()` in [packages/core/src/project/migrations.ts](packages/core/src/project/migrations.ts) ältere Stände Schritt für Schritt ins aktuelle Format über (1→2→3 …) und prüft danach das Schema. Gespeichert wird immer im aktuellen Format; auf der Platte bleibt eine alte Datei bis zum nächsten Speichern unverändert.
+Jedes gespeicherte Projekt trägt auf oberster Ebene das Feld **`formatVersion`** (derzeit **4**; definiert als `PROJECT_FORMAT_VERSION` in [packages/core/src/model/schema.ts](packages/core/src/model/schema.ts)). Beim Laden – vom Server, aus IndexedDB oder per JSON-Import – führt die zentrale Funktion `migrateProject()` in [packages/core/src/project/migrations.ts](packages/core/src/project/migrations.ts) ältere Stände Schritt für Schritt ins aktuelle Format über (1→2→3→4 …) und prüft danach das Schema. Gespeichert wird immer im aktuellen Format; auf der Platte bleibt eine alte Datei bis zum nächsten Speichern unverändert.
 
 **Neue Migration hinzufügen** (bei jeder Formatänderung, die alte Daten unlesbar oder falsch machen würde – neue Pflichtfelder, Umbenennungen, geänderte Bedeutung):
 
@@ -136,6 +136,7 @@ Ein Projekt mit einer **neueren** Version als der Server kennt, wird abgelehnt s
 | 7 | Zugsimulation, Server, Migrationen, Docker, Spieldatenwechsel | ✅ |
 | 8 | Betrieb auf dem Heimserver: Projekte unter geheimen Links (/f/&lt;id&gt;), Dateiablage, Tailscale Funnel, update.sh | ✅ |
 | 0.6 | Weltkarte: Kartenbild, Rohstoffvorkommen, Fabrikstandort im Weltraster, Miner auf Vorkommen, Entfernungen, Standortvorschlag | ✅ |
+| 0.7 | Automatisches Fabriklayout (Varianten Reihen/kompakt/Etagen, Prüfung im Durchsatzmodell), Blackbox-Fabriken, Rezepte nachschlagen und vergleichen | ✅ |
 
 Details und Abnahmekriterien: [docs/ENTWICKLUNGSPLAN.md](docs/ENTWICKLUNGSPLAN.md).
 

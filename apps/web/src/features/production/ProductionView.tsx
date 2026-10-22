@@ -121,6 +121,9 @@ export function ProductionView({ bottom }: { bottom?: ReactNode }) {
             ))}
           </ul>
           {plans.length === 0 && <p className="dim small-text">{t('Noch kein Plan – mit + anlegen.')}</p>}
+          <button className="small" data-testid="open-recipe-book" onClick={() => useUiStore.getState().openRecipeBook(plan?.targets[0]?.itemId ?? null)}>
+            {t('Rezepte nachschlagen …')}
+          </button>
         </Section>
         {plan && <PlanSettings plan={plan} />}
       </aside>
@@ -403,6 +406,16 @@ function RecipeSelection({ plan, result }: { plan: ProductionPlan; result: Solve
                   <input type="checkbox" checked={on} onChange={(e) => toggle(r.id, r.alternate, e.target.checked)} />
                   <span>{localName(r.name)}</span>
                   {r.alternate && <Badge kind="info">{t('Alt')}</Badge>}
+                  <button
+                    className="link-button small"
+                    title={t('Rezepte für {item} vergleichen', { item: gd.name(r.outputs[0]!.item) })}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      useUiStore.getState().openRecipeBook(r.outputs[0]!.item);
+                    }}
+                  >
+                    ⓘ
+                  </button>
                   {used.has(r.id) && <Badge kind="ok">{t('genutzt')}</Badge>}
                 </label>
               );
@@ -585,6 +598,14 @@ function BalanceView({ plan, result }: { plan: ProductionPlan; result: SolveResu
             }}
           >
             {t('Maschinen in Fabrik anlegen')}
+          </button>
+          <button
+            data-testid="plan-autolayout"
+            disabled={result.recipes.length === 0}
+            title={t('Grundriss mit Maschinen, Bändern und Rohren aus diesem Plan erzeugen')}
+            onClick={() => useUiStore.getState().openAutoLayout(plan.factoryId, plan.id)}
+          >
+            {t('Layout erzeugen …')}
           </button>
         </span>
       }

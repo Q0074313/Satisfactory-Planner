@@ -4,7 +4,7 @@
  * damit Aufgaben direkt erledigt werden können.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { LANGUAGES, type Lang } from '@satis/core';
+import { LANGUAGES, type ExampleKind, type Lang } from '@satis/core';
 import { t } from '../../i18n';
 import { usePrefs } from '../../state/prefsStore';
 import { useProjectStore } from '../../state/projectStore';
@@ -135,7 +135,7 @@ export function TourOverlay() {
 }
 
 /** Öffnet ein Beispielprojekt als neues Projekt (das aktuelle bleibt unverändert gespeichert). */
-async function openExample(kind: 'simple' | 'complex', after?: () => void) {
+async function openExample(kind: ExampleKind, after?: () => void) {
   after?.();
   if (await createExample(kind)) useUiStore.getState().toast(t('Beispielprojekt angelegt. Dein bisheriges Projekt bleibt unverändert.'));
 }
@@ -171,6 +171,12 @@ export function HelpMenu() {
           </button>
           <button className="menu-item" data-testid="example-complex" onClick={() => void openExample('complex', () => setOpen(false))}>
             {t('Komplex: zwei Fabriken mit Transport')}
+          </button>
+          <button className="menu-item" data-testid="example-medium" onClick={() => void openExample('medium', () => setOpen(false))}>
+            {t('Mittel: Computerfabrik (Auto-Layout)')}
+          </button>
+          <button className="menu-item" data-testid="example-large" onClick={() => void openExample('large', () => setOpen(false))}>
+            {t('Groß: 150 Maschinen auf drei Etagen (Auto-Layout)')}
           </button>
           <label className="check-row menu-check">
             <input type="checkbox" checked={detailed} onChange={(e) => usePrefs.getState().setDetailedTours(e.target.checked)} />

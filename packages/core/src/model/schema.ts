@@ -1,5 +1,5 @@
 /**
- * Projektschema (Dateiformat-Version 3).
+ * Projektschema (Dateiformat-Version 4).
  *
  * Alle Objekte liegen normalisiert in ID-Tabellen auf Projektebene und
  * verweisen über IDs aufeinander. Koordinaten sind Weltkoordinaten in Metern:
@@ -8,7 +8,7 @@
  */
 import { z } from 'zod';
 
-export const PROJECT_FORMAT_VERSION = 3;
+export const PROJECT_FORMAT_VERSION = 4;
 
 const id = z.string().min(1);
 const finite = z.number().finite();
@@ -39,6 +39,11 @@ export const FactorySchema = z.object({
   notes: z.string().default(''),
   /** Standort auf der Weltkarte; `null` = nicht platziert. */
   map: FactoryMapPlacementSchema.nullable().default(null),
+  /**
+   * Blackbox: Die Fabrik wird nur über ihre Produktionspläne geplant (Ein- und
+   * Ausgänge, Maschinen, Strom), ohne Grundriss. Grundrissprüfungen entfallen.
+   */
+  blackbox: z.boolean().default(false),
 });
 export type Factory = z.infer<typeof FactorySchema>;
 

@@ -291,3 +291,38 @@ Alles rund um die Spielkarte (aus „Sag mir mal …“ im Planungsdokument), in
 - Beispielprojekte: Gebäude in Flussrichtung gedreht, Anschlüsse auf einer Linie, Bänder rechtwinklig verlegt. *(Unit-Test)*
 
 **Grenzen:** Die Höhe der Bahnhofsteile folgt dem vorderen Bahnhofsknoten (Gleishöhe = Grundfläche, Annahme). Löschen des Bahnhofsgebäudes im Grundriss entfernt den ganzen Bahnhof aus dem Netz (rückgängig machbar). Neue Bahnsteige entstehen nur im Schienennetz, nicht durch Bauen im Grundriss.
+
+## Version 0.7 – Automatisches Fabriklayout, Blackbox, Rezepte ✅
+
+Aus dem Planungsdokument „Updates“ (Fabrikplanung: Layout automatisch, verschiedene Versionen, Blackbox; Produktion: Alt-Rezepte nachschlagen) plus die offenen Punkte aus „Hotfixes“.
+
+**Abnahmekriterien**
+- [x] Dialog „Layout automatisch erzeugen“ (aus dem Produktionsplan, den Fabrikeigenschaften und der Blackbox-Ansicht): Vorgaben Ort (frei neben dem Bestand oder vorhandene Bau-/Fundamentfläche), Breite und Tiefe höchstens, Etagen höchstens, höchste Band- und Rohrstufe, Abstände (kompakt/breit), Verteilung (Manifold/Splitterbaum), Takt (gleichmäßig/volle Maschinen + Rest), Fundamentfläche. *(E2E)*
+- [x] Bis zu drei Varianten: A Reihen (Linien auf einer Seite des Verteilergangs), B kompakt (beidseitig), C Etagen (beidseitig auf mehrere Etagen, Lifte im Gang; ab 2 Etagen). Vorschau je Variante (zoombar, Etagenwahl), Maße, Gebäude, Übergaben, Leitungslängen, Hinweise; Varianten, die die Vorgaben nicht erfüllen, sind markiert. *(Unit- und E2E-Test)*
+- [x] Jede Variante wird an einer Projektkopie geprüft: Durchsatzmodell mit voll versorgten Eingängen (kleinste und mittlere Auslastung) und Überschneidungen. Testpläne (verstärkte Eisenplatten, Kunststoff mit Raffinerie und Nebenprodukt, modularer Rahmen; im Belastungstest auch schwere modulare Rahmen mit 151 Maschinen, Computer, Motoren, Treibstoff, Gummi/Kunststoff-Kreislauf, Aluminium) laufen in allen Varianten zu 100 % ohne Überschneidungen. *(Unit-Test)*
+- [x] Linien respektieren die höchste Stufe (Durchsatz je Leitung) und die Breite (Maschinen je Linie); Leitungen bekommen die kleinste ausreichende Stufe. *(Unit-Test)*
+- [x] Übernahme in einem Undo-Schritt: fehlende Etagen über der obersten (oberste vorhandene Etage wird bei Bedarf erhöht), nicht platzierte Maschinen mit passendem Rezept werden verwendet, Ein- und Ausgänge als beschriftete Lager bzw. Flüssigkeitspuffer, Fundamentfläche je Etage. *(Unit- und E2E-Test)*
+- [x] Blackbox-Fabriken (Formatversion 4, Migration 3 → 4, Fixture `project-v3.json`): Ansicht mit Ein- und Ausgängen (eigene Gewinnung/Zulieferung, Transportabdeckung), Maschinen, Strom und geschätzter Fläche; Grundrissprüfungen entfallen (FAB-021), Transport rechnet mit Herstellung und Verbrauch laut Plänen, Übergabegebäude gelten als vorhanden, PROD-003 entfällt; die Karte zeigt eine geschätzte Fläche. *(API-, Unit- und E2E-Test)*
+- [x] „Rezepte nachschlagen“: alle Rezepte eines Gegenstands mit Ein- und Ausgängen je Maschine, Zyklusdauer, Strom, Rohstoffen für 60/min, Maschinen und gewichtetem Rohstoffbedarf im Vergleich zum Standardrezept; Vorprodukte und Verwendung anklickbar; Aufruf auch aus der Rezeptauswahl (ⓘ). *(E2E)*
+- [x] Hotfix-Punkte: Bauvorschau zeigt Ein- und Ausgänge (Einzelgebäude, Gruppen, Einfügen); Fehlersuche hat den Abschnitt „Auffällige Gebäude“ (ohne Rezept, steht still, läuft nicht voll); FAB-009 ist jetzt eine Warnung, Gebäude ohne Rezept tragen im Grundriss „kein Rezept“. *(E2E)*
+- [x] Tutorial-Tour „Auto-Layout und Blackbox“.
+
+**Vereinfachungen / bekannte Grenzen**
+- Anschlusslagen sind schematisch (Eingänge hinten, Ausgänge vorn); Leitungen kreuzen sich im Grundriss und müssen im Spiel über Lifte bzw. Höhen geführt werden.
+- Ein- und Ausgänge sind Übergabelager, je Leitung eins. Gewinnungsgebäude setzt das Layout nicht (die Vorkommen liegen woanders); nach der Übernahme laufen die Maschinen erst, wenn die Eingänge Zulauf haben (Transportauftrag, Gewinnung).
+- Splitterbaum nur mit Teilern 2 und 3; Rohre immer als Sammelleitung; keine Pumpen bei Etagenwechseln (FAB-016/019 melden das nach der Übernahme).
+- Variante C verteilt die Linien in Stufenreihenfolge auf die Etagen; ein Layout „um bestehende Gebäude herum“ gibt es nicht (immer freie Fläche bzw. eine gewählte Fläche).
+- Blackbox gilt für die ganze Fabrik; die Fläche ist eine Schätzung (Maschinengrundfläche × 3).
+- Wie ein Alternativrezept freigeschaltet wird (Festplatte, M.A.M., Meilenstein), steht nicht in den Spieldaten des Planers.
+
+### Hotfix 0.7.1
+
+Aus „Hotfixes“: Layout sah noch nicht schön aus; Bauarten als Standards speichern; mittlere und große Beispielfabrik; Option, ob sich Bänder kreuzen dürfen; Bänder sinnvoll verlegen.
+
+- Neue Bauweise **Hauptbus** (nach Recherche üblicher Bauweisen, Quellen in docs/SPIELREGELN.md): je Gegenstand eine gerade Busspur mit Splittern bzw. Zusammenführungen direkt auf der Spur, Ein- und Ausgänge am Anfang bzw. Ende ihrer Spur, kurze rechtwinklige Abzweige zu den Linien; ersetzt den Verteilergang mit Einzelleitungen. *(Unit-Test)*
+- **Fundamentraster:** Maschinen mittig in 4- bzw. 8-m-Rasterfeldern, Linienoberkanten auf dem 4-m-Raster, Layoutmaße in ganzen Fundamenten. *(Unit-Test)*
+- **Kreuzungen** als Option: „vermeiden“ (Standard) staffelt Bus, Abzweige und äußere Zuführungen in der Höhe – in allen Testplänen (bis 151 Maschinen, alle Varianten, Manifold und Splitterbaum) 0 Kreuzungen auf gleicher Höhe; „erlauben“ legt alles flach ohne Lifte. Die Prüfung im Dialog zählt Kreuzungen auf gleicher Höhe. *(Unit- und E2E-Test)*
+- **Bauarten:** sechs eingebaute (Hauptbus mit Manifolds, Kompakter Block, Mit Laufwegen, Load Balancer, Hochbau, Früh im Spiel) mit Beschreibung; eigene Bauarten speichern und löschen (im Browser gespeichert). *(E2E)*
+- **Beispielprojekte** „Computerfabrik“ (mittel, 28 Maschinen) und „Schwere modulare Rahmen“ (groß, 151 Maschinen auf drei Etagen), mit dem Auto-Layout erzeugt; eine Blackbox „Rohstoffversorgung“ beliefert die Eingänge über direkte Leitungen. Ohne Fehler und Warnungen, alle Maschinen laufen (Restabweichung < 0,01 % durch gerundete Takte). Im Hilfemenü und in der Projektliste. *(Unit- und E2E-Test)*
+- Kopfzeile bricht bei wenig Platz um, statt die Seite seitlich zu verschieben; langer Projektname überlappt nicht mehr.
+

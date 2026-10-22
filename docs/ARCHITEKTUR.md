@@ -15,8 +15,8 @@ Satis Planner ist eine Webanwendung zur Planung von Satisfactory-Fabriken. Sie v
 | **Core: Projekt** | `packages/core/src/project` | Projekt anlegen, Operationen (Befehle), Serialisierung, Import/Export, Formatmigrationen. | Modell, Spieldaten |
 | **Core: Spieldaten** | `packages/core/src/gamedata` | Typen des Datensatzes, Index für schnellen Zugriff (Rezepte je Produkt usw.), Datensatz-Registry. | – |
 | **Core: Geometrie** | `packages/core/src/geometry` | Vektoren, gedrehte Rechtecke, Schnitttests, Bezierkurven, Kurvenradien. | – |
-| **Core: Fabrik** | `packages/core/src/factory` | Gebäudegrundrisse, Anschlusslagen, Kollisionsprüfung, Flächenberechnung, Verlauf von Bändern/Rohren (Verlegemodi), Durchsatzmodell (LP über die eingezeichneten Verbindungen), Höhen- und Liftprüfung. | Geometrie, Spieldaten, Produktion (Maschinenraten) |
-| **Core: Produktion** | `packages/core/src/production` | Lineares Programm für die Produktionsplanung (Ziele, Rohstoffgrenzen, Maschinengrenzen), Bilanz Soll/Geplant/Platziert/Angeschlossen/Durchsatz, Produktionsgraph mit Schichtenlayout und Sortierung nach Kettenstufe. | Spieldaten |
+| **Core: Fabrik** | `packages/core/src/factory` | Gebäudegrundrisse, Anschlusslagen, Kollisionsprüfung, Flächenberechnung, Verlauf von Bändern/Rohren (Verlegemodi), Durchsatzmodell (LP über die eingezeichneten Verbindungen), Höhen- und Liftprüfung, automatisches Layout aus einem Produktionsplan (`autoLayout.ts`: Linien, Hauptbus, Höhenstaffel gegen Kreuzungen, Varianten, Prüfung an einer Projektkopie inkl. Kreuzungszählung). | Geometrie, Spieldaten, Produktion (Maschinenraten) |
+| **Core: Produktion** | `packages/core/src/production` | Lineares Programm für die Produktionsplanung (Ziele, Rohstoffgrenzen, Maschinengrenzen), Bilanz Soll/Geplant/Platziert/Angeschlossen/Durchsatz, Produktionsgraph mit Schichtenlayout und Sortierung nach Kettenstufe, Rezeptvergleich (Kosten je Rezept für 60/min). | Spieldaten |
 | **Core: Schiene** | `packages/core/src/rail` | Gleistopologie, Blockbildung, Signalprüfregeln, Wegfindung (BFS und Dijkstra), vereinfachte Zugsimulation (Blöcke, Pfadreservierung, Halte, Deadlock- und Kollisionserkennung). | Geometrie, Spieldaten |
 | **Core: Transport** | `packages/core/src/transport` | Zugkapazität, Umlaufschätzung, Durchsatz je Auftrag, Bilanz lokal/extern je Fabrik, Transportbefunde. | Schiene, Produktion |
 | **Core: Mehrsprachigkeit** | `packages/core/src/i18n` | `tr()` mit deutschem Quelltext als Schlüssel, Wörterbücher je Sprache, Zahlenformat. Prüfmeldungen und Fehlermeldungen des Kerns werden übersetzt. | – |
@@ -104,9 +104,10 @@ satis-planner/
    │     ├─ canvas/          Viewport, Renderer, Treffer, Werkzeug-Infrastruktur
    │     ├─ i18n/            Wörterbuch der Oberfläche (Englisch), Übersetzungstest
    │     ├─ features/
-   │     │  ├─ factory/      Grundriss, Seitenansicht, Werkzeugleiste, Eigenschaften, Bilanz
+   │     │  ├─ factory/      Grundriss, Seitenansicht, Werkzeugleiste, Eigenschaften, Bilanz, Blackbox-Ansicht
+   │     │  ├─ autolayout/   Dialog „Layout automatisch erzeugen“ (Vorgaben, Varianten, Vorschau, Prüfung)
    │     │  ├─ rail/         Schienen-Editor
-   │     │  ├─ production/   Produktionsplanung und Bilanz
+   │     │  ├─ production/   Produktionsplanung und Bilanz, Rezepte nachschlagen
    │     │  ├─ transport/    Transportaufträge, Schätzung, Bilanz lokal/extern
    │     │  ├─ map/          Weltkarte: Kartenbild (Kacheln live), Vorkommen, Standorte, Standortvorschlag
    │     │  ├─ settings/     Sprache, Farbschema, Tastenbelegung, Spieldatensatz

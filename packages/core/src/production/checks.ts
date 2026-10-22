@@ -99,7 +99,8 @@ export function checkPlan(p: Project, gd: GameDataIndex, planId: string, opts: {
       ),
     );
   }
-  if (!plan.limitToExistingMachines) {
+  // Blackbox: Maschinen werden nicht einzeln angelegt
+  if (!plan.limitToExistingMachines && !p.factories[plan.factoryId]?.blackbox) {
     const cmp = compareBalance(p, gd, plan.factoryId, res, opts.useCache ? { flow: cachedFactoryFlow(p, gd, plan.factoryId) } : {});
     const missing = cmp.recipes.filter((r) => r.soll - r.geplant > 1e-4);
     if (missing.length) {

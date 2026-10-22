@@ -106,12 +106,12 @@ test('Lokale Projekte (IndexedDB, altes Format 1) werden zum Hochladen angeboten
   await expect(page.locator('canvas.editor-canvas')).toBeVisible();
   const uploaded = await page.getByTestId('project-link').inputValue();
   expect(uploaded).toMatch(LINK);
-  expect(await projectState<number>(page, '(p) => p.formatVersion')).toBe(3);
+  expect(await projectState<number>(page, '(p) => p.formatVersion')).toBe(4);
 
   // Auf dem Server liegt das Projekt im aktuellen Format
   const id = new URL(uploaded).pathname.split('/').pop()!;
   const r = await request.get(`/api/factory/${id}`);
-  expect((await r.json()).project.formatVersion).toBe(3);
+  expect((await r.json()).project.formatVersion).toBe(4);
 
   // Angebot merkt sich den Upload und lässt sich ausblenden
   await page.locator('.brand').click();

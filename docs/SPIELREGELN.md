@@ -56,6 +56,31 @@ Kennzeichnung der Verlässlichkeit:
 | Weiche Boxen (`CT_Soft`): Verhalten bei Überschneidung | **nicht verifiziert** → nur Warnung |
 | Fundamentraster 8 m × 8 m; Höhen 1/2/4 m | Spieldaten (`mWidth`, `mDepth`, `mHeight`) |
 
+### Automatisches Layout (seit 0.7, Bauart „Hauptbus“ seit 0.7.1) – Planungsannahmen
+
+Das automatische Layout ist ein Planungswerkzeug, keine Spielmechanik. Es verwendet nur belegte Werte (Maße aus `mClearanceData`, Durchsätze der Band- und Rohrstufen, Rezepte). Die Bauweise folgt verbreiteten Empfehlungen für das Spiel:
+
+| Empfehlung | Umsetzung im Planer | Quelle |
+|---|---|---|
+| Manifold als Standard, Load Balancer nur bei Bedarf (Balancer brauchen viel Platz; ungerade Teiler nur mit Rückführung) | Verteilung „Manifold“ (Standard) oder „Balanced“ (Splitterbaum mit Teilern 2 und 3; andere Anzahlen werden ungleich aufgeteilt, Hinweis im Dialog) | [Wiki „Balancer“](https://satisfactory.wiki.gg/wiki/Balancer), [Wiki „Manifold“](https://satisfactory.wiki.gg/wiki/Manifold) |
+| Auf dem 8-m-Fundamentraster bauen, Maschinen auf ganze bzw. halbe Fundamente runden | Maschinen mittig in Rasterfeldern von 4 m („kompakt“) bzw. 8 m („breit“), Layoutmaße in ganzen Fundamenten | [Layout-Tipps (xgamingserver)](https://xgamingserver.com/blog/satisfactory-factory-layout-tips/) |
+| Eingänge auf einer Seite, Ausgänge auf der anderen; feste Routen für die Hauptleitungen | Zuführungen hinten, Sammelleitungen vorn; ein gerader Hauptbus je Gegenstand mit Splittern bzw. Zusammenführungen direkt auf der Spur | ebd. |
+| Laufwege bzw. eine freie Fundamentreihe zwischen den Bereichen | Bauart „Mit Laufwegen“: 8-m-Raster und eine Fundamentreihe zwischen den Linien | ebd. |
+| Lifte in wenigen Steigleitungen bündeln; Etagen nach Fertigungsstufe | Variante „Etagen“: Linien in Stufenreihenfolge, Lifte nur im Bus | ebd. |
+
+Weitere **Annahmen**:
+
+| Annahme | Begründung |
+|---|---|
+| Eingänge hinten, Ausgänge vorn (wie die schematischen Anschlüsse) | Anschlusslagen fehlen in den Docs (FAB-005) |
+| „Kreuzungen vermeiden“: Bus eine Stufe (4 m) über den Abzweigen, bei Linien auf beiden Seiten Abzweige nach rechts eine Stufe höher als nach links, äußere Zuführungen und Sammelleitungen je 4 m höher als die inneren | So kreuzt sich keine Leitung mit einer anderen auf gleicher Höhe; die Höhenstaffel von 4 m (eine Fundamenthöhe) ist eine Planungsannahme, die Mindesthöhe von Förderliften ist nicht belegt |
+| „Kreuzungen erlauben“: alles auf Anschlusshöhe | Für den frühen Spielstand ohne Lifte; Kreuzungen löst man beim Bauen |
+| Rohre immer als Sammelleitung mit Rohrkreuzungen | Flüssigkeiten verteilen sich im Spiel über den Druck, nicht über Splitter |
+| Ein- und Ausgänge als Lager bzw. Flüssigkeitspuffer am Anfang bzw. Ende ihrer Busspur | Übergabepunkt für Transportaufträge oder Gewinnungsgebäude |
+| Förderhöhe bei Etagen nicht ausgelegt (keine Pumpen) | Siehe FAB-016/FAB-019 nach der Übernahme |
+
+Jede Variante wird vor der Übernahme geprüft: Durchsatzmodell mit voll versorgten Eingängen, Überschneidungen von Kollisionsboxen und Kreuzungen von Leitungen auf gleicher Höhe (Abstand unter 0,5 m).
+
 Abweichungen zwischen Docs-Kollisionsbox und Wiki-Maßangaben stehen im Extraktionsbericht [`data/gamedata/1.2.4.0/EXTRAKTION.md`](../data/gamedata/1.2.4.0/EXTRAKTION.md). Der Planer verwendet die Docs-Werte.
 
 ## 4. Schiene
@@ -103,7 +128,7 @@ Spalten: **Art** (Spielregel / Empfehlung / nicht geprüft), **Gewissheit** (sta
 | FAB-006 | Baubarkeit von Leitungen nicht geprüft | nicht geprüft | statisch | Hinweis | Einschränkung des Planers |
 | FAB-007 | Gebäude höher als das Stockwerk | Empfehlung | statisch | Warnung | Spieldaten (Höhe) |
 | FAB-008 | Geplante Maschinen ohne Platz im Grundriss | Empfehlung | statisch | Hinweis | Planungsstand |
-| FAB-009 | Produktionsgebäude ohne Rezept | Empfehlung | statisch | Hinweis | Planungsstand |
+| FAB-009 | Produktionsgebäude ohne Rezept (seit 0.7 Warnung) | Empfehlung | statisch | Warnung | Planungsstand |
 | FAB-010 | Gebäudetyp nicht im Spieldatensatz | Spielregel | statisch | Fehler | Datensatz |
 | FAB-011 | Leitung zu klein für den benötigten Durchsatz | Spielregel | statisch | Warnung | Spieldaten (Bandstufe), Durchsatzmodell |
 | FAB-012 | Maschine wird nicht vollständig versorgt | Spielregel | statisch | Warnung | Rezepte, Durchsatzmodell |
@@ -115,6 +140,7 @@ Spalten: **Art** (Spielregel / Empfehlung / nicht geprüft), **Gewissheit** (sta
 | FAB-018 | Höhenwechsel ohne senkrechten Abschnitt | nicht geprüft | statisch | Hinweis | Einschränkung des Planers |
 | FAB-019 | Förderhöhe reicht nicht | Spielregel | statisch | Warnung | Wiki „Head lift“, „Pipeline Pump“ |
 | FAB-020 | Überschuss im AWESOME-Schredder (zählt als Überschuss, nicht als Fehler) | Empfehlung | statisch | Hinweis | eigene Vorgabe, Durchsatzmodell |
+| FAB-021 | Fabrik als Blackbox geplant (alle übrigen Grundrissprüfungen entfallen) | nicht geprüft | statisch | Hinweis | eigene Vorgabe |
 
 **Durchsatzmodell (Etappe 5):** lineares Programm je Fabrik über die eingezeichneten Verbindungen. Maschinen laufen mit einer Auslastung 0…1; Zutaten fließen im Rezeptverhältnis zu; jeder Ausgang muss vollständig abfließen; Splitter, Zusammenführungen, Rohrkreuzungen, Pumpen, Ventile und Lager mit Abgang erhalten die Menge je Gegenstand. Es wird einmal ohne und einmal mit Kapazitätsgrenzen gerechnet. **Annahmen:** bestmögliche Verteilung an Splittern (im Spiel gleichmäßig mit Überlauf), keine Filter, Rohrfluss in Zeichenrichtung, keine Förderhöhe, Kraftwerke ohne Brennstoffwahl ohne modellierten Verbrauch (mit Brennstoffwahl wie Maschinen), Zuordnung der Produkte zu Ausgängen in Rezeptreihenfolge.
 

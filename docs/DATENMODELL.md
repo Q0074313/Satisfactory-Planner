@@ -60,7 +60,7 @@ erDiagram
 `formatVersion`, `id`, `name`, `description`, `createdAt`, `updatedAt`, `gameData { datasetId, gameVersion }`, `settings` (Raster, Fangweite, Fangwinkel, Simulationseinstellungen), dazu alle ID-Tabellen und `findingStates` (bestätigte oder ignorierte Befunde, Schlüssel = Befundschlüssel).
 
 ### Fabrik, Stockwerk, Fläche
-- **Factory**: `name`, `color`, `floorIds` (geordnet nach Höhe), `notes`, `map` (Standort auf der Weltkarte oder `null`): `{ x, y, rotationDeg }` – der lokale Ursprung des Grundrisses liegt am Weltpunkt (x, y) in Metern, der Grundriss ist um `rotationDeg` im Uhrzeigersinn gedreht. Welt = Drehung(lokal) + (x, y). Weltkoordinaten sind die Spielkoordinaten in Metern (x Osten, y Süden). Schienennetze liegen direkt in Weltkoordinaten.
+- **Factory**: `name`, `color`, `floorIds` (geordnet nach Höhe), `notes`, `map` (Standort auf der Weltkarte oder `null`): `{ x, y, rotationDeg }` – der lokale Ursprung des Grundrisses liegt am Weltpunkt (x, y) in Metern, der Grundriss ist um `rotationDeg` im Uhrzeigersinn gedreht. Welt = Drehung(lokal) + (x, y). Weltkoordinaten sind die Spielkoordinaten in Metern (x Osten, y Süden). Schienennetze liegen direkt in Weltkoordinaten. `blackbox` (seit Format 4, Standard `false`): Die Fabrik wird nur über ihre Produktionspläne geplant; Grundrissprüfungen entfallen, Herstellung und Verbrauch für den Transport stammen aus den Plänen, die Kartenfläche wird aus den Maschinen geschätzt.
 - **Floor**: *physisches* Stockwerk mit `elevationM` (Oberkante Boden), `heightM` (lichte Höhe) und `kind` (`production`, `logistics` oder `other`). Eine Logistikebene unter der Produktion ist einfach ein eigenes Stockwerk mit `kind = logistics`. Neue Ebenen: Produktion 18 m, Logistik 6 m lichte Höhe, über der obersten Ebene mit 2 m Decke (Beispiel: Erdgeschoss 0–18 m, Logistik 20–26 m, Ebene 28–46 m). Die Werte sind nur Vorgaben und bleiben frei änderbar.
 - **PlanArea**: Polygon auf einem Stockwerk, `kind`:
   - `build-area` – selbst festgelegte Baufläche,
@@ -117,6 +117,6 @@ Eine Datei pro Projekt: `storage/projects/<id>.json`. Inhalt ist das Projekt sel
 
 ## Versionierung
 
-- `formatVersion` und Migrationskette: [`project/migrations.ts`](../packages/core/src/project/migrations.ts). Schritt 1 → 2: Verlegemodus, Gewinnung, Frachtplattformen, `memberKey`; `stopDurationS` durch `dockingS` ersetzt. Schritt 2 → 3: `factories.*.map = null`, `extraction.nodeId = null` (Gebäude und Gruppenmitglieder).
+- `formatVersion` und Migrationskette: [`project/migrations.ts`](../packages/core/src/project/migrations.ts). Schritt 1 → 2: Verlegemodus, Gewinnung, Frachtplattformen, `memberKey`; `stopDurationS` durch `dockingS` ersetzt. Schritt 2 → 3: `factories.*.map = null`, `extraction.nodeId = null` (Gebäude und Gruppenmitglieder). Schritt 3 → 4: `factories.*.blackbox = false`.
 - Exportdatei: `{ kind: "satis-planner-project", formatVersion, exportedAt, app, project }`.
 - Beim Import und beim Laden: Migration → Schemaprüfung (zod) → Bereinigung ungültiger Verweise mit Bericht.
