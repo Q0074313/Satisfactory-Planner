@@ -1,4 +1,4 @@
-import type { FactoryFlow, GameDataIndex, LogisticsLink, ObjectRef, Project } from '@satis/core';
+import type { FactoryFlow, GameDataIndex, LogisticsLink, ObjectRef, Project, Vec3 } from '@satis/core';
 import { localName, placedBounds } from '@satis/core';
 import type { Viewport } from '../../canvas/viewport';
 import {
@@ -29,6 +29,8 @@ export interface RenderInput {
   flow?: FactoryFlow;
   /** Phase der Flussanimation (0 … 1). */
   phase?: number;
+  /** Deckkraft von Leitungen und Umrissen auf anderen Stockwerken (0 … 1). */
+  otherFloorAlpha?: number;
   /** Zusätzliche Ebenen: unter dem Raster (Kartenbild) bzw. über den Flächen (Vorkommen). */
   underlay?: (ctx: CanvasRenderingContext2D, vp: Viewport) => void;
   afterAreas?: (ctx: CanvasRenderingContext2D, vp: Viewport) => void;
@@ -52,11 +54,46 @@ export function linkTierStyle(gd: GameDataIndex, link: Pick<LogisticsLink, 'kind
   };
 }
 
-/** Auslastung → Farbe (grün … gelb … rot). */
-function utilColor(u: number): string {
-  if (u > 1 + 1e-6) return COLORS.overload;
-  if (u > 0.98) return COLORS.warning;
-  return '';
+/** Zerlegt einen Verlauf in waagrechte Stücke je Stockwerk (senkrechte Abschnitte trennen). */
+function floorRuns(points: Vec3[], floors: (string | null)[]): { floorId: string | null; points: Vec3[] }[] {
+  const runs: { floorId: string | null; points: Vec3[] }[] = [];
+  let cur: { floorId: string | null; points: Vec3[] } | null = null;
+  points.forEach((q, i) => {
+    const f = floors[i] ?? null;
+    if (!cur || cur.floorId !== f) {
+      cur = { floorId: f, points: [q] };
+      runs.push(cur);
+    } else cur.points.push(q);
+  });
+  return runs;
+}
+
+/** Mitte des längsten waagrechten Abschnitts auf dem Stockwerk (für Beschriftungen). */
+function labelPoint(points: Vec3[], floors: (string | null)[], floorId: string): { x: number; y: number } | null {
+  let best: { len: number; at: { x: number; y: number } } | null = null;
+  for (let i = 1; i < points.length; i++) {
+    if (floors[i - 1] !== floorId || floors[i] !== floorId) continue;
+    const a = points[i - 1]!;
+    const b = points[i]!;
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (len > 1e-6 && (!best || len > best.len)) best = { len, at: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+  }
+  return best?.at ?? null;
+}
+
+/** Symbol für einen Stockwerkswechsel: Quadrat mit Richtungspfeil, daneben das Ziel. */
+function drawFloorChange(ctx: CanvasRenderingContext2D, vp: Viewport, at: { x: number; y: number }, up: boolean, color: string, alpha: number, label: string): void {
+  const c = vp.toScreen(at);
+  const s = Math.max(10, Math.min(vp.scale * 1.8, 22));
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(c.x - s / 2, c.y - s / 2, s, s);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(c.x - s / 2, c.y - s / 2, s, s);
+  drawLabel(ctx, up ? '▲' : '▼', c.x, c.y, { size: Math.max(9, s * 0.6), color });
+  if (label && vp.scale > 2) drawLabel(ctx, label, c.x + s / 2 + 4, c.y, { size: 10, align: 'left', bg: COLORS.labelBg, color: COLORS.text });
+  ctx.globalAlpha = 1;
 }
 
 export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: RenderInput): void {
@@ -70,7 +107,8 @@ export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: Re
   // Andere Stockwerke blass
   if (layers.otherFloors && layers.buildings) {
     ctx.setLineDash([3, 3]);
-    ctx.strokeStyle = COLORS.otherFloor;
+    ctx.strokeStyle = COLORS.outline;
+    ctx.globalAlpha = Math.min(1, (r.otherFloorAlpha ?? 0.15) * 1.3);
     ctx.lineWidth = 1;
     for (const sb of scene.buildings) {
       if (sb.onActiveFloor) continue;
@@ -81,6 +119,7 @@ export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: Re
       }
     }
     ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
   }
 
   if (layers.areas) {
@@ -104,14 +143,16 @@ export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: Re
         const c = a.polygon.reduce((s, p) => ({ x: s.x + p.x / a.polygon.length, y: s.y + p.y / a.polygon.length }), { x: 0, y: 0 });
         const sc = vp.toScreen({ x: c.x, y: Math.min(...a.polygon.map((p) => p.y)) });
         const xs = a.polygon.map((p) => p.x);
-        drawLabel(ctx, a.name, sc.x, sc.y + 10, { color: style.stroke, size: 11, maxWidth: (Math.max(...xs) - Math.min(...xs)) * vp.scale - 6 });
+        drawLabel(ctx, a.locked ? `🔒 ${a.name}` : a.name, sc.x, sc.y + 10, { color: style.stroke, size: 11, maxWidth: (Math.max(...xs) - Math.min(...xs)) * vp.scale - 6 });
       }
     }
   }
 
   r.afterAreas?.(ctx, vp);
 
-  // Leitungen
+  // Leitungen: Abschnitte auf dem aktiven Stockwerk kräftig, auf anderen blass
+  const faded = r.otherFloorAlpha ?? 0.15;
+  const activeFloor = project.floors[r.floorId];
   for (const sl of scene.links) {
     const isBelt = sl.link.kind === 'belt';
     if ((isBelt && !layers.belts) || (!isBelt && !layers.pipes)) continue;
@@ -119,90 +160,93 @@ export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: Re
     const style = linkTierStyle(gd, sl.link);
     const base = style.color;
     const fr = r.flow?.links.get(sl.link.id);
-    const over = fr && fr.capacity > 0 ? utilColor(Math.max(fr.required, fr.total) / fr.capacity) : '';
+    // Nur Überlastung bekommt eine eigene Farbe; voll ausgelastet ist der Normalfall
+    const over = layers.flow && fr && fr.capacity > 0 && Math.max(fr.required, fr.total) > fr.capacity + 1e-6 ? COLORS.overload : '';
     const isSel = selected.has(sl.link.id);
-    // Ausgewählt: breiter Saum in Auswahlfarbe, die Stufenfarbe bleibt sichtbar
-    const color = layers.flow && over ? over : base;
-    ctx.globalAlpha = onFloor ? 1 : 0.25;
+    const color = over || base;
     const width = Math.max(2, Math.min(vp.scale * (isBelt ? 1.2 : 0.9) * style.widthFactor, 16));
+    const flowing = (fr?.total ?? 0) > 1e-6;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
-    if (isSel) {
-      ctx.strokeStyle = COLORS.selection;
-      ctx.lineWidth = width + 8;
-      ctx.globalAlpha = 0.55;
-      pathPolyline(ctx, vp, sl.points);
+    for (const run of floorRuns(sl.points, sl.floors)) {
+      const alpha = run.floorId === r.floorId ? 1 : faded;
+      if (isSel) {
+        // Ausgewählt: breiter Saum in Auswahlfarbe, die Stufenfarbe bleibt sichtbar
+        ctx.strokeStyle = COLORS.selection;
+        ctx.lineWidth = width + 8;
+        ctx.globalAlpha = 0.55 * alpha;
+        pathPolyline(ctx, vp, run.points);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      pathPolyline(ctx, vp, run.points);
       ctx.stroke();
-      ctx.globalAlpha = 1;
+      if (style.double) {
+        // Rohre: helle Mittellinie (unterscheidet sie von Bändern)
+        ctx.strokeStyle = COLORS.bg;
+        ctx.globalAlpha = alpha * 0.55;
+        ctx.lineWidth = Math.max(1, width * 0.3);
+        pathPolyline(ctx, vp, run.points);
+        ctx.stroke();
+        ctx.globalAlpha = alpha;
+      }
+      // Förderrichtung: Pfeile entlang der Leitung (bei Fluss animiert; Rohre nur bei Fluss)
+      if (isBelt || flowing) {
+        ctx.strokeStyle = COLORS.bg;
+        ctx.lineWidth = Math.max(1.2, width * 0.28);
+        ctx.lineCap = 'round';
+        const size = Math.max(2.5, width * 0.45);
+        const spacing = Math.max(18, width * 3);
+        drawChevrons(ctx, vp, run.points, spacing, size, flowing ? (r.phase ?? 0) : 0);
+      }
     }
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
-    pathPolyline(ctx, vp, sl.points);
-    ctx.stroke();
-    if (style.double) {
-      // Rohre: helle Mittellinie (unterscheidet sie von Bändern)
-      ctx.strokeStyle = COLORS.bg;
-      ctx.globalAlpha = (onFloor ? 1 : 0.25) * 0.55;
-      ctx.lineWidth = Math.max(1, width * 0.3);
-      pathPolyline(ctx, vp, sl.points);
-      ctx.stroke();
-      ctx.globalAlpha = onFloor ? 1 : 0.25;
-    }
-    // Förderrichtung: Pfeile entlang der Leitung (bei Fluss animiert; Rohre nur bei Fluss)
-    const flowing = (fr?.total ?? 0) > 1e-6;
-    if (isBelt || flowing) {
-      ctx.strokeStyle = COLORS.bg;
-      ctx.lineWidth = Math.max(1.2, width * 0.28);
-      ctx.lineCap = 'round';
-      const size = Math.max(2.5, width * 0.45);
-      const spacing = Math.max(18, width * 3);
-      drawChevrons(ctx, vp, sl.points, spacing, size, flowing ? (r.phase ?? 0) : 0);
-    }
-    // Lifte und Pfeil am Ende
-    ctx.fillStyle = color;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
+    // Stockwerkswechsel: Symbol am Lift mit Richtung und Ziel
     for (let i = 1; i < sl.points.length; i++) {
       const a = sl.points[i - 1]!;
       const b = sl.points[i]!;
-      if (Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.y - b.y) < 1e-6 && Math.abs(a.z - b.z) > 1e-6) {
-        const sa = vp.toScreen(a);
-        const s = Math.max(8, vp.scale * 1.5);
-        ctx.fillStyle = COLORS.bg;
-        ctx.fillRect(sa.x - s / 2, sa.y - s / 2, s, s);
-        ctx.strokeRect(sa.x - s / 2, sa.y - s / 2, s, s);
-        drawLabel(ctx, b.z > a.z ? '▲' : '▼', sa.x, sa.y, { size: Math.max(9, s * 0.7), color });
-        ctx.fillStyle = color;
-      }
+      const fa = sl.floors[i - 1] ?? null;
+      const fb = sl.floors[i] ?? null;
+      if (fa === fb || Math.abs(a.x - b.x) > 1e-6 || Math.abs(a.y - b.y) > 1e-6) continue;
+      const here = fa === r.floorId || fb === r.floorId;
+      const through = !here && !!activeFloor && activeFloor.elevationM > Math.min(a.z, b.z) && activeFloor.elevationM < Math.max(a.z, b.z);
+      const other = fa === r.floorId ? fb : fb === r.floorId ? fa : null;
+      const text = !here
+        ? through
+          ? t('durchquert')
+          : ''
+        : fa === r.floorId
+          ? t('nach {floor}', { floor: (other && project.floors[other]?.name) || '?' })
+          : t('von {floor}', { floor: (other && project.floors[other]?.name) || '?' });
+      drawFloorChange(ctx, vp, a, b.z > a.z, color, here || through ? 1 : faded, layers.labels ? text : '');
     }
     // Endpfeil in Förderrichtung: letzter Punkt mit seitlichem Abstand (senkrechte Enden, z. B. an
     // senkrechten Pumpen, haben im Grundriss keine Richtung)
+    ctx.globalAlpha = sl.floors.at(-1) === r.floorId ? 1 : faded;
+    ctx.fillStyle = color;
     const end = vp.toScreen(sl.points.at(-1)!);
     const prev = [...sl.points]
       .reverse()
       .map((q) => vp.toScreen(q))
       .find((q) => Math.hypot(q.x - end.x, q.y - end.y) > 0.5);
     if (prev) arrowHead(ctx, prev, end, Math.max(6, width * 1.2));
-    // Durchsatz an der Leitung
-    if (layers.flow && fr && onFloor && vp.scale > 2.5 && (fr.total > 1e-6 || fr.required > 1e-6)) {
-      const mid = sl.points[Math.floor(sl.points.length / 2)]!;
-      const prevMid = sl.points[Math.max(0, Math.floor(sl.points.length / 2) - 1)]!;
-      const m = vp.toScreen({ x: (mid.x + prevMid.x) / 2, y: (mid.y + prevMid.y) / 2 });
+    ctx.globalAlpha = 1;
+    // Durchsatz an der Leitung (Mitte des längsten Abschnitts auf dem aktiven Stockwerk)
+    const mid = onFloor ? labelPoint(sl.points, sl.floors, r.floorId) : null;
+    if (mid && layers.flow && fr && vp.scale > 2.5 && (fr.total > 1e-6 || fr.required > 1e-6)) {
+      const m = vp.toScreen(mid);
       const unit = isBelt ? '/min' : 'm³/min';
       const txt =
         fr.required > fr.capacity + 1e-6
           ? `${formatNumber(fr.required, 1)} > ${formatNumber(fr.capacity, 0)} ${unit}`
           : `${formatNumber(fr.total, 1)} / ${formatNumber(fr.capacity, 0)} ${unit}`;
       drawLabel(ctx, `${style.label} · ${txt}`, m.x, m.y - width - 6, { size: 10, bg: COLORS.labelBg, color: over || COLORS.text });
-    } else if (layers.labels && onFloor && vp.scale > 4 && style.label) {
+    } else if (mid && layers.labels && vp.scale > 4 && style.label) {
       // Stufe an der Leitung
-      const k = Math.floor(sl.points.length / 2);
-      const a = sl.points[Math.max(0, k - 1)]!;
-      const b = sl.points[k]!;
-      const m = vp.toScreen({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+      const m = vp.toScreen(mid);
       drawLabel(ctx, style.label, m.x, m.y - width - 6, { size: 10, bg: COLORS.labelBg, color: base });
     }
-    ctx.globalAlpha = 1;
   }
 
   if (layers.buildings) {

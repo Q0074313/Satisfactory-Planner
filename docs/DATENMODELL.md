@@ -66,6 +66,7 @@ erDiagram
   - `build-area` – selbst festgelegte Baufläche,
   - `foundation` – Fundamentfläche mit `foundationType` (Kachelmaß aus den Spieldaten),
   - `clearance` – frei definierbarer Planungsabstand (Lauf- oder Wartungsweg).
+  Optional `locked` (seit 0.7.2, ohne Formatwechsel, fehlt = nicht gesperrt): Die Fläche lässt sich im Grundriss nicht verschieben, verformen oder löschen.
 
 *Darstellungsebenen* (Gebäude, Bänder, Rohre, Anschlüsse, Maße …) sind dagegen reine Anzeigeoptionen der Oberfläche und **nicht** Teil des Projekts.
 

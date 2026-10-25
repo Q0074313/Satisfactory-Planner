@@ -95,6 +95,7 @@ export function addOrder(p: Project, gd: GameDataIndex, init: OrderInit): string
 export function updateOrder(p: Project, gd: GameDataIndex, id: string, patch: OrderPatch): void {
   const o = p.transportOrders[id];
   if (!o) throw new OpError(tr('{what} nicht gefunden.', { what: tr('Transportauftrag') }));
+  patch = swapIfSame(o, patch);
   const next = { ...o, ...patch };
   // Fabrikwechsel: Übergabeanschluss der alten Fabrik gilt nicht mehr
   if (next.direct && patch.direct === undefined) {
@@ -105,6 +106,30 @@ export function updateOrder(p: Project, gd: GameDataIndex, id: string, patch: Or
   }
   validate(p, gd, next);
   Object.assign(o, patch, { direct: next.direct });
+}
+
+/**
+ * Wird als Absender die bisherige Empfängerfabrik gewählt (oder umgekehrt),
+ * tauschen Absender und Empfänger samt Bahnhöfen die Plätze.
+ */
+function swapIfSame(o: TransportOrder, patch: OrderPatch): OrderPatch {
+  const from = patch.fromFactoryId;
+  const to = patch.toFactoryId;
+  const swap = (from !== undefined && to === undefined && from === o.toFactoryId && from !== o.fromFactoryId) || (to !== undefined && from === undefined && to === o.fromFactoryId && to !== o.toFactoryId);
+  if (!swap) return patch;
+  return {
+    ...patch,
+    fromFactoryId: o.toFactoryId,
+    toFactoryId: o.fromFactoryId,
+    ...(patch.fromStationId === undefined && patch.toStationId === undefined ? { fromStationId: o.toStationId, toStationId: o.fromStationId } : {}),
+  };
+}
+
+/** Tauscht Absender und Empfänger eines Auftrags (samt Bahnhöfen; Übergabeanschlüsse direkter Leitungen entfallen). */
+export function swapOrderEnds(p: Project, gd: GameDataIndex, id: string): void {
+  const o = p.transportOrders[id];
+  if (!o) throw new OpError(tr('{what} nicht gefunden.', { what: tr('Transportauftrag') }));
+  updateOrder(p, gd, id, { fromFactoryId: o.toFactoryId });
 }
 
 /** Entfernt Übergabeanschlüsse direkter Leitungen an Gebäuden, die gelöscht oder abgebaut werden. */

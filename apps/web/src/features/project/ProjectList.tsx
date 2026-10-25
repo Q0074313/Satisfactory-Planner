@@ -61,6 +61,8 @@ export function ProjectList({ onClose }: { onClose?: () => void }) {
           {t('Beispiel: Computerfabrik (Auto-Layout)')}
         </button>
         <button onClick={async () => done(await createExample('large'))}>{t('Beispiel: Schwere modulare Rahmen (Auto-Layout, groß)')}</button>
+        <button onClick={async () => done(await createExample('medium', { logistics: true }))}>{t('Mittel mit Logistikebene')}</button>
+        <button onClick={async () => done(await createExample('large', { logistics: true }))}>{t('Groß mit Logistikebenen')}</button>
       </div>
       {server ? (
         <>

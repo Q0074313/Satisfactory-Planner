@@ -137,6 +137,7 @@ export function RailEditor() {
   const layers = useUiStore((s) => s.railLayers);
   const focus = useUiStore((s) => s.focus);
   const theme = usePrefs((s) => s.theme);
+  const colors = usePrefs((s) => s.colors);
   const playing = useSimStore((s) => s.playing);
   const tiles = usePrefs((s) => s.mapTiles);
   const tileOpacity = usePrefs((s) => s.mapOpacity);
@@ -161,7 +162,7 @@ export function RailEditor() {
     onFrame: (dt) => useSimStore.getState().advance(dt),
   });
 
-  useEffect(requestDraw, [scene, selection, tool, layers, marks, theme, playing, railSnap, tiles, tileOpacity, project.factories, requestDraw]);
+  useEffect(requestDraw, [scene, selection, tool, layers, marks, theme, colors, playing, railSnap, tiles, tileOpacity, project.factories, requestDraw]);
   useEffect(() => onTileLoad(requestDraw), [requestDraw]);
   useEffect(() => {
     fitView();

@@ -29,6 +29,7 @@ export * from './factory/linkPath.ts';
 export * from './factory/flow.ts';
 export * from './factory/diagnose.ts';
 export * from './factory/headLift.ts';
+export * from './factory/inputs.ts';
 export * from './factory/autoLayout.ts';
 export * from './production/graph.ts';
 export * from './production/suggest.ts';

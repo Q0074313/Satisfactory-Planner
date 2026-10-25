@@ -608,6 +608,24 @@ code {
   gap: 4px;
   align-items: center;
 }
+.color-group {
+  margin: 6px 0 10px;
+}
+.color-group .row,
+.display-settings .row {
+  grid-template-columns: 220px 1fr;
+}
+.color-group-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.color-group input[type='color'] {
+  width: 44px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border, #555);
+  background: none;
+}
 .check-row {
   display: flex;
   gap: 6px;

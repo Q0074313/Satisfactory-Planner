@@ -4,16 +4,17 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { LANGUAGES, applyGameDataMigration, planGameDataMigration, type GameDataMigrationReport, type Lang } from '@satis/core';
-import { t } from '../../i18n';
+import { N_, t } from '../../i18n';
 import { comboOf, conflicts, formatCombo, KEY_ACTIONS, SCOPE_LABEL, type KeyScope } from '../../state/keymap';
 import { DATASETS, loadGameData } from '../../state/gamedata';
-import { usePrefs, type ThemePref } from '../../state/prefsStore';
+import { CUSTOM_COLOR_KEYS, effectiveTheme, usePrefs, type CustomColorKey, type ThemePref } from '../../state/prefsStore';
+import { defaultCanvasColor } from '../../canvas/draw';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
 import { Badge, Dialog, Row, Section, Segmented } from '../../ui/fields';
 import { APP_BUILT, APP_COMMIT, APP_VERSION } from '../../version';
 
-type Tab = 'general' | 'keys' | 'data';
+type Tab = 'general' | 'display' | 'keys' | 'data';
 
 export function SettingsDialog() {
   const close = () => useUiStore.getState().setSettingsOpen(false);
@@ -26,12 +27,14 @@ export function SettingsDialog() {
           onChange={setTab}
           options={[
             { value: 'general', label: t('Allgemein') },
+            { value: 'display', label: t('Darstellung') },
             { value: 'keys', label: t('Tastenkürzel') },
             { value: 'data', label: t('Spieldaten') },
           ]}
         />
       </div>
       {tab === 'general' && <GeneralTab />}
+      {tab === 'display' && <DisplayTab />}
       {tab === 'keys' && <KeysTab />}
       {tab === 'data' && <DataTab />}
     </Dialog>
@@ -85,6 +88,96 @@ function GeneralTab() {
       <AboutNote />
     </Section>
   );
+}
+
+/** Bezeichnungen der anpassbaren Farben (deutsch, Anzeige über t()). */
+const COLOR_LABELS: Record<CustomColorKey, string> = {
+  belt0: N_('Förderband Mk.1'),
+  belt1: N_('Förderband Mk.2'),
+  belt2: N_('Förderband Mk.3'),
+  belt3: N_('Förderband Mk.4'),
+  belt4: N_('Förderband Mk.5'),
+  belt5: N_('Förderband Mk.6'),
+  pipe0: N_('Rohr Mk.1'),
+  pipe1: N_('Rohr Mk.2'),
+  portIn: N_('Eingang (Anschluss)'),
+  portOut: N_('Ausgang (Anschluss)'),
+  fuelPort: N_('Treibstoffanschluss'),
+  production: N_('Produktionsgebäude'),
+  extraction: N_('Gewinnungsgebäude'),
+  power: N_('Kraftwerke'),
+  logistics: N_('Logistik (Splitter, Pumpen …)'),
+  storage: N_('Lager'),
+  selection: N_('Auswahl'),
+  overload: N_('Überlastung'),
+};
+
+const COLOR_GROUPS: { title: string; keys: CustomColorKey[] }[] = [
+  { title: N_('Förderbänder'), keys: ['belt0', 'belt1', 'belt2', 'belt3', 'belt4', 'belt5'] },
+  { title: N_('Rohre'), keys: ['pipe0', 'pipe1'] },
+  { title: N_('Anschlüsse'), keys: ['portIn', 'portOut', 'fuelPort'] },
+  { title: N_('Gebäude'), keys: ['production', 'extraction', 'power', 'logistics', 'storage'] },
+  { title: N_('Sonstiges'), keys: ['selection', 'overload'] },
+];
+
+function DisplayTab() {
+  const prefs = usePrefs();
+  const theme = effectiveTheme(prefs.theme);
+  return (
+    <div className="display-settings">
+      <Section title={t('Stockwerke')}>
+        <Row label={t('Andere Stockwerke')} hint={t('Deckkraft von Leitungen und Gebäudeumrissen auf den nicht gewählten Stockwerken (Grundriss und Seitenansicht)')}>
+          <span className="inline">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={Math.round(prefs.otherFloorOpacity * 100)}
+              onChange={(e) => prefs.setOtherFloorOpacity(+e.target.value / 100)}
+              data-testid="other-floor-opacity"
+            />
+            <span className="dim">{Math.round(prefs.otherFloorOpacity * 100)} %</span>
+          </span>
+        </Row>
+      </Section>
+      <Section title={t('Farben')}>
+        <p className="dim small-text">{t('Eigene Farben gelten im hellen und im dunklen Farbschema. Nicht angepasste Farben folgen dem Farbschema.')}</p>
+        {COLOR_GROUPS.map((g) => (
+          <div key={g.title} className="color-group">
+            <div className="color-group-title">{t(g.title)}</div>
+            {g.keys.filter((k) => CUSTOM_COLOR_KEYS.includes(k)).map((k) => {
+              const custom = prefs.colors[k];
+              return (
+                <Row key={k} label={t(COLOR_LABELS[k])} plain>
+                  <span className="inline">
+                    <input type="color" value={custom ?? toHex(defaultCanvasColor(theme, k))} onChange={(e) => prefs.setColor(k, e.target.value)} data-testid={`color-${k}`} />
+                    {custom && (
+                      <button className="small" onClick={() => prefs.setColor(k, null)} title={t('Standardfarbe des Farbschemas verwenden')}>
+                        {t('Standard')}
+                      </button>
+                    )}
+                  </span>
+                </Row>
+              );
+            })}
+          </div>
+        ))}
+        <div className="button-row">
+          <button onClick={prefs.resetColors} disabled={!Object.keys(prefs.colors).length} data-testid="colors-reset">
+            {t('Alle Farben zurücksetzen')}
+          </button>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+/** Farbwähler brauchen #rrggbb; rgba-Werte des Farbschemas werden ohne Deckkraft übernommen. */
+function toHex(c: string): string {
+  if (/^#[0-9a-f]{6}$/i.test(c)) return c;
+  const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c);
+  return m ? `#${[m[1], m[2], m[3]].map((x) => (+x!).toString(16).padStart(2, '0')).join('')}` : '#888888';
 }
 
 /** Hinweis zur Entstehung und zu möglichen Fehlern (auch im Hilfemenü). */

@@ -3,6 +3,7 @@ import {
   buildingHeight,
   cachedFactoryFlow,
   canBeVertical,
+  factoryInputs,
   pipeHeads,
   transferInterface,
   placedBounds,
@@ -234,6 +235,7 @@ function BuildingProps({ building: b }: { building: Building }) {
         <Row label={t('Bezeichnung')}>
           <TextField value={b.label} placeholder={localName(def.name)} onCommit={(label) => upd(t('Bezeichnung'), { label })} />
         </Row>
+        {def.category === 'storage' && b.placement && <InputDemandRow building={b} />}
         {bb && (
           <Row label={t('Maße (B × T × H)')}>
             {fmtNum(bb.maxX - bb.minX)} × {fmtNum(bb.maxY - bb.minY)} × {fmtNum(buildingHeight(def, b.placement))} m{' '}
@@ -770,6 +772,24 @@ function LinkProps({ id }: { id: string }) {
 
 const FOUNDATIONS = ['Build_Foundation_8x1_01_C', 'Build_Foundation_8x2_01_C', 'Build_Foundation_8x4_01_C'];
 
+/** Eingangslager: Bedarf der Maschinen dahinter und Zulieferung über direkte Leitungen. */
+function InputDemandRow({ building: b }: { building: Building }) {
+  const project = useProjectStore((s) => s.project)!;
+  const gd = useProjectStore((s) => s.gd)!;
+  const input = useMemo(() => factoryInputs(project, gd, b.factoryId).find((x) => x.buildingId === b.id), [project, gd, b.factoryId, b.id]);
+  if (!input || input.requiredPerMin <= 1e-6) return null;
+  const u = input.kind === 'belt' ? '/min' : 'm³/min';
+  return (
+    <Row label={t('Bedarf (Eingang)')} plain hint={t('So viel nehmen die Maschinen hinter diesem Eingang bei voller Versorgung ab (Durchsatzmodell).')}>
+      <span data-testid="input-demand">
+        {input.itemId ? `${gd.name(input.itemId)}: ` : ''}
+        {fmtNum(input.requiredPerMin, 1)} {u}
+        {input.directOrderIds.length > 0 && <span className="dim"> · {t('direkt geliefert {n}', { n: `${fmtNum(input.directPerMin, 1)} ${u}` })}</span>}
+      </span>
+    </Row>
+  );
+}
+
 function AreaProps({ id }: { id: string }) {
   const project = useProjectStore((s) => s.project)!;
   const gd = useProjectStore((s) => s.gd)!;
@@ -811,9 +831,18 @@ function AreaProps({ id }: { id: string }) {
           {fmtNum(Math.ceil(area / (fnd.widthM * fnd.depthM)), 0)} × {fnd.widthM} × {fnd.depthM} m
         </Row>
       )}
+      <Row label={t('Gesperrt')} hint={t('Gesperrte Flächen lassen sich im Grundriss nicht verschieben, verformen oder löschen. Ziehen darauf zieht einen Auswahlrahmen auf.')}>
+        <input
+          type="checkbox"
+          checked={!!a.locked}
+          onChange={(e) => apply(e.target.checked ? t('Fläche sperren') : t('Fläche entsperren'), (d) => ops.updateArea(d, id, { locked: e.target.checked }))}
+          data-testid="area-locked"
+        />
+      </Row>
       <div className="button-row">
         <button
           className="danger"
+          disabled={!!a.locked}
           onClick={() => {
             apply(t('Fläche löschen'), (d) => ops.removeArea(d, id));
             useUiStore.getState().select([]);

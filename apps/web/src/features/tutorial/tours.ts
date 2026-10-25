@@ -220,7 +220,7 @@ export const TOURS: Tour[] = [
       },
       {
         title: N_('Stockwerke und Seitenansicht'),
-        body: N_('Mit „+ Ebene“ (18 m) bzw. „+ Logistik“ (6 m) legst du Stockwerke an, Bild↑/Bild↓ wechselt sie. Zeichnest du ein Band über Stockwerke, entsteht ein Lift. Die Seitenansicht zeigt alle Ebenen, Gebäudehöhen und Lifte. Dort setzt „Pumpe aufs Rohr setzen“ eine Pipeline-Pumpe direkt in ein Rohr.'),
+        body: N_('Mit „+ Ebene“ (18 m) bzw. „+ Logistik“ (6 m) legst du Stockwerke an, Bild↑/Bild↓ wechselt sie. Zeichnest du ein Band über Stockwerke, entsteht ein Lift; im Grundriss markiert ein Quadrat mit ▲/▼ die Stelle, an der die Leitung das Stockwerk wechselt. Die Seitenansicht zeigt alle Ebenen, Gebäudehöhen und Lifte.'),
         detail: N_(
           'Große Fabriken baut man im Spiel oft in mehreren Etagen. Eine Produktionsebene ist hier standardmäßig 18 m hoch, eine Logistikebene für Bänder 6 m, dazwischen liegt eine Decke von 2 m. Die Liste zeigt den Bereich jeder Ebene, z. B. „0 m – 18 m“. Du kannst die Höhen jederzeit rechts ändern. Rohre haben eine begrenzte Förderhöhe: Steigt ein Rohr zu hoch, meldet der Planer, dass du eine Pumpe brauchst. Wechsle dann in die Seitenansicht („Seite x“ oder „Seite y“), wähle oben links eine Pumpe und klicke auf das Rohr: Die Pumpe wird in Flussrichtung eingesetzt, auf einem senkrechten Rohrstück auch senkrecht. Ein gelbes Kreuz markiert die Stelle, ab der die Förderhöhe nicht mehr reicht; dort rastet die Pumpe ein.',
         ),

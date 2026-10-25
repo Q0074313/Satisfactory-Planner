@@ -26,11 +26,11 @@ import type { GameDataIndex, GdBuilding } from '../gamedata/index.ts';
 import { rotate, segmentIntersection, type Vec2 } from '../geometry/index.ts';
 import { tr } from '../i18n/index.ts';
 import { clone } from '../model/clone.ts';
-import type { Project, TransportOrder } from '../model/schema.ts';
+import type { FloorKind, Project, TransportOrder } from '../model/schema.ts';
 import { machineRates } from '../production/machine.ts';
 import { itemStages } from '../production/graph.ts';
 import type { SolveResult } from '../production/solver.ts';
-import { addArea, addBuilding, addFloor, addLink, placeBuilding, updateBuildings, DEFAULT_FLOOR_HEIGHT_M } from '../project/ops/factory.ts';
+import { addArea, addBuilding, addFloor, addLink, placeBuilding, updateBuildings, DEFAULT_FLOOR_HEIGHT_M, FLOOR_SLAB_M } from '../project/ops/factory.ts';
 import { OpError } from '../project/errors.ts';
 import { computeFactoryFlow, outputPortAssignment } from './flow.ts';
 import { findOverlaps, placedShapes } from './checks.ts';
@@ -63,6 +63,12 @@ export interface AutoLayoutOptions {
    * Übergängen); `allow` legt alles flach auf Anschlusshöhe.
    */
   crossings: 'avoid' | 'allow';
+  /**
+   * Logistikebene unter jeder Produktionsebene: Bus, Zuführungen,
+   * Sammelleitungen, Splitter sowie Ein- und Ausgänge liegen dort, Lifte führen
+   * durch die Decke zu den Maschinen.
+   */
+  logistics: boolean;
 }
 
 /** Punkt eines Entwurfs: lokale Lage, Etage (Index) und Höhe über dem Etagenboden. */
@@ -117,6 +123,8 @@ export interface LayoutDraft {
   links: DraftLink[];
   /** Benötigte lichte Höhe je Etage (Index 0 = unterste). */
   floorHeights: number[];
+  /** Art je Etage (Logistikebenen bei `logistics`). */
+  floorKinds: FloorKind[];
   width: number;
   depth: number;
   /** Passt in die vorgegebene Fläche bzw. Etagenzahl. */
@@ -138,6 +146,7 @@ export const LAYOUT_DEFAULTS: AutoLayoutOptions = {
   clocks: 'even',
   foundations: true,
   crossings: 'avoid',
+  logistics: false,
 };
 
 const SPLITTER = 'Build_ConveyorAttachmentSplitter_C';
@@ -148,6 +157,27 @@ const FLUID_BUFFER = 'Build_PipeStorageTank_C';
 const FOUNDATION = 'Build_Foundation_8x4_01_C';
 /** Höhe der Leitungen über dem Etagenboden (Anschlusshöhe der meisten Gebäude). */
 const LINE_H = 1;
+/**
+ * Feste Überkopf-Ebenen bei „Kreuzungen vermeiden“ (je ein 4-m-Fundament höher,
+ * Planungsannahme): Zuführungen, Sammelleitungen und Abzweige auf OVER_H,
+ * Abzweige nach rechts bei beidseitigen Linien auf OVER2_H.
+ */
+const OVER_H = LINE_H + 4;
+const OVER2_H = OVER_H + 4;
+/**
+ * Logistikebene: lichte Höhe 6 m plus 2 m Decke (Standard beim Anlegen). Höhen
+ * auf ihr werden im Generator negativ relativ zur Produktionsebene darüber
+ * geführt (LOG(1) = 1 m über dem Logistikboden) und beim Eintragen in den
+ * Entwurf auf die Logistiketage umgerechnet. Ebenen dort: 1, 3 und 5 m
+ * (Planungsannahme, 2 m Abstand).
+ */
+const LOG_SPAN = DEFAULT_FLOOR_HEIGHT_M.logistics + FLOOR_SLAB_M;
+const LOG = (h: number) => h - LOG_SPAN;
+
+/** Etage und Höhe eines Generatorpunkts: negative Höhen liegen auf der Logistikebene darunter. */
+function onFloor(floor: number, h: number): { floor: number; h: number } {
+  return h < -0.5 ? { floor: floor - 1, h: h + LOG_SPAN } : { floor, h };
+}
 const EPS = 1e-6;
 
 // ---------------------------------------------------------------------------
@@ -214,6 +244,8 @@ interface Anchor {
   y: number;
   /** Punkte zwischen Gang und Anschluss (Ankunft) bzw. Anschluss und Gang (Abgang). */
   approach: DraftPoint[];
+  /** Höhe der Leitung am Linienrand (über dem Etagenboden). */
+  h: number;
   floor: number;
   /** Rand der Linie zum Gang (x) und Richtung der Linie (+1 nach rechts, −1 nach links). */
   edge: number;
@@ -354,15 +386,14 @@ const portZ = (def: GdBuilding) => portDefs(def)[0]?.z ?? 1;
 
 /** Abstand zwischen Linie und erstem Maschinenumriss (Platz für die Lifte am Linienrand). */
 const ROW_MARGIN = 4;
-/** Höhenstaffel für Leitungen, die andere überqueren (ein 4-m-Fundament). Planungsannahme. */
-const LEVEL_STEP = 4;
-
 /**
  * Eine Linie im lokalen Linienrahmen: Rand zum Bus bei x = 0, die Linie
  * wächst in Richtung `dir`. Oben je Eingangsgegenstand eine Zuführung,
  * unten je Produkt eine Sammelleitung; beide beginnen bzw. enden am Rand.
- * Mit `avoid` liegen weiter außen liegende Leitungen um je LEVEL_STEP höher
- * und überqueren die inneren, statt sie zu kreuzen.
+ * Mit `avoid` und mehreren Zuführungen (bzw. Sammelleitungen) liegen diese
+ * auf OVER_H; die Anschlüsse zu den Maschinen gehen direkt am Splitter bzw.
+ * an der Zusammenführung per Lift auf Anschlusshöhe und unterqueren die
+ * übrigen Leitungen.
  */
 function buildRow(
   gd: GameDataIndex,
@@ -384,12 +415,13 @@ function buildRow(
   const b = def.bounds!;
   const pitch = machinePitch(def, opts.spacing);
   const n = seg.machines.length;
-  const pt = (x: number, y: number, h = LINE_H): DraftPoint => ({ x, y, floor, h });
+  const pt = (x: number, y: number, h = LINE_H): DraftPoint => ({ x, y, ...onFloor(floor, h) });
   const splitter = gd.building(SPLITTER)!;
   const merger = gd.building(MERGER)!;
   const junction = gd.building(JUNCTION)!;
   const add = (bd: Omit<DraftBuilding, 'floor' | 'label' | 'recipeId' | 'clock' | 'h'> & Partial<DraftBuilding>) => {
     const full: DraftBuilding = { floor, label: '', recipeId: null, clock: 1, h: 0, ...bd };
+    Object.assign(full, onFloor(full.floor, full.h));
     buildings.push(full);
     return full;
   };
@@ -404,11 +436,13 @@ function buildRow(
   const feed = new Map<string, { y: number; h: number }>();
   const balanced = opts.distribution === 'balanced';
   const depthOf = (m: number): number => (m <= 1 ? 0 : 1 + Math.max(...treeSplit(m).parts.map(depthOf)));
-  seg.inItems.forEach((item, k) => {
+  // Eine Zuführung bzw. Sammelleitung allein bleibt am Boden, mehrere liegen überkopf;
+  // mit Logistikebene liegen alle darunter
+  const feedH = opts.logistics ? (avoid ? LOG(3) : LOG(1)) : avoid && seg.inItems.length > 1 ? OVER_H : LINE_H;
+  const collectH = opts.logistics ? (avoid ? LOG(3) : LOG(1)) : avoid && seg.outItems.length > 1 ? OVER_H : LINE_H;
+  seg.inItems.forEach((item) => {
     const levels = balanced && n > 1 && !isFluid(gd, item) ? depthOf(n) : 0;
-    // Die innerste Zuführung (nächst der Maschine) liegt am Boden, äußere darüber
-    const rank = seg.inItems.length - 1 - k;
-    feed.set(item, { y: cursor + 3, h: avoid ? LINE_H + LEVEL_STEP * rank : LINE_H });
+    feed.set(item, { y: cursor + 3, h: feedH });
     cursor += levels > 0 ? 6 * levels + 3 : 6;
   });
   // Maschinenoberkante auf dem 4-m-Raster
@@ -418,8 +452,8 @@ function buildRow(
   const outY = originY + b.maxY;
   cursor = outY + 1.5;
   const collect = new Map<string, { y: number; h: number }>();
-  seg.outItems.forEach((item, j) => {
-    collect.set(item, { y: cursor + 3, h: avoid ? LINE_H + LEVEL_STEP * j : LINE_H });
+  seg.outItems.forEach((item) => {
+    collect.set(item, { y: cursor + 3, h: collectH });
     cursor += 6;
   });
 
@@ -430,7 +464,6 @@ function buildRow(
     return add({ key: keys.next('m'), type: seg.type, role: 'machine', recipeId: seg.recipeId, clock: m.clock, x, y: originY, rotationDeg: 0 });
   });
   const length = ROW_MARGIN + n * pitch;
-  const edgeX = dir * 1.5;
 
   // --- Zuführungen ---
   for (const item of seg.inItems) {
@@ -440,10 +473,10 @@ function buildRow(
     const rates = seg.machines.map((m) => m.inputs.get(item) ?? 0);
     const total = rates.reduce((s, v) => s + v, 0);
     const { y, h } = feed.get(item)!;
-    /** Vor dem Maschineneingang auf Anschlusshöhe absenken. */
-    const drop = (x: number) => lift(x, inY - 1.5, h, LINE_H);
+    /** Direkt hinter dem Splitter (bzw. der Ecke bei `at`) auf Anschlusshöhe absenken. */
+    const drop = (x: number, at = y + 3) => lift(x, at, h, LINE_H);
     const anchor = (ref: { key: string; portId: string }, approach: DraftPoint[]) =>
-      sinks.push({ itemId: item, kind, perMin: total, ref, y, approach: [...lift(edgeX, y, LINE_H, h), ...approach], floor, edge: 0, dir });
+      sinks.push({ itemId: item, kind, perMin: total, ref, y, approach, h, floor, edge: 0, dir });
     if (n === 1) {
       anchor({ key: machines[0]!.key, portId }, [pt(px[0]!, y, h), ...drop(px[0]!)]);
       continue;
@@ -490,7 +523,7 @@ function buildRow(
         const out = portFacing(splitter, 0, 'belt', ['out'], want)!.id;
         const rate = groups[ci]!.reduce((s, i) => s + rates[i]!, 0);
         const via = want.y === 1 ? [] : [pt(c.x, levelY(level), h)];
-        if (c.leaf) link('belt', item, rate, node, out, machines[c.i]!, portId, [...via, ...drop(c.x)]);
+        if (c.leaf) link('belt', item, rate, node, out, machines[c.i]!, portId, [...via, ...drop(c.x, via.length ? levelY(level) : levelY(level) + 3)]);
         else link('belt', item, rate, node, out, buildings.find((x) => x.key === c.key)!, 'belt-in-0', via);
       });
       return { leaf: false, key: node.key, x: node.x };
@@ -507,10 +540,10 @@ function buildRow(
     const rates = seg.machines.map((m) => m.outputs.get(item) ?? 0);
     const total = rates.reduce((s, v) => s + v, 0);
     const { y, h } = collect.get(item)!;
-    /** Hinter dem Maschinenausgang auf die Höhe der Sammelleitung steigen. */
-    const rise = (x: number) => lift(x, outY + 1.5, LINE_H, h);
+    /** Direkt vor der Zusammenführung auf die Höhe der Sammelleitung steigen. */
+    const rise = (x: number) => lift(x, y - 3, LINE_H, h);
     const anchor = (ref: { key: string; portId: string }, depart: DraftPoint[]) =>
-      sources.push({ itemId: item, kind, perMin: total, ref, y, approach: [...depart, ...lift(edgeX, y, h, LINE_H)], floor, edge: 0, dir });
+      sources.push({ itemId: item, kind, perMin: total, ref, y, approach: depart, h, floor, edge: 0, dir });
     if (n === 1) {
       anchor({ key: machines[0]!.key, portId }, [...rise(qx[0]!), pt(qx[0]!, y, h)]);
       continue;
@@ -688,12 +721,15 @@ function buildVariant(
   // Laufweg zwischen den Linien: eine Fundamentreihe (breit) bzw. ein halbes Fundament
   const rowGap = opts.spacing === 'wide' ? 8 : 4;
   const termDepth = (item: string) => (isFluid(gd, item) ? 6 : 11);
-  /** Höhe des Busses: bei „Kreuzungen vermeiden“ eine Stufe über den Abzweigen am Boden. */
-  // Bei Linien auf beiden Seiten liegen die Abzweige nach rechts eine Stufe höher als die nach links,
-  // damit sie sich zwischen den Spuren nicht überdecken; der Bus liegt über allen Abzweigen.
+  /** Der Bus liegt am Boden, bei „Kreuzungen vermeiden“ überqueren ihn die Abzweige überkopf. */
+  // Bei Linien auf beiden Seiten liegen die Abzweige nach rechts eine Ebene höher als die nach links,
+  // damit sie sich zwischen den Spuren nicht überdecken.
   const twoSided = sides.length === 2;
-  const tapH = (dir: 1 | -1) => (avoid && twoSided && dir === 1 ? LINE_H + LEVEL_STEP : LINE_H);
-  const busH = avoid ? LINE_H + LEVEL_STEP * (twoSided ? 2 : 1) : LINE_H;
+  const tapH = (dir: 1 | -1) =>
+    opts.logistics ? (!avoid ? LOG(1) : twoSided && dir === 1 ? LOG(5) : LOG(3)) : !avoid ? LINE_H : twoSided && dir === 1 ? OVER2_H : OVER_H;
+  const busH = opts.logistics ? LOG(1) : LINE_H;
+  /** Etagenindex der Produktionsebene (mit Logistikebenen liegt unter jeder eine Logistiketage). */
+  const prodIdx = (f: number) => (opts.logistics ? 2 * f + 1 : f);
 
   // --- Linien bauen (Höhe unabhängig von der Lage), dann auf Etagen und Seiten verteilen ---
   const probe = segments.map((seg) => buildRow(gd, seg, 1, 0, 0, opts, new Keys(), tierFor, new Set()).height);
@@ -723,12 +759,40 @@ function buildVariant(
   }
   const arranged: Arranged[] = [];
   const cursors = new Map<string, number>();
+  /** Lage der Anschlüsse am Gang je Etage und Seite (inkl. Versatz einer Verteilkette). */
+  const anchorYs = new Map<string, number[]>();
+  const spread = (ys: number[]) => ys.flatMap((v) => [v - 3, v, v + 3]);
   segments.forEach((seg, i) => {
-    const floor = floorOf[i]!;
+    const floor = prodIdx(floorOf[i]!);
     const side = sides.reduce((best, s) => ((cursors.get(`${floor}:${s}`) ?? 0) < (cursors.get(`${floor}:${best}`) ?? 0) ? s : best), sides[0]!);
     const k = `${floor}:${side}`;
-    const y = Math.ceil((cursors.get(k) ?? 0) / 4) * 4;
+    const base = Math.ceil((cursors.get(k) ?? 0) / 4) * 4;
+    // Linien auf beiden Seiten: um ganze 4-m-Schritte versetzen, bis die Anschlüsse nicht auf
+    // denselben Linien liegen wie die der Gegenseite – sonst laufen Abzweige nach links und rechts
+    // im Grundriss übereinander (verschiedene Höhen)
+    const other = sides.length === 2 ? anchorYs.get(`${floor}:${-side}`) ?? [] : [];
+    const clash = (y: number) => {
+      const r = buildRow(gd, seg, side, y, floor, opts, new Keys(), tierFor, new Set());
+      const mine = [...r.sinks, ...r.sources].map((a) => a.y);
+      let n = 0;
+      for (const v of mine) for (const o of other) if (Math.abs(v - o) < 2) n += 3;
+      for (const v of spread(mine)) for (const o of spread(other)) if (Math.abs(v - o) < 2) n++;
+      return n;
+    };
+    let y = base;
+    if (other.length) {
+      let best = Infinity;
+      for (const dy of [0, 4, 8, 12]) {
+        const c = clash(base + dy);
+        if (c < best) {
+          best = c;
+          y = base + dy;
+        }
+        if (c === 0) break;
+      }
+    }
     const row = buildRow(gd, seg, side, y, floor, opts, keys, tierFor, notes);
+    anchorYs.set(k, [...(anchorYs.get(k) ?? []), ...[...row.sinks, ...row.sources].map((a) => a.y)]);
     cursors.set(k, y + row.height + rowGap);
     arranged.push({ seg, floor, dir: side, y, row });
   });
@@ -744,8 +808,8 @@ function buildVariant(
   const yOfEnd = (e: LaneEnd) => (e.kind === 'anchor' ? e.anchor.y : e.kind === 'entry' ? ENTRY_Y : EXIT_Y);
   // Ein- und Ausgänge liegen auf der Etage ihres Partners
   const floorOfPair = (p: Pair) => ({
-    from: p.src.kind === 'anchor' ? p.src.anchor.floor : p.dst.kind === 'anchor' ? p.dst.anchor.floor : 0,
-    to: p.dst.kind === 'anchor' ? p.dst.anchor.floor : p.src.kind === 'anchor' ? p.src.anchor.floor : 0,
+    from: p.src.kind === 'anchor' ? p.src.anchor.floor : p.dst.kind === 'anchor' ? p.dst.anchor.floor : prodIdx(0),
+    to: p.dst.kind === 'anchor' ? p.dst.anchor.floor : p.src.kind === 'anchor' ? p.src.anchor.floor : prodIdx(0),
   });
   const lanes: Lane[] = [];
   const keyOf = (e: LaneEnd) => (e.kind === 'anchor' ? e.anchor : e.kind);
@@ -796,9 +860,11 @@ function buildVariant(
           if (!list.includes(l)) list.push(l);
           lanesAt.set(e.anchor, list);
         }
+  /** Knoten der Verteilkette je Anschluss (bei Konflikten der Seitenabgänge ggf. einer mehr, siehe unten). */
+  const chainExtra = new Map<Anchor, number>();
   const chainLen = (a: Anchor) => {
     const c = lanesAt.get(a)?.length ?? 0;
-    return c <= 1 ? 0 : Math.ceil((c - 1) / 2);
+    return c <= 1 ? 0 : Math.ceil((c - 1) / 2) + (chainExtra.get(a) ?? 0);
   };
   const stepOf = (a: Anchor) => (a.kind === 'pipe' ? 4 : 6);
   const sideOff = (a: Anchor) => (a.kind === 'pipe' ? 1.2 : 2) + PORT_STUB_M;
@@ -812,15 +878,30 @@ function buildVariant(
   const anchorIds = new Map<Anchor, number>();
   const idOf = (a: Anchor) => anchorIds.get(a) ?? (anchorIds.set(a, anchorIds.size), anchorIds.size - 1);
   const slotKey = (a: Anchor, l: Lane) => `${idOf(a)}|${lanes.indexOf(l)}`;
+  // Abgänge benachbarter Anschlüsse (gleiche Etage und Seite) dürfen nicht auf derselben Linie liegen
+  const usedYs = new Map<string, number[]>();
+  for (const a of [...sinks, ...sources]) usedYs.set(`${a.floor}:${a.dir}`, [...(usedYs.get(`${a.floor}:${a.dir}`) ?? []), a.y]);
   for (const [a, ls] of lanesAt) {
-    const h = chainLen(a);
-    if (h === 0) continue;
-    const free: Slot[] = [];
-    for (let j = 0; j < h; j++) {
-      free.push({ node: j, side: 'up', dy: -sideOff(a) }, { node: j, side: 'down', dy: sideOff(a) });
-      if (j === h - 1) free.push({ node: j, side: 'end', dy: 0 });
+    if (chainLen(a) === 0) continue;
+    const others = usedYs.get(`${a.floor}:${a.dir}`)!;
+    const clash = (sl: Slot) => sl.dy !== 0 && others.some((y) => Math.abs(y - (a.y + sl.dy)) < 1.5);
+    let ordered: Slot[] = [];
+    for (let extra = 0; extra <= 2; extra++) {
+      chainExtra.set(a, extra);
+      const h = chainLen(a);
+      const free: Slot[] = [];
+      for (let j = 0; j < h; j++) {
+        free.push({ node: j, side: 'up', dy: -sideOff(a) }, { node: j, side: 'down', dy: sideOff(a) });
+        if (j === h - 1) free.push({ node: j, side: 'end', dy: 0 });
+      }
+      ordered = [...free.filter((x) => !clash(x)), ...free.filter(clash)];
+      if (free.filter((x) => !clash(x)).length >= ls.length) break;
     }
-    ls.forEach((l, i) => slotOf.set(slotKey(a, l), free[i]!));
+    ls.forEach((l, i) => {
+      const sl = ordered[i]!;
+      slotOf.set(slotKey(a, l), sl);
+      if (sl.dy !== 0) others.push(a.y + sl.dy);
+    });
   }
   const hubW = (side: 1 | -1) => Math.max(0, ...[...sinks, ...sources].filter((a) => a.dir === side).map((a) => chainLen(a) * stepOf(a))) + 2;
 
@@ -914,10 +995,9 @@ function buildVariant(
         role: pipe ? 'junction' : isSink ? 'merger' : 'splitter',
         recipeId: null,
         clock: 1,
-        floor: a.floor,
+        ...onFloor(a.floor, tapH(a.dir) - portZ(def)),
         x: a.edge - a.dir * (stepOf(a) / 2 + 1 + stepOf(a) * j),
         y: a.y,
-        h: tapH(a.dir) - portZ(def),
         rotationDeg: rot,
         label: '',
       });
@@ -925,7 +1005,7 @@ function buildVariant(
     buildings.push(...nodes);
     // Kette auf Abzweighöhe der Seite: Lift zwischen Kette und Linie
     const lift = (from: number, to: number) =>
-      Math.abs(from - to) < 1e-6 ? [] : [from, to].map((h) => ({ x: a.edge - a.dir, y: a.y, floor: a.floor, h }));
+      Math.abs(from - to) < 1e-6 ? [] : [from, to].map((h) => ({ x: a.edge - a.dir, y: a.y, ...onFloor(a.floor, h) }));
     const amount = (l: Lane) =>
       l.pairs
         .filter((q) => {
@@ -939,10 +1019,10 @@ function buildVariant(
       chainRef.set(slotKey(a, l), { key: nodes[s.node]!.key, portId: sidePort[s.side] });
     }
     if (isSink) {
-      link(a.kind, a.itemId, beyond(0), { key: nodes[0]!.key, portId: towardRow }, a.ref, [...lift(tapH(a.dir), LINE_H), ...copy(a.approach)]);
+      link(a.kind, a.itemId, beyond(0), { key: nodes[0]!.key, portId: towardRow }, a.ref, [...lift(tapH(a.dir), a.h), ...copy(a.approach)]);
       for (let j = 0; j + 1 < h; j++) link(a.kind, a.itemId, beyond(j + 1), { key: nodes[j + 1]!.key, portId: towardRow }, { key: nodes[j]!.key, portId: away }, []);
     } else {
-      link(a.kind, a.itemId, beyond(0), a.ref, { key: nodes[0]!.key, portId: towardRow }, [...copy(a.approach), ...lift(LINE_H, tapH(a.dir))]);
+      link(a.kind, a.itemId, beyond(0), a.ref, { key: nodes[0]!.key, portId: towardRow }, [...copy(a.approach), ...lift(a.h, tapH(a.dir))]);
       for (let j = 0; j + 1 < h; j++) link(a.kind, a.itemId, beyond(j + 1), { key: nodes[j]!.key, portId: away }, { key: nodes[j + 1]!.key, portId: towardRow }, []);
     }
   }
@@ -964,7 +1044,7 @@ function buildVariant(
     const label =
       (dir === 'in' ? tr('Eingang: {item}', { item: gd.name(l.itemId) }) : tr('Ausgang: {item}', { item: gd.name(l.itemId) })) +
       (same.length > 1 ? ` (${same.indexOf(l) + 1}/${same.length})` : '');
-    buildings.push({ key, type, role: dir === 'in' ? 'entry' : 'exit', recipeId: null, clock: 1, floor: l.floor, x: l.x, y: cy, h: 0, rotationDeg: 0, label, itemId: l.itemId });
+    buildings.push({ key, type, role: dir === 'in' ? 'entry' : 'exit', recipeId: null, clock: 1, ...onFloor(l.floor, busH - LINE_H), x: l.x, y: cy, rotationDeg: 0, label, itemId: l.itemId });
     terminals.push({ key, itemId: l.itemId, perMin: amount, dir, portId: otherPort });
     const r = termRef.get(l) ?? {};
     r[dir] = { key, portId };
@@ -975,7 +1055,7 @@ function buildVariant(
 
   // --- Busspuren: Knoten (Splitter, Zusammenführungen, Rohrkreuzungen) und Leitungen ---
   for (const l of lanes) {
-    const pt = (y: number, h: number, floor = l.floor, x = l.x): DraftPoint => ({ x, y, floor, h });
+    const pt = (y: number, h: number, floor = l.floor, x = l.x): DraftPoint => ({ x, y, ...onFloor(floor, h) });
     const vert = (y: number, a: number, b: number, floor = l.floor, x = l.x) => (Math.abs(a - b) < 1e-6 ? [] : [pt(y, a, floor, x), pt(y, b, floor, x)]);
     // Ereignisse der Spur: je Anschluss bzw. Ein-/Ausgang eines, mit Menge
     interface Ev {
@@ -1010,14 +1090,14 @@ function buildVariant(
     const edgeLift = (a: Anchor, y: number, from: number, to: number) => (viaChain(a) ? [] : vert(y, from, to, a.floor, a.edge - a.dir));
     const fromAnchor = (a: Anchor, y: number, toX: number) => [
       ...(viaChain(a) ? [] : copy(a.approach)),
-      ...edgeLift(a, y, LINE_H, th(a)),
+      ...edgeLift(a, y, a.h, th(a)),
       pt(y, th(a), a.floor, toX),
       ...vert(y, th(a), busH, a.floor, toX),
     ];
     const toAnchor = (a: Anchor, y: number, fromX: number) => [
       ...vert(y, busH, th(a), a.floor, fromX),
       pt(y, th(a), a.floor, fromX),
-      ...edgeLift(a, y, th(a), LINE_H),
+      ...edgeLift(a, y, th(a), a.h),
       ...(viaChain(a) ? [] : copy(a.approach)),
     ];
     const flowAfter: number[] = [];
@@ -1040,10 +1120,9 @@ function buildVariant(
         role: pipe ? 'junction' : isSrc ? 'merger' : 'splitter',
         recipeId: null,
         clock: 1,
-        floor: l.floor,
+        ...onFloor(l.floor, busH - portZ(def)),
         x: l.x,
         y: ev.y,
-        h: busH - portZ(def),
         rotationDeg: rot,
         label: '',
       };
@@ -1064,7 +1143,7 @@ function buildVariant(
       if (na) from = { key: na.key, portId: nodePort(na, { x: 0, y: dy }, l.kind === 'pipe' ? ['any'] : ['out']) };
       else {
         from = refAt(a.end, 'out');
-        if (a.end.kind === 'entry') wps.push(...vert(entryPortY + 1.5, LINE_H, busH));
+        if (a.end.kind === 'entry') wps.push(...vert(entryPortY + 1.5, busH, busH));
         else if (a.end.kind === 'anchor') wps.push(...fromAnchor(a.end.anchor, a.y, l.x));
       }
       // Etagenwechsel (nur Einzelspuren): Lift auf der Spur am Abgang
@@ -1072,7 +1151,7 @@ function buildVariant(
       if (nb) to = { key: nb.key, portId: nodePort(nb, { x: 0, y: -dy }, l.kind === 'pipe' ? ['any'] : ['in']) };
       else {
         to = refAt(b.end, 'in');
-        if (b.end.kind === 'exit') wps.push(...vert(exitPortY - 1.5, busH, LINE_H));
+        if (b.end.kind === 'exit') wps.push(...vert(exitPortY - 1.5, busH, busH));
         else if (b.end.kind === 'anchor') wps.push(...toAnchor(b.end.anchor, b.y, l.x));
       }
       link(l.kind, l.itemId, flowAfter[i]!, from, to, wps);
@@ -1126,20 +1205,27 @@ function buildVariant(
     w.y -= minY;
   }
   const floorHeights: number[] = [];
-  for (let f = 0; f < floors; f++) {
+  const floorKinds: FloorKind[] = [];
+  for (let f = 0; f < (opts.logistics ? 2 * floors : floors); f++) {
+    const kind: FloorKind = opts.logistics && f % 2 === 0 ? 'logistics' : 'production';
     const tallest = Math.max(4, ...buildings.filter((b) => b.floor === f).map((b) => b.h + buildingHeight(gd.building(b.type)!)));
-    floorHeights.push(Math.max(DEFAULT_FLOOR_HEIGHT_M.production, Math.ceil((tallest + 2) / 2) * 2));
+    floorKinds.push(kind);
+    floorHeights.push(Math.max(DEFAULT_FLOOR_HEIGHT_M[kind], Math.ceil((tallest + 2) / 2) * 2));
   }
   const fitsArea =
     (opts.maxWidthM === null || width <= opts.maxWidthM + 1e-6) && (opts.maxDepthM === null || depth <= opts.maxDepthM + 1e-6) && floors <= Math.max(1, opts.maxFloors);
   if (!fitsArea) notes.add(tr('Passt nicht in die vorgegebene Fläche: benötigt {w} × {d} m.', { w: Math.ceil(width), d: Math.ceil(depth) }));
   if (opts.distribution === 'balanced' && segments.some((s) => s.inItems.some((i) => isFluid(gd, i)) && s.machines.length > 1))
     notes.add(tr('Rohre werden immer als Sammelleitung verlegt.'));
-  if (avoid)
+  if (opts.logistics)
+    notes.add(
+      tr('Logistikebene unter jeder Produktionsebene: Bus, Zuführungen, Sammelleitungen und Ein-/Ausgänge liegen dort (Ebenen 1, 3 und 5 m über dem Logistikboden), Lifte führen durch die Decke zu den Maschinen.'),
+    );
+  else if (avoid)
     notes.add(
       twoSided
-        ? tr('Kreuzungen über Höhen gelöst: Bus auf {h} m, Abzweige nach links am Boden, nach rechts auf {t} m, äußere Zuführungen je {s} m höher, Lifte an den Übergängen.', { h: busH, t: LINE_H + LEVEL_STEP, s: LEVEL_STEP })
-        : tr('Kreuzungen über Höhen gelöst: Bus auf {h} m, Abzweige am Boden darunter, äußere Zuführungen je {s} m höher, Lifte an den Übergängen.', { h: busH, s: LEVEL_STEP }),
+        ? tr('Kreuzungen über feste Höhen gelöst: Bus und Maschinenanschlüsse auf {h} m, Zuführungen, Sammelleitungen und Abzweige nach links auf {o} m, Abzweige nach rechts auf {o2} m, Lifte an den Übergängen.', { h: LINE_H, o: OVER_H, o2: OVER2_H })
+        : tr('Kreuzungen über feste Höhen gelöst: Bus und Maschinenanschlüsse auf {h} m, Zuführungen, Sammelleitungen und Abzweige auf {o} m, Lifte an den Übergängen.', { h: LINE_H, o: OVER_H }),
     );
   const count = (role: DraftRole) => buildings.filter((b) => b.role === role).length;
   return {
@@ -1149,6 +1235,7 @@ function buildVariant(
       buildings,
       links,
       floorHeights,
+      floorKinds,
       width,
       depth,
       fits: fitsArea,
@@ -1213,12 +1300,19 @@ export function applyLayout(p: Project, gd: GameDataIndex, factoryId: string, dr
   const created: string[] = [];
   // Oberste vorhandene Etage bei Bedarf erhöhen (darüber liegt nichts), neue Etagen darüber anlegen
   const existing = f.floorIds.length;
+  const kinds = draft.floorKinds ?? [];
   if (draft.floorHeights.length > 0 && existing <= draft.floorHeights.length) {
     const top = p.floors[f.floorIds[existing - 1]!]!;
-    top.heightM = Math.max(top.heightM, draft.floorHeights[existing - 1]!);
+    const want = kinds[existing - 1] ?? top.kind;
+    const empty = !Object.values(p.buildings).some((b) => b.placement?.floorId === top.id) && !Object.values(p.areas).some((a) => a.floorId === top.id);
+    if (empty && want !== top.kind) {
+      // Leere oberste Etage übernimmt Art und Höhe aus dem Entwurf (z. B. Logistikebene in einer neuen Fabrik)
+      top.kind = want;
+      top.heightM = draft.floorHeights[existing - 1]!;
+    } else top.heightM = Math.max(top.heightM, draft.floorHeights[existing - 1]!);
   }
   for (let i = existing; i < draft.floorHeights.length; i++) {
-    created.push(addFloor(p, factoryId, { heightM: draft.floorHeights[i] }));
+    created.push(addFloor(p, factoryId, { heightM: draft.floorHeights[i], kind: kinds[i] ?? 'production' }));
   }
   const floorIds = [...p.factories[factoryId]!.floorIds];
   const floorId = (i: number) => floorIds[i]!;
@@ -1292,6 +1386,8 @@ export interface LayoutCheck {
   liftCount: number;
   /** Leitungspaare, die sich auf gleicher Höhe kreuzen oder überdecken. */
   crossings: number;
+  /** Leitungspaare, die im Grundriss über mehr als 4 m übereinander liegen (verschiedene Höhen). */
+  stacked: number;
 }
 
 /**
@@ -1368,6 +1464,59 @@ export function countCrossings(p: Project, gd: GameDataIndex, linkIds: string[],
 }
 
 /**
+ * Leitungen, die im Grundriss auf derselben Linie übereinander liegen
+ * (achsparallel, höchstens 1 m seitlicher Versatz, verschiedene Höhe, mehr
+ * als `minM` gemeinsame Länge). Liefert die Zahl der Paare und die längste Überdeckung.
+ */
+export function countStacked(p: Project, gd: GameDataIndex, linkIds: string[], minM = 4, out?: { links: [string, string]; lengthM: number; z: [number, number] }[]): { pairs: number; longestM: number } {
+  interface Seg {
+    link: string;
+    floor: string;
+    axis: 'x' | 'y';
+    c: number;
+    lo: number;
+    hi: number;
+    z: number;
+  }
+  const byLine = new Map<string, Seg[]>();
+  for (const id of linkIds) {
+    const l = p.links[id];
+    if (!l) continue;
+    const path = linkPath(p, gd, l);
+    if (!path) continue;
+    const floors = (p.factories[l.factoryId]?.floorIds ?? []).map((fid) => p.floors[fid]!).filter(Boolean);
+    for (let i = 1; i < path.length; i++) {
+      const a = path[i - 1]!;
+      const b = path[i]!;
+      // Stockwerk nach Höhe (eine Leitung kann mehrere Stockwerke durchlaufen)
+      const floor = floors.filter((f) => f.elevationM <= a.z + 1e-3).sort((x, y) => y.elevationM - x.elevationM)[0]?.id ?? '';
+      const axis = Math.abs(a.y - b.y) < EPS && Math.abs(a.x - b.x) > EPS ? 'x' : Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) > EPS ? 'y' : null;
+      if (!axis) continue;
+      const c = axis === 'x' ? a.y : a.x;
+      const sg: Seg = { link: id, floor, axis, c, lo: Math.min(axis === 'x' ? a.x : a.y, axis === 'x' ? b.x : b.y), hi: Math.max(axis === 'x' ? a.x : a.y, axis === 'x' ? b.x : b.y), z: (a.z + b.z) / 2 };
+      const k = `${floor}|${axis}|${Math.round(c)}`;
+      byLine.set(k, [...(byLine.get(k) ?? []), sg]);
+    }
+  }
+  const pairs = new Map<string, number>();
+  for (const [k, list] of byLine) {
+    // Nachbarlinien (Rundung) mit einbeziehen
+    const [floor, axis, c] = k.split('|');
+    const near = [...list, ...(byLine.get(`${floor}|${axis}|${+c! + 1}`) ?? [])];
+    for (const s1 of list)
+      for (const s2 of near) {
+        if (s1.link === s2.link || Math.abs(s1.c - s2.c) > 1 || Math.abs(s1.z - s2.z) < 0.5) continue;
+        const ov = Math.min(s1.hi, s2.hi) - Math.max(s1.lo, s2.lo);
+        if (ov <= minM) continue;
+        const key = s1.link < s2.link ? `${s1.link}|${s2.link}` : `${s2.link}|${s1.link}`;
+        if (out && !pairs.has(key)) out.push({ links: [s1.link, s2.link], lengthM: ov, z: [s1.z, s2.z] });
+        pairs.set(key, Math.max(pairs.get(key) ?? 0, ov));
+      }
+  }
+  return { pairs: pairs.size, longestM: Math.max(0, ...pairs.values()) };
+}
+
+/**
  * Prüft einen Entwurf an einer Kopie des Projekts: Durchsatzmodell mit
  * versorgten Eingängen (je Eingang so viel, wie der Plan zuliefert),
  * Überschneidungen und Leitungslängen.
@@ -1425,5 +1574,6 @@ export function checkLayout(p: Project, gd: GameDataIndex, factoryId: string, dr
     pipeLengthM: pipe,
     liftCount: lifts,
     crossings: countCrossings(copy, gd, res.linkIds),
+    stacked: countStacked(copy, gd, res.linkIds).pairs,
   };
 }

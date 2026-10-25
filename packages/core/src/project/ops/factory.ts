@@ -158,20 +158,25 @@ export function addArea(
   return area.id;
 }
 
-export function updateArea(p: Project, id: string, patch: Partial<Pick<PlanArea, 'name' | 'kind' | 'polygon' | 'foundationType'>>): void {
+export function updateArea(p: Project, id: string, patch: Partial<Pick<PlanArea, 'name' | 'kind' | 'polygon' | 'foundationType' | 'locked'>>): void {
   const a = must(p.areas[id], tr('Fläche'));
   if (patch.polygon && patch.polygon.length < 3) throw new OpError(tr('Eine Fläche benötigt mindestens drei Eckpunkte.'));
+  if (patch.polygon && a.locked) throw new OpError(tr('Die Fläche ist gesperrt.'));
   Object.assign(a, patch);
+  if (a.locked === false) delete a.locked;
 }
 
 export function removeArea(p: Project, id: string): void {
-  must(p.areas[id], tr('Fläche'));
+  const a = must(p.areas[id], tr('Fläche'));
+  if (a.locked) throw new OpError(tr('Die Fläche ist gesperrt.'));
   delete p.areas[id];
 }
 
+/** Verschiebt Flächen; gesperrte bleiben liegen. */
 export function moveAreas(p: Project, ids: string[], dx: number, dy: number): void {
   for (const id of ids) {
     const a = must(p.areas[id], tr('Fläche'));
+    if (a.locked) continue;
     a.polygon = a.polygon.map((v) => ({ x: v.x + dx, y: v.y + dy }));
   }
 }

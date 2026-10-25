@@ -135,9 +135,9 @@ export function TourOverlay() {
 }
 
 /** Öffnet ein Beispielprojekt als neues Projekt (das aktuelle bleibt unverändert gespeichert). */
-async function openExample(kind: ExampleKind, after?: () => void) {
+async function openExample(kind: ExampleKind, after?: () => void, logistics = false) {
   after?.();
-  if (await createExample(kind)) useUiStore.getState().toast(t('Beispielprojekt angelegt. Dein bisheriges Projekt bleibt unverändert.'));
+  if (await createExample(kind, { logistics })) useUiStore.getState().toast(t('Beispielprojekt angelegt. Dein bisheriges Projekt bleibt unverändert.'));
 }
 
 /** Hilfemenü mit allen Führungen. */
@@ -177,6 +177,12 @@ export function HelpMenu() {
           </button>
           <button className="menu-item" data-testid="example-large" onClick={() => void openExample('large', () => setOpen(false))}>
             {t('Groß: 150 Maschinen auf drei Etagen (Auto-Layout)')}
+          </button>
+          <button className="menu-item" data-testid="example-medium-logistics" onClick={() => void openExample('medium', () => setOpen(false), true)}>
+            {t('Mittel mit Logistikebene')}
+          </button>
+          <button className="menu-item" data-testid="example-large-logistics" onClick={() => void openExample('large', () => setOpen(false), true)}>
+            {t('Groß mit Logistikebenen')}
           </button>
           <label className="check-row menu-check">
             <input type="checkbox" checked={detailed} onChange={(e) => usePrefs.getState().setDetailedTours(e.target.checked)} />

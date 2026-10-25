@@ -113,27 +113,33 @@ const EXAMPLE_NAMES: Record<ExampleKind, string> = {
   large: 'Beispiel: Schwere modulare Rahmen (Auto-Layout, groß)',
 };
 
-export function buildExampleProject(gd: GameDataIndex, kind: ExampleKind, base: { datasetId: string; gameVersion: string; now?: Date }): Project {
-  const p = createProject({ ...base, name: tr(EXAMPLE_NAMES[kind]) });
+/**
+ * Beispielprojekt. `logistics` (nur mittleres und großes Beispiel): Layout mit
+ * einer Logistikebene unter jeder Produktionsebene.
+ */
+export function buildExampleProject(gd: GameDataIndex, kind: ExampleKind, base: { datasetId: string; gameVersion: string; now?: Date }, opts: { logistics?: boolean } = {}): Project {
+  const logistics = !!opts.logistics && (kind === 'medium' || kind === 'large');
+  const p = createProject({ ...base, name: tr(EXAMPLE_NAMES[kind]) + (logistics ? ` – ${tr('mit Logistikebenen')}` : '') });
+  const withLogistics = (notes: string) => (logistics ? `${notes} ${tr('Bus, Zuführungen und Sammelleitungen liegen auf einer Logistikebene unter jeder Produktionsebene.')}` : notes);
   if (kind === 'medium') {
     layoutExample(p, gd, {
       name: tr('Computerfabrik'),
-      notes: tr('Mittelgroßes Beispiel, mit dem automatischen Layout erzeugt (Bauart „Kompakter Block“): 5 Computer pro Minute mit Raffinerien, Rohren und Hauptbus.'),
+      notes: withLogistics(tr('Mittelgroßes Beispiel, mit dem automatischen Layout erzeugt (Bauart „Kompakter Block“): 5 Computer pro Minute mit Raffinerien, Rohren und Hauptbus.')),
       itemId: 'Desc_Computer_C',
       ratePerMin: 5,
       variant: 'compact',
-      options: { beltTier: 'Build_ConveyorBeltMk4_C', pipeTier: 'Build_Pipeline_C', crossings: 'avoid', distribution: 'manifold', spacing: 'compact' },
+      options: { beltTier: 'Build_ConveyorBeltMk4_C', pipeTier: 'Build_Pipeline_C', crossings: 'avoid', distribution: 'manifold', spacing: 'compact', logistics },
     });
     return p;
   }
   if (kind === 'large') {
     layoutExample(p, gd, {
       name: tr('Rahmenwerk'),
-      notes: tr('Großes Beispiel, mit dem automatischen Layout erzeugt (Bauart „Hochbau“): 5 schwere modulare Rahmen pro Minute, rund 150 Maschinen auf drei Etagen.'),
+      notes: withLogistics(tr('Großes Beispiel, mit dem automatischen Layout erzeugt (Bauart „Hochbau“): 5 schwere modulare Rahmen pro Minute, rund 150 Maschinen auf drei Etagen.')),
       itemId: 'Desc_ModularFrameHeavy_C',
       ratePerMin: 5,
       variant: 'floors',
-      options: { beltTier: 'Build_ConveyorBeltMk5_C', pipeTier: 'Build_PipelineMK2_C', crossings: 'avoid', distribution: 'manifold', spacing: 'compact', maxFloors: 3 },
+      options: { beltTier: 'Build_ConveyorBeltMk5_C', pipeTier: 'Build_PipelineMK2_C', crossings: 'avoid', distribution: 'manifold', spacing: 'compact', maxFloors: 3, logistics },
     });
     return p;
   }

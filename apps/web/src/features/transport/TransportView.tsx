@@ -7,6 +7,7 @@ import {
   cachedFactoryFlow,
   cargoKind,
   estimateOrder,
+  factoryInputs,
   factoryTrade,
   getLanguage,
   localName,
@@ -16,6 +17,7 @@ import {
   transferInterface,
   transportAssumptions,
   transportOps as ops,
+  type FactoryInput,
   type GameDataIndex,
   type OrderEstimate,
   type PortRef,
@@ -130,6 +132,7 @@ export function TransportView({ bottom }: { bottom?: ReactNode }) {
         <div className="scroll">
           <div className="production">
             <OrdersTable measured={measured} />
+            <InputsSection />
             <TradeSection />
           </div>
         </div>
@@ -229,6 +232,96 @@ function OrdersTable({ measured }: { measured: Map<string, number> }) {
         </table>
       )}
       <p className="dim small-text">{t('Durchsatz von Zügen und Fahrzeugen ist eine Schätzung. Mit der Simulation im Schienennetz gemessene Umlaufzeiten ersetzen die Schätzung, sobald ein Zug mindestens zwei Umläufe gefahren ist. Bänder und Rohre: Kapazität der gewählten Stufe mal Anzahl Leitungen.')}</p>
+    </Section>
+  );
+}
+
+/** Eingänge (Übergabelager) aller Fabriken mit Bedarf und Zulieferung über direkte Leitungen. */
+function InputsSection() {
+  const project = useProjectStore((s) => s.project)!;
+  const gd = useProjectStore((s) => s.gd)!;
+  const apply = useProjectStore((s) => s.apply);
+  const select = useUiStore((s) => s.select);
+  const rows = useMemo(
+    () =>
+      Object.values(project.factories)
+        .filter((f) => !f.blackbox)
+        .flatMap((f) => factoryInputs(project, gd, f.id).map((x) => ({ f, x }))),
+    [project, gd],
+  );
+  if (rows.length === 0) return null;
+  return (
+    <Section title={t('Eingänge der Fabriken')}>
+      <table className="table" data-testid="inputs-table">
+        <thead>
+          <tr>
+            <th>{t('Fabrik')}</th>
+            <th>{t('Eingang')}</th>
+            <th>{t('Gegenstand')}</th>
+            <th className="num" title={t('So viel nehmen die Maschinen hinter dem Eingang bei voller Versorgung ab (Durchsatzmodell).')}>
+              {t('Bedarf')}
+            </th>
+            <th>{t('Direkte Leitungen')}</th>
+            <th>{t('Status')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ f, x }) => {
+            const b = project.buildings[x.buildingId]!;
+            const u = x.kind === 'belt' ? '/min' : 'm³/min';
+            // Bestellte Menge gegen Bedarf (der tatsächliche Fluss sinkt auch, wenn ein anderer Eingang fehlt)
+            const ordered = x.directOrderIds.reduce((s, id) => s + (project.transportOrders[id]?.ratePerMin ?? 0), 0);
+            const gap = x.requiredPerMin - ordered;
+            const single = x.directOrderIds.length === 1 ? project.transportOrders[x.directOrderIds[0]!] : undefined;
+            return (
+              <tr key={x.buildingId}>
+                <td>{f.name}</td>
+                <td>{b.label || gd.name(b.type)}</td>
+                <td>{x.itemId ? gd.name(x.itemId) : '?'}</td>
+                <td className="num">
+                  {fmtNum(x.requiredPerMin, 1)} {u}
+                </td>
+                <td>
+                  {x.directOrderIds.length === 0 && <span className="dim">–</span>}
+                  {x.directOrderIds.map((id) => {
+                    const o = project.transportOrders[id]!;
+                    return (
+                      <button key={id} className="link-button" onClick={() => select([{ table: 'transportOrders', id }])}>
+                        {o.name || gd.name(o.itemId)} ({fmtNum(o.ratePerMin, 1)} {u})
+                      </button>
+                    );
+                  })}
+                </td>
+                <td>
+                  {x.requiredPerMin <= 1e-6 ? (
+                    <span className="dim">{t('kein Bedarf')}</span>
+                  ) : gap <= 1e-3 * Math.max(1, x.requiredPerMin) ? (
+                    <Badge kind="ok">{t('gedeckt')}</Badge>
+                  ) : x.directOrderIds.length === 0 ? (
+                    <Badge kind="muted" title={t('Keine direkte Leitung an diesem Eingang. Züge, Fahrzeuge und Drohnen liefern an die Fabrik, nicht an einen bestimmten Eingang.')}>
+                      {t('ohne direkte Leitung')}
+                    </Badge>
+                  ) : (
+                    <Badge kind="warn">{t('fehlt {n}', { n: `${fmtNum(gap, 1)} ${u}` })}</Badge>
+                  )}
+                  {single && Math.abs(ordered - x.requiredPerMin) > 1e-3 * Math.max(1, x.requiredPerMin) && x.requiredPerMin > 1e-6 && (
+                    <button
+                      className="small"
+                      title={t('Menge des Auftrags auf den Bedarf dieses Eingangs setzen')}
+                      onClick={() => apply(t('Menge'), (d, g) => ops.updateOrder(d, g, single.id, { ratePerMin: Math.round(x.requiredPerMin * 1000) / 1000 }))}
+                    >
+                      {t('Menge übernehmen')}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className="dim small-text">
+        {t('Eingänge sind Lager bzw. Flüssigkeitspuffer, die nur abgeben (z. B. die Ein-/Ausgänge des Auto-Layouts). Teilen sich mehrere Eingänge dieselben Maschinen, ist die Aufteilung des Bedarfs eine von mehreren möglichen.')}
+      </p>
     </Section>
   );
 }
@@ -339,14 +432,24 @@ function OrderProps({ order: o, measured }: { order: TransportOrder; measured: M
         <Row label={t('Menge')}>
           <NumberField value={o.ratePerMin} min={0} suffix={u} onCommit={(v) => upd(t('Menge'), { ratePerMin: v })} />
         </Row>
-        <Row label={t('Von Fabrik')}>
-          <select value={o.fromFactoryId} onChange={(e) => upd(t('Absender'), { fromFactoryId: e.target.value })}>
-            {factories.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
+        <Row label={t('Von Fabrik')} plain>
+          <span className="inline">
+            <select value={o.fromFactoryId} onChange={(e) => upd(t('Absender'), { fromFactoryId: e.target.value })} data-testid="order-from">
+              {factories.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+            <button
+              className="small"
+              title={t('Absender und Empfänger tauschen (samt Bahnhöfen)')}
+              onClick={() => apply(t('Richtung tauschen'), (d, g) => ops.swapOrderEnds(d, g, o.id))}
+              data-testid="order-swap"
+            >
+              ⇄
+            </button>
+          </span>
         </Row>
         <Row label={t('Transportmittel')}>
           <select
@@ -387,7 +490,7 @@ function OrderProps({ order: o, measured }: { order: TransportOrder; measured: M
         </Row>
         )}
         <Row label={t('Nach Fabrik')}>
-          <select value={o.toFactoryId} onChange={(e) => upd(t('Empfänger'), { toFactoryId: e.target.value })}>
+          <select value={o.toFactoryId} onChange={(e) => upd(t('Empfänger'), { toFactoryId: e.target.value })} data-testid="order-to">
             {factories.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.name}
@@ -638,7 +741,7 @@ function DroneSection({ order: o, est }: { order: TransportOrder; est: OrderEsti
 }
 
 /** Wählbare Übergabeanschlüsse einer Fabrik (Band- bzw. Rohranschlüsse, frei oder bereits für diesen Auftrag gewählt). */
-function endpointOptions(p: Project, gd: GameDataIndex, factoryId: string, kind: 'belt' | 'pipe', role: 'from' | 'to', current: PortRef | null) {
+function endpointOptions(p: Project, gd: GameDataIndex, factoryId: string, kind: 'belt' | 'pipe', role: 'from' | 'to', current: PortRef | null, inputs: FactoryInput[] = []) {
   const used = new Set<string>();
   for (const l of Object.values(p.links)) {
     used.add(`${l.from.buildingId}/${l.from.portId}`);
@@ -661,7 +764,9 @@ function endpointOptions(p: Project, gd: GameDataIndex, factoryId: string, kind:
       const [, dir, idx] = port.id.split('-');
       const portName = `${dir === 'in' ? t('Eingang') : dir === 'out' ? t('Ausgang') : t('Anschluss')} ${Number(idx) + 1}`;
       const floor = p.floors[b.placement.floorId]?.name ?? '';
-      out.push({ value: key, label: `${b.label || gd.name(b.type)} · ${portName} (${floor})` });
+      const need = role === 'to' ? inputs.find((x) => x.buildingId === b.id) : undefined;
+      const demand = need && need.requiredPerMin > 1e-6 ? ` · ${t('Bedarf {n}', { n: `${fmtNum(need.requiredPerMin, 1)} ${kind === 'belt' ? '/min' : 'm³/min'}` })}` : '';
+      out.push({ value: key, label: `${b.label || gd.name(b.type)} · ${portName} (${floor})${demand}` });
     }
   }
   return out.sort((a, b) => a.label.localeCompare(b.label, getLanguage()));
@@ -678,12 +783,14 @@ function DirectSection({ order: o, est }: { order: TransportOrder; est: OrderEst
   const updD = (label: string, patch: Partial<typeof d>) => apply(label, (dr, g) => ops.updateOrder(dr, g, o.id, { direct: { ...d, ...patch } }));
   const flowIn = useMemo(() => cachedFactoryFlow(project, gd, o.toFactoryId).direct.get(o.id), [project, gd, o.toFactoryId, o.id]);
   const flowOut = useMemo(() => cachedFactoryFlow(project, gd, o.fromFactoryId).direct.get(o.id), [project, gd, o.fromFactoryId, o.id]);
+  const inputs = useMemo(() => factoryInputs(project, gd, o.toFactoryId), [project, gd, o.toFactoryId]);
+  const target = d.to ? inputs.find((x) => x.buildingId === d.to!.buildingId) : undefined;
   const per = tiers.find((x) => x.id === d.tier);
   const perCap = per?.conveyor?.itemsPerMin ?? per?.pipe?.m3PerMin ?? 0;
   const endpoint = (role: 'from' | 'to') => {
     const factoryId = role === 'from' ? o.fromFactoryId : o.toFactoryId;
     const cur = role === 'from' ? d.from : d.to;
-    const opts = endpointOptions(project, gd, factoryId, kind, role, cur);
+    const opts = endpointOptions(project, gd, factoryId, kind, role, cur, role === 'to' ? inputs : []);
     return (
       <select
         data-testid={`direct-${role}`}
@@ -736,6 +843,22 @@ function DirectSection({ order: o, est }: { order: TransportOrder; est: OrderEst
       <Row label={t('Eingang bei {factory}', { factory: project.factories[o.toFactoryId]?.name ?? '?' })} plain hint={t('Anschluss in der empfangenden Fabrik, an dem die Leitung ankommt')}>
         {endpoint('to')}
       </Row>
+      {target && target.requiredPerMin > 1e-6 && (
+        <Row label={t('Bedarf an diesem Eingang')} plain hint={t('So viel nehmen die Maschinen hinter diesem Eingang bei voller Versorgung ab (Durchsatzmodell).')}>
+          <span data-testid="direct-input-demand">
+            {fmtNum(target.requiredPerMin, 1)} {u}
+            {Math.abs(target.requiredPerMin - o.ratePerMin) > 1e-3 * Math.max(1, target.requiredPerMin) && (
+              <>
+                {' '}
+                <Badge kind="warn">{t('Auftrag: {n}', { n: `${fmtNum(o.ratePerMin, 1)} ${u}` })}</Badge>{' '}
+                <button className="small" onClick={() => apply(t('Menge'), (dr, g) => ops.updateOrder(dr, g, o.id, { ratePerMin: Math.round(target.requiredPerMin * 1000) / 1000 }))}>
+                  {t('Menge übernehmen')}
+                </button>
+              </>
+            )}
+          </span>
+        </Row>
+      )}
       {(flowOut || flowIn) && (
         <Row label={t('Durchsatzmodell')} hint={t('Fluss über die Leitung laut Durchsatzmodell der beiden Fabriken (mit Kapazitätsgrenze)')}>
           {flowOut && t('ab {factory}: {n}', { factory: project.factories[o.fromFactoryId]?.name ?? '?', n: `${fmtNum(flowOut.perMin, 1)} ${u}` })}

@@ -21,6 +21,16 @@ const DEFAULT_RAIL_SNAP: RailSnap = { stepM: 4 };
 /** Kartenbild: Spielkarte, realistische Ansicht oder ohne Bild. */
 export type MapTiles = 'game' | 'realistic' | 'off';
 
+/** Farben, die sich in den Einstellungen anpassen lassen (Schlüssel der Zeichenpalette). */
+export const CUSTOM_COLOR_KEYS = [
+  'belt0', 'belt1', 'belt2', 'belt3', 'belt4', 'belt5',
+  'pipe0', 'pipe1',
+  'portIn', 'portOut', 'fuelPort',
+  'production', 'extraction', 'power', 'logistics', 'storage',
+  'selection', 'overload',
+] as const;
+export type CustomColorKey = (typeof CUSTOM_COLOR_KEYS)[number];
+
 /** Selbst gespeicherte Bauart für das automatische Layout (ohne Fläche und Plan). */
 export interface LayoutPreset {
   name: string;
@@ -49,6 +59,10 @@ interface Prefs {
   mapOpacity: number;
   /** Eigene Bauarten für das automatische Layout. */
   layoutPresets: LayoutPreset[];
+  /** Deckkraft von Leitungen und Gebäuden auf nicht gewählten Stockwerken (0 = ausgeblendet … 1). */
+  otherFloorOpacity: number;
+  /** Eigene Farben (überschreiben das Farbschema). */
+  colors: Partial<Record<CustomColorKey, string>>;
 }
 
 interface PrefsState extends Prefs {
@@ -68,13 +82,16 @@ interface PrefsState extends Prefs {
   setMapOpacity(v: number): void;
   saveLayoutPreset(p: LayoutPreset): void;
   removeLayoutPreset(name: string): void;
+  setOtherFloorOpacity(v: number): void;
+  setColor(key: CustomColorKey, color: string | null): void;
+  resetColors(): void;
 }
 
 const KEY = 'satis-planner:prefs';
 
 function load(): Prefs {
   // Standardsprache Englisch, unabhängig von der Browsersprache
-  const base: Prefs = { language: 'en', theme: 'system', keymap: {}, toursDone: [], welcomed: false, animateFlow: true, detailedTours: false, streamerMode: false, railSnap: DEFAULT_RAIL_SNAP, linkTools: {}, mapTiles: 'game', mapOpacity: 0.85, layoutPresets: [] };
+  const base: Prefs = { language: 'en', theme: 'system', keymap: {}, toursDone: [], welcomed: false, animateFlow: true, detailedTours: false, streamerMode: false, railSnap: DEFAULT_RAIL_SNAP, linkTools: {}, mapTiles: 'game', mapOpacity: 0.85, layoutPresets: [], otherFloorOpacity: 0.15, colors: {} };
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return base;
@@ -93,10 +110,25 @@ function load(): Prefs {
       mapTiles: v.mapTiles === 'realistic' || v.mapTiles === 'off' ? v.mapTiles : 'game',
       mapOpacity: typeof v.mapOpacity === 'number' && v.mapOpacity >= 0.1 && v.mapOpacity <= 1 ? v.mapOpacity : base.mapOpacity,
       layoutPresets: Array.isArray(v.layoutPresets) ? v.layoutPresets.filter((x: LayoutPreset) => x && typeof x.name === 'string' && x.options && typeof x.options === 'object') : [],
+      // 0,25 war der Standard bis 0.7.2 (wurde mitgespeichert) → neuer Standard
+      otherFloorOpacity: typeof v.otherFloorOpacity === 'number' && v.otherFloorOpacity >= 0 && v.otherFloorOpacity <= 1 && v.otherFloorOpacity !== 0.25 ? v.otherFloorOpacity : base.otherFloorOpacity,
+      colors: cleanColors(v.colors),
     };
   } catch {
     return base;
   }
+}
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+function cleanColors(v: unknown): Prefs['colors'] {
+  const out: Prefs['colors'] = {};
+  if (!v || typeof v !== 'object') return out;
+  for (const k of CUSTOM_COLOR_KEYS) {
+    const c = (v as Record<string, unknown>)[k];
+    if (typeof c === 'string' && HEX.test(c)) out[k] = c;
+  }
+  return out;
 }
 
 function save(p: Prefs) {
@@ -127,6 +159,8 @@ export const usePrefs = create<PrefsState>((set, get) => {
       mapTiles: s.mapTiles,
       mapOpacity: s.mapOpacity,
       layoutPresets: s.layoutPresets,
+      otherFloorOpacity: s.otherFloorOpacity,
+      colors: s.colors,
     });
   };
   return {
@@ -193,6 +227,21 @@ export const usePrefs = create<PrefsState>((set, get) => {
     },
     setMapTiles(mapTiles) {
       set({ mapTiles });
+      persist();
+    },
+    setOtherFloorOpacity(v) {
+      set({ otherFloorOpacity: Math.min(1, Math.max(0, v)) });
+      persist();
+    },
+    setColor(key, color) {
+      const colors = { ...get().colors };
+      if (color && HEX.test(color)) colors[key] = color;
+      else delete colors[key];
+      set({ colors });
+      persist();
+    },
+    resetColors() {
+      set({ colors: {} });
       persist();
     },
     setMapOpacity(mapOpacity) {

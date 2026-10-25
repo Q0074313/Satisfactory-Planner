@@ -73,11 +73,13 @@ Weitere **Annahmen**:
 | Annahme | Begründung |
 |---|---|
 | Eingänge hinten, Ausgänge vorn (wie die schematischen Anschlüsse) | Anschlusslagen fehlen in den Docs (FAB-005) |
-| „Kreuzungen vermeiden“: Bus eine Stufe (4 m) über den Abzweigen, bei Linien auf beiden Seiten Abzweige nach rechts eine Stufe höher als nach links, äußere Zuführungen und Sammelleitungen je 4 m höher als die inneren | So kreuzt sich keine Leitung mit einer anderen auf gleicher Höhe; die Höhenstaffel von 4 m (eine Fundamenthöhe) ist eine Planungsannahme, die Mindesthöhe von Förderliften ist nicht belegt |
+| „Kreuzungen vermeiden“ (seit 0.7.2 mit festen Höhen): Bus, Maschinenanschlüsse und Zuläufe auf 1 m (Anschlusshöhe), Zuführungen und Sammelleitungen einer Linie mit mehreren Gegenständen sowie die Abzweige zum Bus auf 5 m, bei Linien auf beiden Seiten die Abzweige nach rechts auf 9 m; Lifte direkt am Splitter bzw. an der Zusammenführung | Parallele Leitungen kreuzen sich nicht, quer laufende liegen auf einer anderen Ebene – so kreuzt sich keine Leitung auf gleicher Höhe. Der Abstand von 4 m (eine Fundamenthöhe) ist eine Planungsannahme, die Mindesthöhe von Förderliften ist nicht belegt |
+| „Logistikebene“ (seit 0.7.3): unter jeder Produktionsebene eine Logistikebene (6 m lichte Höhe, 2 m Decke) mit Bus, Zuführungen, Sammelleitungen, Splittern und Ein-/Ausgängen auf 1, 3 und 5 m über dem Logistikboden; Lifte direkt am Splitter bzw. an der Zusammenführung durch die Decke zu den Maschinen | Übliche Bauweise mit freier Produktionsebene. Der Abstand von 2 m zwischen den Ebenen ist eine Planungsannahme; die Aussparungen im Boden meldet FAB-017 als Hinweis |
 | „Kreuzungen erlauben“: alles auf Anschlusshöhe | Für den frühen Spielstand ohne Lifte; Kreuzungen löst man beim Bauen |
 | Rohre immer als Sammelleitung mit Rohrkreuzungen | Flüssigkeiten verteilen sich im Spiel über den Druck, nicht über Splitter |
 | Ein- und Ausgänge als Lager bzw. Flüssigkeitspuffer am Anfang bzw. Ende ihrer Busspur | Übergabepunkt für Transportaufträge oder Gewinnungsgebäude |
-| Förderhöhe bei Etagen nicht ausgelegt (keine Pumpen) | Siehe FAB-016/FAB-019 nach der Übernahme |
+| Linien auf beiden Seiten des Busses werden in 4-m-Schritten versetzt, bis ihre Anschlüsse nicht auf denselben Linien liegen wie die der Gegenseite (seit 0.7.3) | Sonst laufen Abzweige nach links und rechts im Grundriss über lange Strecken übereinander; ganz ausgeschlossen ist das nicht, der Dialog zeigt die Zahl der Stellen |
+| Förderhöhe bei Etagen nicht ausgelegt (keine Pumpen) | Seit 0.7.2 plant der Planer keine Pumpen mehr ein; FAB-016/FAB-019 weisen nur darauf hin |
 
 Jede Variante wird vor der Übernahme geprüft: Durchsatzmodell mit voll versorgten Eingängen, Überschneidungen von Kollisionsboxen und Kreuzungen von Leitungen auf gleicher Höhe (Abstand unter 0,5 m).
 
@@ -138,7 +140,7 @@ Spalten: **Art** (Spielregel / Empfehlung / nicht geprüft), **Gewissheit** (sta
 | FAB-016 | Förderhöhe von Rohren nicht geprüft (Quelle ohne bekannte Förderhöhe) | nicht geprüft | statisch | Hinweis | Spieldaten (Pumpen 20/50 m), Wiki „Head lift“ |
 | FAB-017 | Senkrechte Leitung durchquert ein Stockwerk | Empfehlung | statisch | Hinweis | eigene Vorgabe |
 | FAB-018 | Höhenwechsel ohne senkrechten Abschnitt | nicht geprüft | statisch | Hinweis | Einschränkung des Planers |
-| FAB-019 | Förderhöhe reicht nicht | Spielregel | statisch | Warnung | Wiki „Head lift“, „Pipeline Pump“ |
+| FAB-019 | Förderhöhe reicht nicht | Spielregel | statisch | Hinweis (seit 0.7.2) | Wiki „Head lift“, „Pipeline Pump“ |
 | FAB-020 | Überschuss im AWESOME-Schredder (zählt als Überschuss, nicht als Fehler) | Empfehlung | statisch | Hinweis | eigene Vorgabe, Durchsatzmodell |
 | FAB-021 | Fabrik als Blackbox geplant (alle übrigen Grundrissprüfungen entfallen) | nicht geprüft | statisch | Hinweis | eigene Vorgabe |
 

@@ -64,6 +64,7 @@ export function MapView() {
   const tiles = usePrefs((s) => s.mapTiles);
   const opacity = usePrefs((s) => s.mapOpacity);
   const theme = usePrefs((s) => s.theme);
+  const colors = usePrefs((s) => s.colors);
   const st = useMapStore();
   const statusRef = useRef<HTMLSpanElement | null>(null);
   const usage = useMemo(() => nodeUsage(project), [project]);
@@ -81,7 +82,7 @@ export function MapView() {
     onViewportChange: () => updateStatus(),
   });
 
-  useEffect(requestDraw, [project, st, tiles, opacity, theme, requestDraw]);
+  useEffect(requestDraw, [project, st, tiles, opacity, theme, colors, requestDraw]);
   useEffect(() => onTileLoad(requestDraw), [requestDraw]);
   useEffect(() => {
     fitView();

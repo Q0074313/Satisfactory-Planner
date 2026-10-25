@@ -55,19 +55,20 @@ const SAVE_LABEL: Record<SaveStatus, string> = {
 /** Farbschema auf Dokument und Zeichenflächen anwenden (auch bei Systemwechsel). */
 function useTheme() {
   const pref = usePrefs((s) => s.theme);
+  const colors = usePrefs((s) => s.colors);
   const [, force] = useState(0);
   useEffect(() => {
     const applyIt = () => {
       const eff = effectiveTheme(pref);
       document.documentElement.dataset.theme = eff;
-      applyCanvasTheme(eff);
+      applyCanvasTheme(eff, colors);
       force((x) => x + 1);
     };
     applyIt();
     const mq = window.matchMedia?.('(prefers-color-scheme: light)');
     mq?.addEventListener?.('change', applyIt);
     return () => mq?.removeEventListener?.('change', applyIt);
-  }, [pref]);
+  }, [pref, colors]);
 }
 
 export function App() {
@@ -394,6 +395,7 @@ function LayerMenu() {
   const layers = useUiStore((s) => s.layers);
   const toggle = useUiStore((s) => s.toggleLayer);
   const animate = usePrefs((s) => s.animateFlow);
+  const otherOpacity = usePrefs((s) => s.otherFloorOpacity);
   const [open, setOpen] = useState(false);
   return (
     <div className="menu">
@@ -408,6 +410,11 @@ function LayerMenu() {
           ))}
           <label>
             <input type="checkbox" checked={animate} onChange={(e) => usePrefs.getState().setAnimateFlow(e.target.checked)} /> {t('Fluss animieren')}
+          </label>
+          <label title={t('Deckkraft von Leitungen und Gebäudeumrissen auf den nicht gewählten Stockwerken (Grundriss und Seitenansicht)')}>
+            {t('Andere Stockwerke')}{' '}
+            <input type="range" min={0} max={100} step={5} value={Math.round(otherOpacity * 100)} onChange={(e) => usePrefs.getState().setOtherFloorOpacity(+e.target.value / 100)} data-testid="menu-other-floor-opacity" />{' '}
+            <span className="dim">{Math.round(otherOpacity * 100)} %</span>
           </label>
         </div>
       )}

@@ -326,3 +326,29 @@ Aus „Hotfixes“: Layout sah noch nicht schön aus; Bauarten als Standards spe
 - **Beispielprojekte** „Computerfabrik“ (mittel, 28 Maschinen) und „Schwere modulare Rahmen“ (groß, 151 Maschinen auf drei Etagen), mit dem Auto-Layout erzeugt; eine Blackbox „Rohstoffversorgung“ beliefert die Eingänge über direkte Leitungen. Ohne Fehler und Warnungen, alle Maschinen laufen (Restabweichung < 0,01 % durch gerundete Takte). Im Hilfemenü und in der Projektliste. *(Unit- und E2E-Test)*
 - Kopfzeile bricht bei wenig Platz um, statt die Seite seitlich zu verschieben; langer Projektname überlappt nicht mehr.
 
+### Hotfix 0.7.2
+
+Aus „Hotfixes“: Fundamente sperren; Band- und Rohrhöhen in der Seitenansicht uneinheitlich (Rückfrage: zu viele Höhenstufen); klarer Übergangspunkt zwischen Stockwerken; voll ausgelastete Leitungen ohne eigene Farbe; Pumpen raus, nur noch Hinweise; eigene Farben; Deckkraft der anderen Stockwerke; Quadrate an den Leitungen umfunktionieren.
+
+- **Fundamente sperren:** Flächen haben das Feld „Gesperrt“ (Eigenschaften, optionales Feld `locked`, keine Formatänderung). Gesperrte Flächen lassen sich nicht verschieben (Ziehen, Pfeiltasten), nicht verformen und nicht löschen; Ziehen darauf zieht einen Auswahlrahmen auf, ein Klick wählt sie zum Entsperren aus; im Grundriss mit 🔒 beschriftet. *(Unit- und E2E-Test)*
+- **Feste Höhenebenen im Auto-Layout** (statt je 4 m höher pro äußerer Leitung, bisher bis 13 m): Bus, Maschinenanschlüsse und Zuläufe auf 1 m, Zuführungen und Sammelleitungen (bei mehreren Gegenständen je Linie) sowie Abzweige auf 5 m, Abzweige nach rechts bei beidseitigen Linien auf 9 m. Lifte sitzen direkt am Splitter bzw. an der Zusammenführung. Weiterhin 0 Kreuzungen auf gleicher Höhe in allen Testplänen; die Beispielprojekte nutzen nur noch 1, 5 und 9 m. *(Unit-Test)*
+- **Stockwerkswechsel:** Das Quadrat mit ▲/▼ erscheint nur noch, wo eine Leitung das Stockwerk wechselt (nicht mehr bei jedem Höhenwechsel innerhalb einer Etage), beschriftet mit „nach …“, „von …“ bzw. „durchquert“. Leitungsstücke auf anderen Stockwerken sind blass, das Stück auf dem gewählten kräftig. Die Seitenansicht markiert die Stelle, an der eine Leitung einen Stockwerksboden kreuzt, mit einer Raute.
+- **Volllast ohne eigene Farbe:** Nur Überlastung färbt eine Leitung rot; ab 98 % gab es bisher die Warnfarbe (ähnlich Band Mk.2).
+- **Pumpen:** Das Werkzeug „Pumpe aufs Rohr setzen“ in der Seitenansicht ist entfernt; FAB-019 „Förderhöhe reicht nicht“ ist nur noch ein Hinweis. Pumpen lassen sich weiter von Hand aus dem Katalog setzen.
+- **Animierte Pfeile:** Der Fluss wird für die Animation auch ohne die Ebene „Durchsatz und Auslastung“ berechnet; die Pfeile laufen auch auf Rohren und in der Seitenansicht.
+- **Einstellungen → Darstellung:** Deckkraft der nicht gewählten Stockwerke (auch im Menü „Ebenen“), eigene Farben für Förderbänder Mk.1–6, Rohre Mk.1–2, Ein-/Ausgänge, Treibstoffanschluss, Gebäudekategorien, Auswahl und Überlastung (im Browser gespeichert, einzeln oder alle zurücksetzbar). *(E2E)*
+
+**Grenzen:** Eigene Farben gelten für helles und dunkles Farbschema gleichermaßen. Bestehende, mit 0.7.1 erzeugte Layouts behalten ihre Höhen; neu erzeugen übernimmt die festen Ebenen.
+
+### Hotfix 0.7.3
+
+Aus „Hotfixes“: Rohstoffaufträge passen nicht zur Zahl der Eingänge (Menge je Eingang anzeigen); Absender und Empfänger bei zwei Fabriken nicht tauschbar; Förderbänder liegen im Grundriss über lange Strecken übereinander; Logistikebenen im Auto-Layout und in den Beispielen; Standard-Deckkraft anderer Stockwerke 15 %, 0 möglich.
+
+- **Bedarf je Eingang:** Neuer Abschnitt „Eingänge der Fabriken“ im Transport: je Eingangslager Gegenstand, Bedarf der Maschinen dahinter (Durchsatzmodell mit unbegrenzt versorgten Eingängen), direkte Leitungen mit bestellter Menge, Status (gedeckt / fehlt / ohne direkte Leitung) und „Menge übernehmen“. Der Bedarf steht auch in der Auswahl des Übergabeanschlusses einer direkten Leitung, als Zeile „Bedarf an diesem Eingang“ im Auftrag und in den Eigenschaften des Lagers. Der Gegenstand kommt aus der angeschlossenen Leitung, dem Etikett des Auto-Layouts („Eingang: Kohle“) oder den Verbrauchern dahinter. *(Unit- und E2E-Test)*
+- **Absender/Empfänger tauschen:** Wird bei „Von“ die Fabrik gewählt, die schon bei „Nach“ steht (oder umgekehrt), tauschen beide Seiten samt Bahnhöfen, statt einen Fehler zu melden; zusätzlich Knopf ⇄. Übergabeanschlüsse direkter Leitungen entfallen beim Tausch. *(Unit- und E2E-Test)*
+- **Weniger Leitungen übereinander:** Linien auf beiden Seiten des Busses werden beim Anordnen in 4-m-Schritten versetzt, bis ihre Anschlüsse nicht auf denselben Linien liegen wie die der Gegenseite; Abgänge von Verteilketten benachbarter Linien weichen einander aus. In den Testplänen von über 100 auf 5 Stellen (mehr als 4 m übereinander), weiterhin 0 Kreuzungen. Der Dialog zeigt die Zahl als „n übereinander“. *(Unit-Test)*
+- **Logistikebenen:** Option „Logistikebene: darunter“ und Bauart „Mit Logistikebene“ im Auto-Layout: unter jeder Produktionsebene eine Logistikebene mit Bus, Zuführungen, Sammelleitungen, Splittern und Ein-/Ausgängen (1, 3 und 5 m über dem Logistikboden), Lifte durch die Decke zu den Maschinen. Eine leere oberste Etage (z. B. das Erdgeschoss einer neuen Fabrik) wird dabei zur Logistikebene. Mittleres und großes Beispiel gibt es im Hilfemenü und in der Projektliste auch „mit Logistikebene(n)“. *(Unit- und E2E-Test)*
+- **Deckkraft anderer Stockwerke:** Standard 15 % (der bisher mitgespeicherte Standard 25 % wird auf 15 % gesetzt), Regler ab 0 %.
+
+**Grenzen:** Teilen sich mehrere Eingänge dieselben Maschinen, ist die Aufteilung des Bedarfs zwischen ihnen eine von mehreren möglichen. Züge, Fahrzeuge und Drohnen liefern an die Fabrik, nicht an einen bestimmten Eingang. Lifte von der Logistikebene erzeugen je einen Hinweis FAB-017 (Aussparung im Boden).
+

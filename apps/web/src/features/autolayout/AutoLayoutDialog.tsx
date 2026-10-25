@@ -47,43 +47,50 @@ export const BUILTIN_PRESETS: { id: string; name: string; text: string; options:
     id: 'bus',
     name: N_('Hauptbus mit Manifolds (Standard)'),
     text: N_('Linien auf einer Seite eines geraden Busses, Splitter direkt vor jeder Maschine. Einfach zu bauen und zu erweitern; die Maschinen füllen sich nacheinander.'),
-    options: { spacing: 'compact', distribution: 'manifold', crossings: 'avoid', clocks: 'even', maxFloors: 1 },
+    options: { spacing: 'compact', distribution: 'manifold', crossings: 'avoid', clocks: 'even', maxFloors: 1, logistics: false },
     variant: 'rows',
   },
   {
     id: 'block',
     name: N_('Kompakter Block'),
     text: N_('Linien auf beiden Seiten des Busses: kürzere Wege, eher quadratische Grundfläche.'),
-    options: { spacing: 'compact', distribution: 'manifold', crossings: 'avoid', maxFloors: 1 },
+    options: { spacing: 'compact', distribution: 'manifold', crossings: 'avoid', maxFloors: 1, logistics: false },
     variant: 'compact',
   },
   {
     id: 'walkways',
     name: N_('Mit Laufwegen'),
     text: N_('Maschinen auf ganzen Fundamenten mit Abstand und einer freien Fundamentreihe zwischen den Linien – Platz zum Laufen und für spätere Erweiterungen.'),
-    options: { spacing: 'wide', distribution: 'manifold', crossings: 'avoid' },
+    options: { spacing: 'wide', distribution: 'manifold', crossings: 'avoid', logistics: false },
     variant: 'compact',
   },
   {
     id: 'balancer',
     name: N_('Load Balancer'),
     text: N_('Splitterbäume verteilen von Anfang an gleichmäßig auf alle Maschinen. Braucht mehr Platz und Splitter als ein Manifold.'),
-    options: { spacing: 'compact', distribution: 'balanced', crossings: 'avoid' },
+    options: { spacing: 'compact', distribution: 'balanced', crossings: 'avoid', logistics: false },
     variant: 'rows',
   },
   {
     id: 'tower',
     name: N_('Hochbau (Etagen)'),
     text: N_('Vorprodukte unten, Endprodukte oben; Lifte im Bus verbinden die Etagen. Kleine Grundfläche.'),
-    options: { spacing: 'compact', distribution: 'manifold', crossings: 'avoid', maxFloors: 3 },
+    options: { spacing: 'compact', distribution: 'manifold', crossings: 'avoid', maxFloors: 3, logistics: false },
     variant: 'floors',
   },
   {
     id: 'early',
     name: N_('Früh im Spiel (flach)'),
     text: N_('Alles auf einer Höhe ohne Lifte, Förderband Mk.2 und volle Maschinen plus eine Restmaschine. Kreuzungen löst du beim Bauen von Hand.'),
-    options: { spacing: 'compact', distribution: 'manifold', crossings: 'allow', clocks: 'full', beltTier: 'Build_ConveyorBeltMk2_C', pipeTier: 'Build_Pipeline_C', maxFloors: 1 },
+    options: { spacing: 'compact', distribution: 'manifold', crossings: 'allow', clocks: 'full', beltTier: 'Build_ConveyorBeltMk2_C', pipeTier: 'Build_Pipeline_C', maxFloors: 1, logistics: false },
     variant: 'rows',
+  },
+  {
+    id: 'logistics',
+    name: N_('Mit Logistikebene'),
+    text: N_('Unter der Produktionsebene liegt eine Logistikebene mit Bus, Zuführungen, Sammelleitungen, Splittern sowie Ein- und Ausgängen; Lifte führen durch den Boden zu den Maschinen. Die Produktionsebene bleibt frei von Bändern.'),
+    options: { spacing: 'compact', distribution: 'manifold', crossings: 'avoid', maxFloors: 1, logistics: true },
+    variant: 'compact',
   },
 ];
 
@@ -337,13 +344,23 @@ export function AutoLayoutDialog() {
                 ]}
               />
             </Row>
-            <Row label={t('Kreuzungen')} hint={t('Vermeiden: Bus eine Stufe höher, Abzweige darunter, äußere Zuführungen höher – keine Leitungen kreuzen sich auf gleicher Höhe. Erlauben: alles flach, Kreuzungen löst du im Spiel.')}>
+            <Row label={t('Kreuzungen')} hint={t('Vermeiden: feste Höhen (Bus und Maschinenanschlüsse 1 m, Zuführungen, Sammelleitungen und Abzweige 5 m, Abzweige nach rechts 9 m) – keine Leitungen kreuzen sich auf gleicher Höhe. Erlauben: alles flach, Kreuzungen löst du im Spiel.')}>
               <Segmented
                 value={opts.crossings}
                 onChange={(crossings) => setOpts({ crossings })}
                 options={[
                   { value: 'avoid', label: t('vermeiden'), title: t('Über Höhen und Lifte lösen') },
                   { value: 'allow', label: t('erlauben'), title: t('Alles auf einer Höhe') },
+                ]}
+              />
+            </Row>
+            <Row label={t('Logistikebene')} hint={t('Unter jeder Produktionsebene eine Logistikebene mit Bus, Zuführungen, Sammelleitungen, Splittern sowie Ein- und Ausgängen; Lifte führen durch den Boden zu den Maschinen.')}>
+              <Segmented
+                value={opts.logistics ? 'yes' : 'no'}
+                onChange={(v) => setOpts({ logistics: v === 'yes' })}
+                options={[
+                  { value: 'no', label: t('keine'), title: t('Leitungen auf der Produktionsebene') },
+                  { value: 'yes', label: t('darunter'), title: t('Logistikebene unter jeder Produktionsebene') },
                 ]}
               />
             </Row>
@@ -454,6 +471,9 @@ function VariantDetails({
                   <Badge kind={check.hardOverlaps === 0 ? 'ok' : 'err'}>{t('{n} Überschneidungen', { n: check.hardOverlaps + check.softOverlaps })}</Badge>{' '}
                   <Badge kind={check.crossings === 0 ? 'ok' : 'warn'} title={t('Leitungspaare, die sich auf gleicher Höhe kreuzen oder überdecken')}>
                     {t('{n} Kreuzungen auf gleicher Höhe', { n: check.crossings })}
+                  </Badge>{' '}
+                  <Badge kind={check.stacked === 0 ? 'ok' : 'info'} title={t('Leitungspaare, die im Grundriss über mehr als 4 m übereinander liegen (verschiedene Höhen)')}>
+                    {t('{n} übereinander', { n: check.stacked })}
                   </Badge>
                 </>
               ) : (
@@ -541,7 +561,7 @@ function LayoutPreview({ draft, datasetId, gameVersion, foundations }: { draft: 
         <Segmented
           value={String(floor)}
           onChange={(v) => setFloor(Number(v))}
-          options={draft.floorHeights.map((_, i) => ({ value: String(i), label: t('Etage {n}', { n: i + 1 }) }))}
+          options={draft.floorHeights.map((_, i) => ({ value: String(i), label: t('Etage {n}', { n: i + 1 }) + (draft.floorKinds?.[i] === 'logistics' ? ` (${t('Logistik')})` : '') }))}
         />
       )}
       <canvas ref={canvasRef} className="al-canvas" data-testid="al-preview" />

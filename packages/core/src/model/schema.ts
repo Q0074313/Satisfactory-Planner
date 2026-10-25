@@ -82,6 +82,8 @@ export const PlanAreaSchema = z.object({
   polygon: z.array(Vec2Schema).min(3),
   /** Für Fundamente: Gebäude-ID des Fundamenttyps aus den Spieldaten. */
   foundationType: z.string().optional(),
+  /** Gesperrt: im Grundriss nicht verschieben, verformen oder löschen. */
+  locked: z.boolean().optional(),
 });
 export type PlanArea = z.infer<typeof PlanAreaSchema>;
 

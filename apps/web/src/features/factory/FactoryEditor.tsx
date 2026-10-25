@@ -92,13 +92,16 @@ function PlanEditor() {
   const focus = useUiStore((s) => s.focus);
   const animateFlow = usePrefs((s) => s.animateFlow);
   const theme = usePrefs((s) => s.theme);
+  const colors = usePrefs((s) => s.colors);
   const tiles = usePrefs((s) => s.mapTiles);
   const tileOpacity = usePrefs((s) => s.mapOpacity);
   const marks = useFindingMarks();
   const statusRef = useRef<HTMLSpanElement | null>(null);
 
   const scene = useMemo(() => buildScene(project, gd, factoryId, floorId), [project, gd, factoryId, floorId]);
-  const flow = useMemo(() => (layers.flow ? cachedFactoryFlow(project, gd, factoryId) : undefined), [project, gd, factoryId, layers.flow]);
+  const otherFloorOpacity = usePrefs((s) => s.otherFloorOpacity);
+  // Durchsatz auch ohne Ebene „Durchsatz“ berechnen, wenn die Förderrichtung animiert wird
+  const flow = useMemo(() => (layers.flow || animateFlow ? cachedFactoryFlow(project, gd, factoryId) : undefined), [project, gd, factoryId, layers.flow, animateFlow]);
   const anyFlow = useMemo(() => !!flow && [...flow.links.values()].some((l) => l.total > 1e-6), [flow]);
 
   const it = useRef<Interaction>({
@@ -127,13 +130,13 @@ function PlanEditor() {
     onPointerUp: (e) => pointerUp(e),
     onDoubleClick: () => finishAreaPolygon(),
     onViewportChange: () => updateStatus(),
-    animating: () => live.current.animate && live.current.layers.belts,
+    animating: () => live.current.animate && (live.current.layers.belts || live.current.layers.pipes),
     onFrame: (dt) => {
       it.current.phase = (it.current.phase + dt * 1.2) % 1;
     },
   });
 
-  useEffect(requestDraw, [scene, selection, tool, layers, marks, flow, theme, tiles, tileOpacity, project.factories[factoryId]?.map, requestDraw]);
+  useEffect(requestDraw, [scene, selection, tool, layers, marks, flow, theme, colors, otherFloorOpacity, tiles, tileOpacity, project.factories[factoryId]?.map, requestDraw]);
   useEffect(() => onTileLoad(requestDraw), [requestDraw]);
 
   // Neue Fabrik: Ansicht auf Inhalt einpassen
@@ -294,7 +297,7 @@ function PlanEditor() {
     const sel = L.selection;
     if (sel.length !== 1 || sel[0]!.table !== 'areas') return null;
     const a = L.project.areas[sel[0]!.id];
-    if (!a || a.floorId !== L.floorId) return null;
+    if (!a || a.floorId !== L.floorId || a.locked) return null;
     const index = a.polygon.findIndex((q) => {
       const s = viewport.toScreen(q);
       return Math.hypot(s.x - screen.x, s.y - screen.y) <= 7;
@@ -334,7 +337,8 @@ function PlanEditor() {
       marks: L.marks,
       hidden,
       flow: L.flow,
-      phase: i.phase,
+      phase: L.animate ? i.phase : 0,
+      otherFloorAlpha: usePrefs.getState().otherFloorOpacity,
       underlay: drawUnderlay,
       afterAreas: (c, v) => {
         drawRails(c, v);
@@ -387,7 +391,7 @@ function PlanEditor() {
 
     // Gewählte Fläche: Eckpunkte zum Ziehen, beim Ziehen die neue Form
     const selArea = L.selection.length === 1 && L.selection[0]!.table === 'areas' ? L.project.areas[L.selection[0]!.id] : undefined;
-    if (selArea && selArea.floorId === L.floorId && tl.kind === 'select') {
+    if (selArea && !selArea.locked && selArea.floorId === L.floorId && tl.kind === 'select') {
       const poly = i.drag?.kind === 'vertex' && i.drag.moved ? editedPolygon(selArea.polygon, i.drag.index, i.drag.current) : selArea.polygon;
       if (i.drag?.kind === 'vertex' && i.drag.moved) {
         pathPolygon(ctx, vp, poly);
@@ -596,7 +600,8 @@ function PlanEditor() {
         return;
       }
       const h = hit(e.world);
-      const ref = hitToRef(h);
+      // Gesperrte Fläche: Ziehen zieht einen Auswahlrahmen auf, ein Klick wählt sie aus (siehe pointerUp)
+      const ref = h?.kind === 'area' && L.project.areas[h.id]?.locked ? null : hitToRef(h);
       if (ref) {
         const already = L.selection.some((s) => s.id === ref.id);
         let sel = L.selection;
@@ -605,7 +610,7 @@ function PlanEditor() {
         useUiStore.getState().select(sel);
         if (!e.shift || !already) {
           const buildingIds = sel.filter((s) => s.table === 'buildings').map((s) => s.id);
-          const areaIds = sel.filter((s) => s.table === 'areas').map((s) => s.id);
+          const areaIds = sel.filter((s) => s.table === 'areas' && !L.project.areas[s.id]?.locked).map((s) => s.id);
           if (buildingIds.length || areaIds.length) i.drag = { kind: 'move', start: e.world, delta: { x: 0, y: 0 }, buildingIds, areaIds, moved: false };
         }
       } else {
@@ -778,7 +783,12 @@ function PlanEditor() {
       });
     } else if (drag.kind === 'marquee') {
       const r = geo.rectOf([drag.start, drag.current]);
-      if (r.maxX - r.minX < tolM() && r.maxY - r.minY < tolM()) return;
+      if (r.maxX - r.minX < tolM() && r.maxY - r.minY < tolM()) {
+        // Klick ohne Ziehen auf eine gesperrte Fläche: auswählen (zum Entsperren)
+        const h = hit(drag.start);
+        if (h?.kind === 'area') useUiStore.getState().select([{ table: 'areas', id: h.id }]);
+        return;
+      }
       const refs: ObjectRef[] = L.scene.buildings.filter((b) => b.onActiveFloor && geo.rectsOverlap(b.rect, r)).map((b) => ({ table: 'buildings', id: b.building.id }));
       const base = drag.additive ? L.selection.filter((s) => !refs.some((x) => x.id === s.id)) : [];
       useUiStore.getState().select([...base, ...refs]);
@@ -900,7 +910,8 @@ function PlanEditor() {
         if (!selBuildings.length && !L.selection.some((s) => s.table === 'areas')) return;
         e.preventDefault();
         const s = e.shiftKey ? L.project.settings.gridM : step;
-        const areas = L.selection.filter((x) => x.table === 'areas').map((x) => x.id);
+        const areas = L.selection.filter((x) => x.table === 'areas' && !L.project.areas[x.id]?.locked).map((x) => x.id);
+        if (!selBuildings.length && !areas.length) return;
         apply(t('Verschieben'), (d) => {
           if (selBuildings.length) ops.moveBuildings(d, selBuildings, dx * s, dy * s);
           if (areas.length) ops.moveAreas(d, areas, dx * s, dy * s);
@@ -1047,6 +1058,11 @@ function PlanEditor() {
   }, []);
 
   function deleteSelection(sel: ObjectRef[]) {
+    // Gesperrte Flächen bleiben stehen
+    const locked = sel.filter((s) => s.table === 'areas' && live.current.project.areas[s.id]?.locked);
+    if (locked.length) useUiStore.getState().toast(t('Gesperrte Flächen werden nicht gelöscht.'), 'info');
+    sel = sel.filter((s) => !locked.includes(s));
+    if (!sel.length) return;
     const by = (tb: string) => sel.filter((s) => s.table === tb).map((s) => s.id);
     apply(t('Löschen'), (d) => {
       if (by('links').length) ops.removeLinks(d, by('links').filter((id) => d.links[id]));

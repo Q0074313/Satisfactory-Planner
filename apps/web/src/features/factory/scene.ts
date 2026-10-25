@@ -32,6 +32,8 @@ export interface SceneLink {
   link: LogisticsLink;
   /** Polylinie in Weltkoordinaten (inkl. z). */
   points: Vec3[];
+  /** Stockwerk je Punkt (nach Höhe; null unterhalb des untersten). */
+  floors: (string | null)[];
   visibleOnFloor: boolean;
 }
 
@@ -46,6 +48,16 @@ export interface FactoryScene {
 }
 
 export const portKey = (buildingId: string, portId: string) => `${buildingId}/${portId}`;
+
+/** Stockwerk, in dessen Höhenbereich z liegt (oberstes mit Boden ≤ z). */
+export function floorAtZ(p: Project, factoryId: string, z: number): string | null {
+  let best: { id: string; elevationM: number } | null = null;
+  for (const id of p.factories[factoryId]?.floorIds ?? []) {
+    const fl = p.floors[id];
+    if (fl && fl.elevationM <= z + 1e-3 && (!best || fl.elevationM > best.elevationM)) best = fl;
+  }
+  return best?.id ?? null;
+}
 
 export function buildScene(p: Project, gd: GameDataIndex, factoryId: string, floorId: string): FactoryScene {
   const buildings: SceneBuilding[] = [];
@@ -78,9 +90,11 @@ export function buildScene(p: Project, gd: GameDataIndex, factoryId: string, flo
     if (!a || !b || !pa || !pb) continue;
     connectedPorts.add(portKey(a.building.id, pa.id));
     connectedPorts.add(portKey(b.building.id, pb.id));
+    const points = routePath(controlPoints(pa, pb, l.waypoints), l.routing);
     links.push({
       link: l,
-      points: routePath(controlPoints(pa, pb, l.waypoints), l.routing),
+      points,
+      floors: points.map((q) => floorAtZ(p, factoryId, q.z)),
       visibleOnFloor: a.onActiveFloor || b.onActiveFloor,
     });
   }

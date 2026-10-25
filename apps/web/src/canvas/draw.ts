@@ -122,9 +122,34 @@ const CATEGORY_LIGHT: Record<string, string> = {
 };
 export const CATEGORY_COLORS: Record<string, string> = { ...CATEGORY_DARK };
 
-export function applyCanvasTheme(theme: 'dark' | 'light'): void {
-  Object.assign(COLORS, theme === 'light' ? LIGHT : DARK);
+/**
+ * Farbschema anwenden, danach eigene Farben aus den Einstellungen
+ * (Schlüssel: belt0 … belt5, pipe0/pipe1, Gebäudekategorien, sonst Paletteneinträge).
+ */
+export function applyCanvasTheme(theme: 'dark' | 'light', custom: Record<string, string | undefined> = {}): void {
+  const base = theme === 'light' ? LIGHT : DARK;
+  Object.assign(COLORS, base, { beltTiers: [...base.beltTiers], pipeTiers: [...base.pipeTiers] });
   Object.assign(CATEGORY_COLORS, theme === 'light' ? CATEGORY_LIGHT : CATEGORY_DARK);
+  for (const [k, v] of Object.entries(custom)) {
+    if (!v) continue;
+    const tier = /^(belt|pipe)(\d)$/.exec(k);
+    if (tier) {
+      const list = tier[1] === 'belt' ? COLORS.beltTiers : COLORS.pipeTiers;
+      if (+tier[2]! < list.length) list[+tier[2]!] = v;
+    } else if (k in CATEGORY_COLORS) CATEGORY_COLORS[k] = v;
+    else if (k in COLORS && typeof (COLORS as Record<string, unknown>)[k] === 'string') (COLORS as Record<string, unknown>)[k] = v;
+  }
+}
+
+/** Standardfarbe eines anpassbaren Eintrags im Farbschema (für die Einstellungen). */
+export function defaultCanvasColor(theme: 'dark' | 'light', key: string): string {
+  const base = theme === 'light' ? LIGHT : DARK;
+  const cats = theme === 'light' ? CATEGORY_LIGHT : CATEGORY_DARK;
+  const tier = /^(belt|pipe)(\d)$/.exec(key);
+  if (tier) return (tier[1] === 'belt' ? base.beltTiers : base.pipeTiers)[+tier[2]!] ?? '#888888';
+  if (key in cats) return cats[key]!;
+  const v = (base as Record<string, unknown>)[key];
+  return typeof v === 'string' ? v : '#888888';
 }
 
 export function pathPolygon(ctx: CanvasRenderingContext2D, vp: Viewport, pts: Vec[]): void {

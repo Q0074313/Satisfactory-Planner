@@ -126,11 +126,11 @@ export async function createNew(name: string): Promise<boolean> {
 }
 
 /** Legt ein Beispielprojekt (Tutorial) als neues Projekt an und öffnet es. */
-export async function createExample(kind: ExampleKind): Promise<boolean> {
+export async function createExample(kind: ExampleKind, opts: { logistics?: boolean } = {}): Promise<boolean> {
   const ds = DEFAULT_DATASET;
   if (!ds) throw new Error(t('Kein Spieldatensatz verfügbar.'));
   const gd = await loadGameData(ds.datasetId);
-  return store(buildExampleProject(gd, kind, { datasetId: ds.datasetId, gameVersion: ds.gameVersion }));
+  return store(buildExampleProject(gd, kind, { datasetId: ds.datasetId, gameVersion: ds.gameVersion }, opts));
 }
 
 /** Neues Projekt speichern (Server bzw. Browser) und öffnen. */
