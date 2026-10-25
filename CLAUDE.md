@@ -47,6 +47,7 @@ Docker gibt es **nur auf dem Server**, nicht auf dem Laptop.
 - Ablauf: Am Laptop committen, `git push server main`, dann auf dem Server `cd ~/satis-planner && ./update.sh`.
 - `update.sh` macht: Backup von `storage/` nach `backups/` (10 behalten), `git pull --ff-only`, `docker compose up -d --build`, Health-Check.
 - Öffentlich über `tailscale funnel --bg 8080`. Den Funnel nur nach Rückfrage beim Nutzer ändern. Vor Befehlen auf dem Server immer fragen.
+- `scripts/funnel-watch.sh` läuft per cron alle 30 Minuten (Benutzer `homeserver`): Meldet Tailscales Nameserver NXDOMAIN für den Funnel-Hostnamen (bekanntes Problem), setzt es den Funnel neu. Protokoll: `~/.local/state/funnel-watch.log`.
 
 ## Konventionen
 
