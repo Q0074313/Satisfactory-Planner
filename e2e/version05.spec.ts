@@ -7,7 +7,7 @@ async function openExampleFromList(page: Page) {
   await page.goto('/');
   await setPrefs(page);
   await page.goto('/');
-  await page.getByTestId('list-example-simple').click();
+  await page.getByTestId('list-example-open').click();
   await expect(page.locator('canvas.editor-canvas')).toBeVisible();
 }
 

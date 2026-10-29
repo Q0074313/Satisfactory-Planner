@@ -23,7 +23,12 @@ Entscheidung: Unterstützt wird die **aktuell installierte stabile Version 1.2.4
 4. **Kartendaten** (`data/gamedata/<version>/map.json`, Skript `npm run gamedata:map`): Lage, Rohstoff und Reinheit aller Rohstoffvorkommen (Nodes, Satelliten der Rohstoffquellen, Geysire) aus der interaktiven Karte von **satisfactory-calculator.com** (Datei `mapData/en-Stable.json`, Datenstand und Spielbuild der Quelle in `meta`, SHA-256 der Rohdaten in `meta.notes`). Übernommen werden nur diese Fakten über die Spielwelt; Koordinaten in Metern (Spiel: Zentimeter). Die Mitte einer Rohstoffquelle nennt die Quelle nicht – sie ist aus den Satelliten gemittelt. Anzahl je Rohstoff und Reinheit stimmt mit dem Wiki überein (z. B. Eisenerz 39/42/46), im Test geprüft.
    - Lizenz: kein ausdrücklicher Lizenztext. Die Spielwelt liegt nicht in den Docs-Dateien, sondern nur in den Spielpaketen; eine eigene Extraktion daraus ist aufwendig (UE-5.6-IoStore). Die Quelle wurde auf ausdrücklichen Wunsch des Nutzers gewählt.
    - **Kartenbild:** Die Kacheln (Spielkarte und realistische Ansicht) liegen **nicht** im Repository und nicht auf dem Server. Der Browser lädt sie zur Laufzeit direkt von `static.satisfactory-calculator.com` (ohne Referrer, CSP erlaubt nur diesen Bildhost). Kachelraster laut Kartencode der Quelle: Spielbereich West −3247 m, Ost 4253 m, Nord −3750 m, Süd 3750 m; Gesamtbild 32 768 px plus 4096 px Rand je Seite bei Zoomstufe 8, Kacheln 256 px, Zoomstufen 3–8. Ohne Internet zeigt die Karte nur Raster und Vorkommen.
-5. **Manuelle Ergänzung** (`curated/ports-overrides.json`): nur dort, wo keine Quelle verfügbar war. Immer als `unverified` gekennzeichnet (derzeit: ein Rohreingang am Treibstoffgenerator).
+5. **Spielpakete der lokalen Installation** (seit 0.8, `curated/ports-game.json`, Werkzeug `packages/gamedata-tools/ports`): Lage, Höhe und Austrittsrichtung der Band- und Rohranschlüsse aller Gebäude, ausgelesen aus den Komponentenvorlagen der Blueprints (`FGFactoryConnectionComponent`, `FGPipeConnectionComponent`, `FGPipeConnectionFactory`; `RelativeLocation`, `RelativeRotation.Yaw`, `mDirection`, `mPipeConnectionType`). Vererbte Komponenten (z. B. Miner Mk.3 von Mk.2) werden über die Oberklasse aufgelöst.
+   - Werkzeug: kleines .NET-Programm mit [CUE4Parse](https://github.com/FabianFG/CUE4Parse) (Lizenz Apache 2.0), liest `FactoryGame-Windows.utoc/.ucas` mit der mitgelieferten `CommunityResources/FactoryGame.usmap`. Diese speichert `OptionalProperty` ohne inneren Typ; das Werkzeug ergänzt ihn vor dem Laden (betrifft keine Gebäude). Oodle für die Entpackung lädt CUE4Parse beim ersten Lauf herunter.
+   - Übernommen werden nur Lage und Richtung der Anschlüsse (cm → m), keine Modelle, Texturen oder sonstigen Inhalte. Lizenz wie die Docs: Bestandteil der Spielinstallation, alle Rechte bei Coffee Stain Studios.
+   - Zuordnung zu den Anschluss-IDs des Planers: je Art und Richtung nach Komponentennamen sortiert (`Input0`, `Input1` …). Richtungsfreie Rohranschlüsse von Flüssigkeitspuffern füllen deren Ein- und Ausgang. Weicht die Anzahl von der Anschlusszahl ab, bleibt das Gebäude schematisch (Eintrag im Extraktionsbericht). Derzeit haben alle 43 Gebäude mit Anschlüssen Lagen.
+   - Stand: ausgelesen aus Spielversion 1.2.4.1 (Changelist 513885). Die Docs dieser Version sind mit 1.2.4.0 identisch (gleiche Prüfsumme), der Datensatz heißt weiter `sf-1.2.4.0`.
+6. **Manuelle Ergänzung** (`curated/ports-overrides.json`): nur dort, wo keine Quelle verfügbar war. Immer als `unverified` gekennzeichnet. Der dort ergänzte Rohreingang am Treibstoffgenerator ist inzwischen durch die Spielpakete bestätigt.
 
 ## Was fehlt bzw. unsicher ist
 
@@ -32,7 +37,7 @@ Entscheidung: Unterstützt wird die **aktuell installierte stabile Version 1.2.4
 | Gelände, Höhenlinien als Daten | nur als Bild der Quelle | nicht geprüft (MAP-008) |
 | Lage der Quellenmitten | nicht in der Quelle | aus den Satelliten gemittelt |
 | Ursprung von Minern relativ zum Vorkommen | nicht dokumentiert | Annahme: Gebäudeursprung über der Mitte des Vorkommens (MAP-002 mit 8 m Toleranz) |
-| Lage der Anschlüsse an Gebäuden | nicht in Docs, nicht im Wiki | schematisch, Hinweis FAB-005, Kennzeichen „schematisch“ |
+| Lage der Anschlüsse an Gebäuden | nicht in Docs, nicht im Wiki; seit 0.8 aus den Spielpaketen | `portLayout` je Gebäude; ohne Angabe schematisch (FAB-005) |
 | Verhalten weicher Kollisionsboxen | unbekannt | Warnung FAB-002 statt Fehler |
 | Gleis-Hitbox seit 1.2 | Wert nicht dokumentiert | Kreuzungsprüfung mit vorsichtiger Höhenschwelle, als Annahme markiert |
 | Signal-Kollisionsboxen | in Docs leer | Signale ohne Grundfläche |
@@ -48,6 +53,8 @@ npm run gamedata:extract -- --game "~/.steam/steam/steamapps/common/Satisfactory
 npm run gamedata:wiki -- --data data/gamedata/<version>/gamedata.json
 # 3. Erneut extrahieren, damit die Wiki-Daten einfließen
 npm run gamedata:extract
+# 2a. Anschlusslagen aus den Spielpaketen (.NET-SDK 10 nötig, z. B. in ~/.local/share/dotnet)
+npm run gamedata:ports
 # 3a. Rohstoffvorkommen der Karte abrufen (Netzwerk nötig)
 npm run gamedata:map -- --version <version>
 # 4. EXTRAKTION.md prüfen (Abweichungen, abgeleitete Anschlüsse), Tests ausführen

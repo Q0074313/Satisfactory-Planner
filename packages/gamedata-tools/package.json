@@ -7,6 +7,7 @@
   "scripts": {
     "extract": "tsx src/extract.ts",
     "wiki": "tsx src/fetch-wiki-infobox.ts",
-    "map": "tsx src/fetch-map.ts"
+    "map": "tsx src/fetch-map.ts",
+    "ports": "dotnet run --project ports -- --out curated/ports-game.json"
   }
 }

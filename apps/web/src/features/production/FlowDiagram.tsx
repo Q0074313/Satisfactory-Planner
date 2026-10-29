@@ -1,6 +1,8 @@
 /**
  * Grafische Darstellung eines Produktionsergebnisses: Versorgung → Rezepte →
- * Ziele/Überschüsse. Kantenbreite ∝ Menge, Farbe je Gegenstand.
+ * Ziele/Überschüsse. Kantenbreite ∝ Menge, Farbe je Gegenstand. Knoten lassen
+ * sich verschieben; die Verschiebung bleibt für denselben Graphen erhalten,
+ * solange die Seite offen ist.
  */
 import { useMemo, useRef, useState } from 'react';
 import { buildFlowGraph, layoutFlowGraph, type FlowNodeKind, type SolveResult } from '@satis/core';
@@ -15,6 +17,10 @@ const KIND_CLASS: Record<FlowNodeKind, string> = {
   shortfall: 'fn-shortfall',
 };
 
+type Offsets = Record<string, { dx: number; dy: number }>;
+/** Verschobene Knoten je Graph (Schlüssel: Knoten-IDs), nur im Speicher. */
+const savedOffsets = new Map<string, Offsets>();
+
 function itemHue(id: string): number {
   let h = 0;
   for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 360;
@@ -28,8 +34,24 @@ export function FlowDiagram({ result }: { result: SolveResult }) {
   const box = useRef<HTMLDivElement | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   const drag = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
+  const graphKey = useMemo(() => layout.nodes.map((n) => n.id).sort().join('|'), [layout]);
+  const [offsets, setOffsetsState] = useState<Offsets>(() => savedOffsets.get(graphKey) ?? {});
+  const [offsetsKey, setOffsetsKey] = useState(graphKey);
+  if (offsetsKey !== graphKey) {
+    setOffsetsKey(graphKey);
+    setOffsetsState(savedOffsets.get(graphKey) ?? {});
+  }
+  const setOffsets = (o: Offsets) => {
+    savedOffsets.set(graphKey, o);
+    setOffsetsState(o);
+  };
+  const nodeDrag = useRef<{ id: string; x: number; y: number; dx: number; dy: number; moved: boolean } | null>(null);
+  const nodes = layout.nodes.map((n) => {
+    const o = offsets[n.id];
+    return o ? { ...n, x: Math.max(0, n.x + o.dx), y: Math.max(0, n.y + o.dy) } : n;
+  });
   const maxRate = Math.max(1, ...layout.edges.map((e) => e.perMin));
-  const byId = new Map(layout.nodes.map((n) => [n.id, n]));
+  const byId = new Map(nodes.map((n) => [n.id, n]));
   // Anschlusspunkte je Knoten verteilen
   const outIdx = new Map<string, number>();
   const inIdx = new Map<string, number>();
@@ -40,8 +62,8 @@ export function FlowDiagram({ result }: { result: SolveResult }) {
     inCount.set(e.to, (inCount.get(e.to) ?? 0) + 1);
   }
   if (layout.nodes.length === 0) return <p className="dim pad">{t('Kein Ergebnis zum Darstellen.')}</p>;
-  const W = Math.max(layout.width, 400);
-  const H = Math.max(layout.height, 200);
+  const W = Math.max(layout.width, 400, ...nodes.map((n) => n.x + n.w + 20));
+  const H = Math.max(layout.height, 200, ...nodes.map((n) => n.y + n.h + 60));
   const unit = (item: string) => (gd.item(item)?.form === 'solid' ? '/min' : 'm³/min');
 
   return (
@@ -56,7 +78,12 @@ export function FlowDiagram({ result }: { result: SolveResult }) {
         <button className="small" onClick={() => setK(1)}>
           100 %
         </button>
-        <span className="dim small-text">{t('Strg+Mausrad: zoomen · Ziehen: verschieben · Linien zeigen Mengen je Gegenstand (proportional verteilt)')}</span>
+        {Object.keys(offsets).length > 0 && (
+          <button className="small" onClick={() => setOffsets({})} data-testid="flow-reset">
+            {t('Anordnung zurücksetzen')}
+          </button>
+        )}
+        <span className="dim small-text">{t('Strg+Mausrad: zoomen · Ziehen: Ansicht verschieben · Knoten ziehen: Knoten verschieben · Linien zeigen Mengen je Gegenstand (proportional verteilt)')}</span>
         <span className="spacer" />
         <span className="legend">
           <span className="fn-supply">{t('Versorgung')}</span>
@@ -76,12 +103,26 @@ export function FlowDiagram({ result }: { result: SolveResult }) {
         }}
         onMouseDown={(e) => box.current && (drag.current = { x: e.clientX, y: e.clientY, sl: box.current.scrollLeft, st: box.current.scrollTop })}
         onMouseMove={(e) => {
+          const nd = nodeDrag.current;
+          if (nd) {
+            const dx = nd.dx + (e.clientX - nd.x) / k;
+            const dy = nd.dy + (e.clientY - nd.y) / k;
+            if (Math.abs(e.clientX - nd.x) + Math.abs(e.clientY - nd.y) > 2) nd.moved = true;
+            if (nd.moved) setOffsets({ ...offsets, [nd.id]: { dx, dy } });
+            return;
+          }
           if (!drag.current || !box.current) return;
           box.current.scrollLeft = drag.current.sl - (e.clientX - drag.current.x);
           box.current.scrollTop = drag.current.st - (e.clientY - drag.current.y);
         }}
-        onMouseUp={() => (drag.current = null)}
-        onMouseLeave={() => (drag.current = null)}
+        onMouseUp={() => {
+          drag.current = null;
+          nodeDrag.current = null;
+        }}
+        onMouseLeave={() => {
+          drag.current = null;
+          nodeDrag.current = null;
+        }}
       >
       <svg viewBox={`0 0 ${W} ${H}`} width={W * k} height={H * k}>
         <g>
@@ -121,8 +162,19 @@ export function FlowDiagram({ result }: { result: SolveResult }) {
               </g>
             );
           })}
-          {layout.nodes.map((n) => (
-            <g key={n.id} transform={`translate(${n.x} ${n.y})`} className={KIND_CLASS[n.kind]}>
+          {nodes.map((n) => (
+            <g
+              key={n.id}
+              transform={`translate(${n.x} ${n.y})`}
+              className={`${KIND_CLASS[n.kind]} fn-node`}
+              data-node={n.id}
+              onMouseDown={(e) => {
+                if (e.button !== 0) return;
+                e.stopPropagation();
+                const o = offsets[n.id] ?? { dx: 0, dy: 0 };
+                nodeDrag.current = { id: n.id, x: e.clientX, y: e.clientY, dx: o.dx, dy: o.dy, moved: false };
+              }}
+            >
               <rect width={n.w} height={n.h} rx={5} />
               <text x={8} y={18} className="fn-title">
                 {n.label.length > 28 ? `${n.label.slice(0, 27)}…` : n.label}

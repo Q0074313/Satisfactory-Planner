@@ -137,6 +137,7 @@ Ein Projekt mit einer **neueren** Version als der Server kennt, wird abgelehnt s
 | 8 | Betrieb auf dem Heimserver: Projekte unter geheimen Links (/f/&lt;id&gt;), Dateiablage, Tailscale Funnel, update.sh | ✅ |
 | 0.6 | Weltkarte: Kartenbild, Rohstoffvorkommen, Fabrikstandort im Weltraster, Miner auf Vorkommen, Entfernungen, Standortvorschlag | ✅ |
 | 0.7 | Automatisches Fabriklayout (Varianten Reihen/kompakt/Etagen, Prüfung im Durchsatzmodell), Blackbox-Fabriken, Rezepte nachschlagen und vergleichen | ✅ |
+| 0.8 | Anschlusslagen aus den Spielpaketen (Lage, Höhe, Richtung), Auto-Layout und Beispiele damit, 3D-Ansicht der Fabrik (nur ansehen; 0.8.1/0.8.2: Namen, Infos beim Überfahren, Flussrichtung animierbar, Fundamentraster, Stockwerk als Schnitt), kürzere Wege und nur nötige Höhen im Auto-Layout, verschiebbare Knoten im Produktionsdiagramm | ✅ |
 
 Details und Abnahmekriterien: [docs/ENTWICKLUNGSPLAN.md](docs/ENTWICKLUNGSPLAN.md).
 

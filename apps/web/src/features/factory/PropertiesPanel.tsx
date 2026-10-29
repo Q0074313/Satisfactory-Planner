@@ -557,9 +557,15 @@ function PortsSection({ building: b }: { building: Building }) {
     <Section title={t('Anschlüsse')}>
       <p className="small-text">
         {t('Anzahl')}: {def.portsSource && <ConfidenceBadge confidence={def.portsSource.confidence} detail={def.portsSource.detail} />} · {t('Lage')}:{' '}
-        <Badge kind="warn" title={t('Die Docs enthalten keine Anschlusspositionen. Eingänge sind schematisch hinten, Ausgänge vorn dargestellt.')}>
-          {t('schematisch')}
-        </Badge>
+        {ports.every((p) => p.positionVerified) ? (
+          <Badge kind="ok" title={t('Lage, Höhe und Richtung der Anschlüsse aus den Spielpaketen.')}>
+            {t('wie im Spiel')}
+          </Badge>
+        ) : (
+          <Badge kind="warn" title={t('Für dieses Gebäude fehlen Anschlusspositionen in den Spieldaten. Eingänge sind schematisch hinten, Ausgänge vorn dargestellt.')}>
+            {t('schematisch')}
+          </Badge>
+        )}
       </p>
       {ports.map((p) => {
         const link = Object.values(project.links).find((l) => (l.from.buildingId === b.id && l.from.portId === p.id) || (l.to.buildingId === b.id && l.to.portId === p.id));

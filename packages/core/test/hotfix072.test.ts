@@ -33,7 +33,9 @@ describe('Hotfix 0.7.2: feste Höhenebenen', () => {
       const result = resultFor(item, rate);
       for (const distribution of ['manifold', 'balanced'] as const) {
         for (const d of generateLayouts(gd, result, { distribution, crossings: 'avoid', maxFloors: 3 })) {
-          const allowed = d.variant === 'rows' ? [1, 5] : [1, 5, 9];
+          // Dazu die Anschlusshöhen der Maschinen (Lifte enden dort, seit 0.8.2), z. B. Rohre auf 1,75 m
+          const portHeights = d.buildings.filter((b) => b.role === 'machine').flatMap((b) => portDefs(gd.building(b.type)!).map((q) => Math.round(q.z * 100) / 100));
+          const allowed = [...(d.variant === 'rows' ? [1, 5] : [1, 5, 9]), ...portHeights];
           const heights = new Set<number>();
           for (const l of d.links) for (const w of l.waypoints) heights.add(Math.round(w.h * 100) / 100);
           for (const b of d.buildings) {

@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import type { Project } from '@satis/core';
 import { N_, t } from '../i18n';
+import { withAppVersion } from '../version';
 
 export class ApiError extends Error {
   constructor(
@@ -49,9 +50,10 @@ const path = (id: string) => `/api/factory/${encodeURIComponent(id)}`;
 
 export const serverApi = {
   health: () => api<{ ok: boolean }>('GET', '/api/health'),
-  createProject: (project: Project) => api<{ id: string; revision: string }>('POST', '/api/factory', { project }),
+  createProject: (project: Project) => api<{ id: string; revision: string }>('POST', '/api/factory', { project: withAppVersion(project) }),
   loadProject: (id: string) => api<{ project: unknown; revision: string; migrations: string[] }>('GET', path(id)),
-  saveProject: (id: string, project: Project, baseRevision: string | null) => api<{ revision: string }>('PUT', path(id), { project, baseRevision }),
+  saveProject: (id: string, project: Project, baseRevision: string | null) =>
+    api<{ revision: string }>('PUT', path(id), { project: withAppVersion(project), baseRevision }),
 };
 
 /** Format der Projekt-IDs auf dem Server (128 Bit, base64url). */

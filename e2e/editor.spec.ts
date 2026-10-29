@@ -56,15 +56,15 @@ test('Förderband zwischen Ausgang und Eingang verbinden', async ({ page }) => {
     }`,
   );
   await page.keyboard.press('b');
-  // Ausgang liegt schematisch an der Vorderseite (+y), Eingang an der Rückseite (−y)
-  const smelterDef = await page.evaluate(() => {
-    const s = (window as any).__satis.useProjectStore.getState();
-    const b = s.gd.building('Build_SmelterMk1_C').bounds;
-    const c = s.gd.building('Build_ConstructorMk1_C').bounds;
-    return { smelterMaxY: b.maxY, ctorMinY: c.minY, smelterCx: (b.minX + b.maxX) / 2, ctorCx: (c.minX + c.maxX) / 2 };
+  // Lage der Anschlüsse aus den Spieldaten (Gebäude ungedreht)
+  const local = await page.evaluate(() => {
+    const s = (window as any).__satis;
+    const gd = s.useProjectStore.getState().gd;
+    const at = (type: string, id: string) => s.core.portDefs(gd.building(type)).find((p: { id: string }) => p.id === id).local;
+    return { out: at('Build_SmelterMk1_C', 'belt-out-0'), inp: at('Build_ConstructorMk1_C', 'belt-in-0') };
   });
-  await clickWorld(page, ports.out.x + smelterDef.smelterCx, ports.out.y + smelterDef.smelterMaxY);
-  await clickWorld(page, ports.inp.x + smelterDef.ctorCx, ports.inp.y + smelterDef.ctorMinY);
+  await clickWorld(page, ports.out.x + local.out.x, ports.out.y + local.out.y);
+  await clickWorld(page, ports.inp.x + local.inp.x, ports.inp.y + local.inp.y);
   expect(await projectState<number>(page, '(p) => Object.keys(p.links).length')).toBe(1);
   await page.locator('.bottom-tabs').getByRole('button', { name: 'Bilanz' }).click();
   await expect(page.locator('.balance')).toContainText('Eisenplatte');

@@ -7,6 +7,7 @@
  */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { importProject, type Project } from '@satis/core';
+import { withAppVersion } from '../version';
 
 export interface ProjectSummary {
   id: string;
@@ -16,6 +17,8 @@ export interface ProjectSummary {
   factories: number;
   buildings: number;
   railSegments: number;
+  /** Planer-Version beim letzten Speichern. */
+  appVersion?: string;
 }
 
 interface PlannerDB extends DBSchema {
@@ -44,10 +47,12 @@ export function summarize(p: Project): ProjectSummary {
     factories: Object.keys(p.factories).length,
     buildings: Object.keys(p.buildings).length,
     railSegments: Object.keys(p.railSegments).length,
+    appVersion: p.appVersion,
   };
 }
 
-export async function saveProject(p: Project): Promise<void> {
+export async function saveProject(project: Project): Promise<void> {
+  const p = withAppVersion(project);
   const d = await db();
   const tx = d.transaction(['projects', 'index'], 'readwrite');
   await Promise.all([

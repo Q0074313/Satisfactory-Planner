@@ -12,6 +12,7 @@ import { ApiError, idFromLocation, serverApi, useServer } from './server';
 import { deleteProject, lastProjectId, loadProject, rememberLastProject, saveProject } from '../persistence/db';
 import { pickFile } from '../persistence/files';
 import { markUploaded, recentProjects, rememberRecent } from '../persistence/recent';
+import { withAppVersion } from '../version';
 import { DEFAULT_DATASET, loadGameData } from './gamedata';
 import { useProjectStore, type RemoteRef } from './projectStore';
 import { useUiStore } from './uiStore';
@@ -84,7 +85,7 @@ export async function openRemote(id: string, opts: { replace?: boolean; push?: b
     await activate(project, { remote: { id } });
     if (opts.push !== false) showInAddressBar(id, opts.replace);
     else rememberTabProject(id);
-    rememberRecent(id, project.name);
+    rememberRecent(id, project.name, project.appVersion);
     for (const m of r.migrations) ui.toast(t('Migriert: {m}', { m }));
     return true;
   } catch (e) {
@@ -99,7 +100,7 @@ async function createRemote(project: Project): Promise<string> {
   revisions.set(r.id, r.revision);
   await activate(project, { remote: { id: r.id } });
   showInAddressBar(r.id);
-  rememberRecent(r.id, project.name);
+  rememberRecent(r.id, project.name, withAppVersion(project).appVersion);
   useUiStore.getState().toast(t('Projekt auf dem Server angelegt. Speichere den Link als Lesezeichen!'));
   return r.id;
 }
@@ -239,7 +240,7 @@ async function persist(p: Project, remoteId: string | null): Promise<void> {
   try {
     const r = await serverApi.saveProject(remoteId, p, revisions.get(remoteId) ?? null);
     revisions.set(remoteId, r.revision);
-    rememberRecent(remoteId, p.name);
+    rememberRecent(remoteId, p.name, withAppVersion(p).appVersion);
   } catch (e) {
     if (!(e instanceof ApiError && e.code === 'conflict')) throw e;
     const overwrite = window.confirm(

@@ -18,28 +18,55 @@ import * as fac from './ops/factory.ts';
 import * as prod from './ops/production.ts';
 import * as trn from './ops/transport.ts';
 import { applyLayout, generateLayouts, type AutoLayoutOptions, type LayoutVariant } from '../factory/autoLayout.ts';
+import { portDefs } from '../factory/ports.ts';
+import { rotate } from '../geometry/index.ts';
 import { solveProduction } from '../production/solver.ts';
 
 export type ExampleKind = 'simple' | 'complex' | 'medium' | 'large';
 
 const MK1 = 'Build_ConveyorBeltMk1_C';
-/** Eingänge liegen lokal hinten (−y), Ausgänge vorn (+y); 270° dreht die Ausgänge in Flussrichtung (+x). */
-const FLOW_ROT = 270;
+
+/** Anschlusswahl: Nummer oder Seite in der Fabrik (Fluss nach +x; oben = −y). */
+type PortPick = number | 'straight' | 'up' | 'down';
+
+const ROTS = [0, 90, 180, 270];
+const rot90 = (v: { x: number; y: number }, deg: number) => {
+  const r = rotate(v, deg);
+  return { x: Math.round(r.x * 1e6) / 1e6, y: Math.round(r.y * 1e6) / 1e6 };
+};
 
 /**
- * Baukasten für eine Fabrik: Gebäude in Flussrichtung gedreht, je Gebäude eine
- * Reihe (y), auf der seine Anschlüsse liegen; Bänder rechtwinklig verlegt.
+ * Baukasten für eine Fabrik: Gebäude in Flussrichtung (+x) gedreht, je
+ * Gebäude eine Reihe (y), auf der sein Bezugsanschluss liegt (erster Eingang,
+ * bei `face: 'out'` erster Ausgang bzw. der angegebene); Bänder rechtwinklig.
  */
 function builder(p: Project, gd: GameDataIndex, factoryId: string) {
   const floorId = p.factories[factoryId]!.floorIds[0]!;
-  const add = (type: string, x: number, row: number, extra: Partial<fac.NewBuilding> = {}) => {
-    // Anschlüsse liegen auf der Mittellinie der Hülle: nach der Drehung bei y − Mitte(x)
-    const b = gd.building(type)?.bounds;
-    const cx = b ? (b.minX + b.maxX) / 2 : 0;
-    return fac.addBuilding(p, gd, { factoryId, type, placement: { floorId, x, y: row + cx, zOffsetM: 0, rotationDeg: FLOW_ROT }, ...extra });
+  const add = (type: string, x: number, row: number, extra: Partial<fac.NewBuilding> = {}, at: { face?: 'in' | 'out'; port?: string } = {}) => {
+    const ports = portDefs(gd.building(type)!).filter((q) => q.kind === 'belt');
+    const face = at.face ?? (ports.some((q) => q.direction === 'in') ? 'in' : 'out');
+    const ref = ports.find((q) => q.direction === face && q.role !== 'fuel') ?? ports.find((q) => q.direction === face)!;
+    // Eingänge zeigen gegen den Fluss (−x), Ausgänge mit ihm (+x)
+    const want = face === 'in' ? { x: -1, y: 0 } : { x: 1, y: 0 };
+    const rotationDeg = ROTS.find((r) => { const n = rot90(ref.normal, r); return Math.abs(n.x - want.x) + Math.abs(n.y - want.y) < 1e-6; }) ?? 0;
+    const anchor = ports.find((q) => q.id === at.port) ?? ref;
+    const off = rot90(anchor.local, rotationDeg);
+    return fac.addBuilding(p, gd, { factoryId, type, placement: { floorId, x, y: row - off.y, zOffsetM: 0, rotationDeg }, ...extra });
   };
-  const belt = (from: string, fromPort: number, to: string, toPort: number) =>
-    fac.addLink(p, gd, { kind: 'belt', tier: MK1, routing: 'straight', from: { buildingId: from, portId: `belt-out-${fromPort}` }, to: { buildingId: to, portId: `belt-in-${toPort}` } });
+  /** Anschluss eines Gebäudes nach Nummer oder nach der Seite, zu der er zeigt. */
+  const port = (id: string, dir: 'in' | 'out', pick: PortPick) => {
+    if (typeof pick === 'number') return `belt-${dir}-${pick}`;
+    const b = p.buildings[id]!;
+    const want = { straight: { x: dir === 'out' ? 1 : -1, y: 0 }, up: { x: 0, y: -1 }, down: { x: 0, y: 1 } }[pick];
+    const q = portDefs(gd.building(b.type)!).find((d) => {
+      const n = rot90(d.normal, b.placement!.rotationDeg);
+      return d.kind === 'belt' && d.direction === dir && Math.abs(n.x - want.x) + Math.abs(n.y - want.y) < 1e-6;
+    });
+    if (!q) throw new Error(`${b.type}: kein ${dir}-Anschluss ${pick}`);
+    return q.id;
+  };
+  const belt = (from: string, fromPort: PortPick, to: string, toPort: PortPick) =>
+    fac.addLink(p, gd, { kind: 'belt', tier: MK1, routing: 'straight', from: { buildingId: from, portId: port(from, 'out', fromPort) }, to: { buildingId: to, portId: port(to, 'in', toPort) } });
   const area = (x0: number, y0: number, x1: number, y1: number, name: string) =>
     fac.addArea(p, { factoryId, floorId, kind: 'build-area', name, polygon: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }] });
   return { add, belt, area };
@@ -55,11 +82,10 @@ function smelting(b: ReturnType<typeof builder>) {
   const s2 = b.add('Build_SmelterMk1_C', 32, 12, { recipeId: 'Recipe_IngotIron_C' });
   const merge = b.add('Build_ConveyorAttachmentMerger_C', 48, 0);
   b.belt(miner, 0, split, 0);
-  // Nach der Drehung: Splitter-Ausgang 2 oben (−y), 1 geradeaus, 0 unten; Zusammenführung ebenso
-  b.belt(split, 2, s1, 0);
-  b.belt(split, 0, s2, 0);
-  b.belt(s1, 0, merge, 2);
-  b.belt(s2, 0, merge, 0);
+  b.belt(split, 'up', s1, 0);
+  b.belt(split, 'down', s2, 0);
+  b.belt(s1, 0, merge, 'up');
+  b.belt(s2, 0, merge, 'down');
   return merge;
 }
 
@@ -157,12 +183,12 @@ export function buildExampleProject(gd: GameDataIndex, kind: ExampleKind, base: 
     const boxPlates = b.add('Build_StorageContainerMk1_C', 108, -18, { label: tr('Eisenplatten') });
     const boxRods = b.add('Build_StorageContainerMk1_C', 108, 9, { label: tr('Eisenstangen') });
     b.belt(merge, 0, split, 0);
-    b.belt(split, 2, plates, 0);
-    b.belt(split, 1, rod1, 0);
-    b.belt(split, 0, rod2, 0);
+    b.belt(split, 'up', plates, 0);
+    b.belt(split, 'straight', rod1, 0);
+    b.belt(split, 'down', rod2, 0);
     b.belt(plates, 0, boxPlates, 0);
-    b.belt(rod1, 0, rodMerge, 2);
-    b.belt(rod2, 0, rodMerge, 0);
+    b.belt(rod1, 0, rodMerge, 'up');
+    b.belt(rod2, 0, rodMerge, 'down');
     b.belt(rodMerge, 0, boxRods, 0);
     const plan = prod.addPlan(p, first, tr('Platten und Stangen'));
     prod.updatePlan(p, gd, plan, {
@@ -185,14 +211,15 @@ export function buildExampleProject(gd: GameDataIndex, kind: ExampleKind, base: 
   const p2 = w.add('Build_ConstructorMk1_C', 80, 0, { recipeId: 'Recipe_IronPlate_C', clock: 0.75 });
   const rod = w.add('Build_ConstructorMk1_C', 80, 18, { recipeId: 'Recipe_IronRod_C' });
   const plateMerge = w.add('Build_ConveyorAttachmentMerger_C', 96, -9);
-  const truckOut = w.add('Build_TruckStation_C', 116, 4, { label: tr('Lkw-Station (Beladen)'), transfer: { mode: 'load', stationId: null } });
+  // Lkw-Station: Ladung auf den inneren Bandeingang (der äußere füllt nur Treibstoff)
+  const truckOut = w.add('Build_TruckStation_C', 116, -9, { label: tr('Lkw-Station (Beladen)'), transfer: { mode: 'load', stationId: null } });
   w.belt(merge, 0, split, 0);
-  w.belt(split, 2, p1, 0);
-  w.belt(split, 1, p2, 0);
-  w.belt(split, 0, rod, 0);
-  w.belt(p1, 0, plateMerge, 2);
-  w.belt(p2, 0, plateMerge, 0);
-  w.belt(plateMerge, 0, truckOut, 0);
+  w.belt(split, 'up', p1, 0);
+  w.belt(split, 'straight', p2, 0);
+  w.belt(split, 'down', rod, 0);
+  w.belt(p1, 0, plateMerge, 'up');
+  w.belt(p2, 0, plateMerge, 'down');
+  w.belt(plateMerge, 0, truckOut, 1);
   const wPlan = prod.addPlan(p, first, tr('Ausfuhr zur Montage'));
   prod.updatePlan(p, gd, wPlan, {
     targets: [
@@ -206,18 +233,19 @@ export function buildExampleProject(gd: GameDataIndex, kind: ExampleKind, base: 
   fac.updateFactory(p, mId, { notes: tr('Erhält Platten per Lkw und Stangen über ein direktes Band und fertigt daraus verstärkte Eisenplatten.') });
   const m = builder(p, gd, mId);
   m.area(-20, -30, 100, 30, tr('Baufläche'));
-  const truckIn = m.add('Build_TruckStation_C', 0, 4, { label: tr('Lkw-Station (Entladen)'), transfer: { mode: 'unload', stationId: null } });
-  const rodSplit = m.add('Build_ConveyorAttachmentSplitter_C', 24, 12);
-  const sc1 = m.add('Build_ConstructorMk1_C', 40, 4, { recipeId: 'Recipe_Screw_C', clock: 0.75 });
-  const sc2 = m.add('Build_ConstructorMk1_C', 40, 20, { recipeId: 'Recipe_Screw_C', clock: 0.75 });
-  const screwMerge = m.add('Build_ConveyorAttachmentMerger_C', 56, 12);
-  const asm = m.add('Build_AssemblerMk1_C', 72, -4, { recipeId: 'Recipe_IronPlateReinforced_C' });
-  const box = m.add('Build_StorageContainerMk1_C', 92, -4, { label: tr('Verstärkte Eisenplatten') });
+  const truckIn = m.add('Build_TruckStation_C', 0, -4, { label: tr('Lkw-Station (Entladen)'), transfer: { mode: 'unload', stationId: null } }, { face: 'out' });
+  const rodSplit = m.add('Build_ConveyorAttachmentSplitter_C', 24, 8);
+  const sc1 = m.add('Build_ConstructorMk1_C', 40, 0, { recipeId: 'Recipe_Screw_C', clock: 0.75 });
+  const sc2 = m.add('Build_ConstructorMk1_C', 40, 16, { recipeId: 'Recipe_Screw_C', clock: 0.75 });
+  const screwMerge = m.add('Build_ConveyorAttachmentMerger_C', 56, 8);
+  // Montage: Platten oben (Eingang 1), Schrauben unten (Eingang 2)
+  const asm = m.add('Build_AssemblerMk1_C', 72, 8, { recipeId: 'Recipe_IronPlateReinforced_C' }, { port: 'belt-in-1' });
+  const box = m.add('Build_StorageContainerMk1_C', 92, 6, { label: tr('Verstärkte Eisenplatten') });
   m.belt(truckIn, 0, asm, 0);
-  m.belt(rodSplit, 2, sc1, 0);
-  m.belt(rodSplit, 0, sc2, 0);
-  m.belt(sc1, 0, screwMerge, 2);
-  m.belt(sc2, 0, screwMerge, 0);
+  m.belt(rodSplit, 'up', sc1, 0);
+  m.belt(rodSplit, 'down', sc2, 0);
+  m.belt(sc1, 0, screwMerge, 'up');
+  m.belt(sc2, 0, screwMerge, 'down');
   m.belt(screwMerge, 0, asm, 1);
   m.belt(asm, 0, box, 0);
   const mPlan = prod.addPlan(p, mId, tr('Verstärkte Eisenplatten'));

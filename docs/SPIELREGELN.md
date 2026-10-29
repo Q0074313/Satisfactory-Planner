@@ -45,7 +45,7 @@ Kennzeichnung der Verlässlichkeit:
 | Splitter / Zusammenführung | 1 → 3 bzw. 3 → 1 Bandanschlüsse | Wiki-Infobox |
 | Rohrkreuzung | 4 (Kreuz) bzw. 3 (T) richtungsfreie Anschlüsse | Wiki „Pipeline Junction“ |
 | Anschlusszahlen der Maschinen | z. B. Fabrikator 2/1, Manufaktor 4/1, Raffinerie 1+1 / 1+1 | Wiki-Infobox; zur Kontrolle aus Rezepten abgeleitet |
-| **Anschlusspositionen** | **nicht verfügbar** → schematisch (Eingänge hinten, Ausgänge vorn) | **Annahme**, in der Oberfläche als „schematisch“ markiert |
+| **Anschlusspositionen** | Lage, Höhe und Austrittsrichtung je Anschluss (z. B. Konstruktor: Eingang 3 m hinter, Ausgang 3 m vor der Mitte, 1 m hoch; Raffinerie: Eingänge vorn, Rohre auf 1,75 m; Splitter: Eingang bei −x) | Spielpakete der Installation (Blueprint-Komponenten `FGFactoryConnectionComponent`, `FGPipeConnection*`), seit 0.8; Gebäude ohne Angabe schematisch (FAB-005) |
 
 ## 3. Fabrikgrundriss
 
@@ -72,10 +72,12 @@ Weitere **Annahmen**:
 
 | Annahme | Begründung |
 |---|---|
-| Eingänge hinten, Ausgänge vorn (wie die schematischen Anschlüsse) | Anschlusslagen fehlen in den Docs (FAB-005) |
+| Maschinen so gedreht, dass ihre Eingänge zu den Zuführungen zeigen (Raffinerie, Teilchenbeschleuniger um 180°); Splitter, Zusammenführungen und Ein-/Ausgangslager nach ihren Anschlüssen ausgerichtet | Anschlusslagen aus den Spielpaketen (seit 0.8) |
 | „Kreuzungen vermeiden“ (seit 0.7.2 mit festen Höhen): Bus, Maschinenanschlüsse und Zuläufe auf 1 m (Anschlusshöhe), Zuführungen und Sammelleitungen einer Linie mit mehreren Gegenständen sowie die Abzweige zum Bus auf 5 m, bei Linien auf beiden Seiten die Abzweige nach rechts auf 9 m; Lifte direkt am Splitter bzw. an der Zusammenführung | Parallele Leitungen kreuzen sich nicht, quer laufende liegen auf einer anderen Ebene – so kreuzt sich keine Leitung auf gleicher Höhe. Der Abstand von 4 m (eine Fundamenthöhe) ist eine Planungsannahme, die Mindesthöhe von Förderliften ist nicht belegt |
 | „Logistikebene“ (seit 0.7.3): unter jeder Produktionsebene eine Logistikebene (6 m lichte Höhe, 2 m Decke) mit Bus, Zuführungen, Sammelleitungen, Splittern und Ein-/Ausgängen auf 1, 3 und 5 m über dem Logistikboden; Lifte direkt am Splitter bzw. an der Zusammenführung durch die Decke zu den Maschinen | Übliche Bauweise mit freier Produktionsebene. Der Abstand von 2 m zwischen den Ebenen ist eine Planungsannahme; die Aussparungen im Boden meldet FAB-017 als Hinweis |
 | „Kreuzungen erlauben“: alles auf Anschlusshöhe | Für den frühen Spielstand ohne Lifte; Kreuzungen löst man beim Bauen |
+| Nur nötige Höhen (seit 0.8.2): hochgelegte Stücke werden abgesenkt, wo darunter nichts kreuzt und kein Gebäude steht; Lifte zu Maschinen enden auf deren Anschlusshöhe | Weniger Lifte und Höhenwechsel, Leitungen liegen nur über etwas in der Luft |
+| Spalte am Linienrand (seit 0.8.2): Verbindungen zwischen Etagen und Rückführungen mit beiden Anschlüssen auf derselben Seite laufen dort statt über eine Busspur; übrige Spuren liegen nahe an der Seite ihrer Linien | Kurze Wege ohne breiteren Bus; Planungsannahme, im Spiel ggf. anders gelöst |
 | Rohre immer als Sammelleitung mit Rohrkreuzungen | Flüssigkeiten verteilen sich im Spiel über den Druck, nicht über Splitter |
 | Ein- und Ausgänge als Lager bzw. Flüssigkeitspuffer am Anfang bzw. Ende ihrer Busspur | Übergabepunkt für Transportaufträge oder Gewinnungsgebäude |
 | Linien auf beiden Seiten des Busses werden in 4-m-Schritten versetzt, bis ihre Anschlüsse nicht auf denselben Linien liegen wie die der Gegenseite (seit 0.7.3) | Sonst laufen Abzweige nach links und rechts im Grundriss über lange Strecken übereinander; ganz ausgeschlossen ist das nicht, der Dialog zeigt die Zahl der Stellen |
@@ -126,7 +128,7 @@ Spalten: **Art** (Spielregel / Empfehlung / nicht geprüft), **Gewissheit** (sta
 | FAB-002 | Weiche Freihaltezone überschneidet sich | nicht geprüft | statisch | Warnung | Spieldaten (`CT_Soft`), Verhalten unbekannt |
 | FAB-003 | Gebäude außerhalb der Baufläche | Empfehlung | statisch | Warnung | eigene Vorgabe |
 | FAB-004 | Gebäude im Planungsabstand | Empfehlung | statisch | Warnung | eigene Vorgabe |
-| FAB-005 | Anschlusslagen sind schematisch | nicht geprüft | statisch | Hinweis | fehlende Spieldaten |
+| FAB-005 | Anschlusslagen sind schematisch | nicht geprüft | statisch | Hinweis | nur Gebäude ohne Lage in den Spielpaketen (derzeit keine) |
 | FAB-006 | Baubarkeit von Leitungen nicht geprüft | nicht geprüft | statisch | Hinweis | Einschränkung des Planers |
 | FAB-007 | Gebäude höher als das Stockwerk | Empfehlung | statisch | Warnung | Spieldaten (Höhe) |
 | FAB-008 | Geplante Maschinen ohne Platz im Grundriss | Empfehlung | statisch | Hinweis | Planungsstand |

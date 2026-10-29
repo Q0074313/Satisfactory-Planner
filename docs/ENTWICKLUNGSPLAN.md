@@ -352,3 +352,57 @@ Aus „Hotfixes“: Rohstoffaufträge passen nicht zur Zahl der Eingänge (Menge
 
 **Grenzen:** Teilen sich mehrere Eingänge dieselben Maschinen, ist die Aufteilung des Bedarfs zwischen ihnen eine von mehreren möglichen. Züge, Fahrzeuge und Drohnen liefern an die Fabrik, nicht an einen bestimmten Eingang. Lifte von der Logistikebene erzeugen je einen Hinweis FAB-017 (Aussparung im Boden).
 
+## Version 0.8 – Anschlusslagen wie im Spiel, 3D-Ansicht ✅
+
+Aus dem Planungsdokument „Updates“ (Fabrikplanung: Ein- und Ausgänge an der richtigen Stelle statt schematisch, 3D-Ansicht im Fabrikgrundriss) plus die offenen Punkte aus „Hotfixes“. Rückfragen: Lagen aus den Spielpaketen statt aus Bildern; immer echte Lagen (keine Option je Fabrik); Auto-Layout passt sich an; 3D mit three.js als Quader; Produktion „aus Eingangsmengen“ entfällt, der Modus „Maximieren (begrenzte Mittel)“ deckt das ab.
+
+**Abnahmekriterien**
+- [x] Anschlusslagen aus den Spielpaketen: .NET-Werkzeug `packages/gamedata-tools/ports` (CUE4Parse) liest Lage, Höhe und Richtung aller Band- und Rohranschlüsse aus den Blueprints der lokalen Installation (`npm run gamedata:ports` → `curated/ports-game.json`); `extract.ts` löst Vererbung auf, ordnet die Komponenten den Anschluss-IDs zu und schreibt `portLayout` in den Datensatz. Alle 43 Gebäude mit Anschlüssen haben Lagen; Anzahl stimmt mit den Spieldaten überein. *(Unit-Test: Konstruktor, Raffinerie, Splitter, Lager Mk.2 mit zwei Höhen, Miner Mk.3 geerbt, Treibstoffeingang der Lkw-Station)*
+- [x] Grundriss, Seitenansicht und Durchsatzmodell nutzen die echten Lagen; Eigenschaften zeigen „Lage: wie im Spiel“; FAB-005 nur noch für Gebäude ohne Lage (derzeit keine). *(Unit- und E2E-Test)*
+- [x] Auto-Layout mit echten Lagen: Maschinen so gedreht, dass die Eingänge zu den Zuführungen zeigen (Raffinerie um 180°), Umriss gedreht; Splitterbaum, Ein- und Ausgangslager nach ihren Anschlüssen ausgerichtet. Alle bisherigen Prüfungen halten: alle Varianten 100 %, 0 Kreuzungen auf gleicher Höhe, feste Höhenebenen, Logistikebenen. *(Unit-Test)*
+- [x] Beispielprojekte neu aufgebaut (Anschlüsse nach Seite statt Nummer gewählt, Lkw-Ladung am Ladungs- statt am Treibstoffeingang); in allen vier Beispielen läuft keine Leitung hinter der Anschlussebene durch ihr eigenes Gebäude zurück. *(Unit-Test)*
+- [x] Pumpe in eine Leitung einsetzen richtet die Achse Eingang → Ausgang in Flussrichtung aus (im Spiel liegt sie entlang x). *(Unit-Test)*
+- [x] 3D-Ansicht im Fabrikgrundriss (Werkzeugleiste „3D“, nur ansehen): Gebäude als Körper aus den Kollisionsboxen in Kategorienfarbe, Förderbänder und Rohre als Röhren in Stufenfarbe auf ihrer Höhe, Bau- und Fundamentflächen als Platten; Stockwerke einzeln bzw. „bis gewähltes“ ausblendbar, Leitungen und Flächen abschaltbar; Drehen, Verschieben, Zoomen; Klick wählt aus, Überfahren zeigt den Namen. three.js wird erst beim Öffnen geladen. *(E2E)*
+- [x] Hotfix-Punkte: keine „−0“ mehr (Zahlen werden auf die angezeigten Stellen gerundet, „Netto lokal“ färbt nach dem gerundeten Wert) *(Unit-Test)*; im Grundriss lassen sich nur Leitungsstücke auf dem gewählten Stockwerk anklicken *(Unit-Test)*; Standortvorschlag mit „Vorschläge ausblenden“ bzw. Esc auf der Karte *(E2E)*; Knoten im Produktionsdiagramm verschiebbar, „Anordnung zurücksetzen“ *(E2E)*.
+
+**Vereinfachungen / bekannte Grenzen**
+- Die Anschlusslagen stammen aus Spielversion 1.2.4.1 (Docs identisch mit 1.2.4.0). Nach einem Spiel-Update `npm run gamedata:ports` und `npm run gamedata:extract` erneut ausführen (.NET-SDK 10 nötig).
+- Anschlüsse liegen im Spiel innerhalb der Kollisionsbox (z. B. Konstruktor 3 m statt 5 m vor der Mitte); Leitungen beginnen im Grundriss daher innerhalb des Umrisses.
+- Bestehende Projekte behalten ihre Verbindungen (gleiche Anschluss-IDs), die Anschlüsse liegen aber jetzt an anderer Stelle. Von Hand gesetzte Zwischenpunkte können Umwege ergeben; mit dem Auto-Layout erzeugte Fabriken ggf. neu erzeugen. Keine Formatänderung (nur Spieldaten), daher keine Migration.
+- Auto-Layout: Liegen Ausgänge auf derselben Seite wie die Eingänge (z. B. Kernkraftwerk), führt die Sammelleitung um die Maschine herum (Hinweis im Dialog). Leitungen laufen weiter auf 1/5/9 m; Rohranschlüsse auf 1,75 m bzw. 3,75 m (Verpacker) werden am Ende angehoben.
+- 3D-Ansicht: keine Spielmodelle (rechtlich geschützt), sondern die Planungsboxen; Förderbänder als runde Röhren; nur ansehen, kein Bearbeiten. Braucht WebGL.
+- Die Verschiebung von Knoten im Produktionsdiagramm gilt nur, solange die Seite offen ist, und nur für denselben Graphen (ändert sich der Plan, ordnet sich das Diagramm neu).
+
+### Hotfix 0.8.1
+
+Aus „Hotfixes“ (alles zur 3D-Ansicht): Splitter und Zusammenführungen fehlten; Rohre und Bänder sahen teils seltsam aus; Stockwerksauswahl mit links abgleichen; Namen auf den Gebäuden; Bänder und Rohre unterscheiden; Infos beim Überfahren bzw. Flussrichtung; einzelne Fundamente anzeigen. Rückfragen: Stockwerk links = Schnitt; Infos beim Überfahren und feste Pfeile; Fundamentkacheln nur in 3D.
+
+- **Splitter, Zusammenführungen, Rohrkreuzungen:** haben in den Spieldaten nur weiche Kollisionsboxen und fehlten deshalb; ohne feste Box wird jetzt die weiche gezeigt. *(Unit-Test)*
+- **Bänder und Rohre:** Bänder als flache Bahn (1 m breit, 0,25 m dick, Oberkante auf Leitungshöhe, Lifte als Säule), Rohre als runde, glänzende Rohre mit Gelenken an den Knicken (statt einer verdrehten Röhre um die Ecken). *(Unit-Test: keine ungültigen Punkte, Bahn flach)*
+- **Stockwerk = Schnitt:** Das links gewählte Stockwerk ist auch in 3D gewählt und umgekehrt (Klick in der 3D-Liste); Stockwerke darüber sind ausgeblendet, „darüberliegende zeigen“ hebt den Schnitt auf. *(E2E)*
+- **Namen** über Maschinen und benannten Gebäuden (nicht an Splittern, Rohrkreuzungen u. Ä.), abschaltbar. *(Unit-Test)*
+- **Infos beim Überfahren:** Gebäude mit Name, Rezept, Takt und Auslastung; Leitungen mit Stufe, Gegenständen und Durchsatz/Kapazität. *(Unit- und E2E-Test)*
+- **Flussrichtung:** feste Pfeile auf waagrechten Band- und Rohrstücken (alle 8 m), abschaltbar.
+- **Fundamentkacheln:** Fundamentflächen wahlweise als einzelne Platten in Fundamentgröße (z. B. 8 × 4 × 1 m) mit Fugen, Raster wie im Grundriss. *(Unit-Test: eine Platte je Fundament)*
+
+**Grenzen:** Bandbreite 1 m ist ein Planungsmaß (nicht belegt). Splitter und Zusammenführungen erscheinen mit ihrer weichen Box (4 × 4 m), also größer als das Modell im Spiel. Namen haben eine feste Größe in der Welt und werden aus der Ferne klein.
+
+### Hotfix 0.8.2
+
+Aus „Hotfixes“: Fundamentkacheln als Einzelteile statt Raster; Bänder unnötig in der Luft; Bandlifte beginnen am Boden; ferne Schrift unscharf; Auswahl durch den Boden; unnötig lange Bandwege; Animation in 3D; Bild hoch/runter in 3D; Materialfluss in den Einstellungen unter „Darstellung“. Rückfragen: lange Wege durch Lifte am Linienrand und bessere Sortierung, bei Logistikebenen Bänder bevorzugt dort; Absenken, wo darunter frei ist.
+
+- **Auto-Layout, kürzere Wege:** Verbindungen zwischen Etagen und Rückführungen gegen die Flussrichtung mit beiden Anschlüssen auf derselben Seite nutzen keine Busspur mehr, sondern eine eigene Spalte am Linienrand (zwischen Verteilketten und Bus, auf Bushöhe – mit Logistikebenen also dort). Die übrigen Busspuren werden bei gleicher Spurzahl so verschoben bzw. getauscht, dass sie nahe an der Seite ihrer Linien liegen. Großes Beispiel: Umweg gegenüber dem direkten Weg 1038 → unter 500 m, längster 203 → unter 80 m. *(Unit-Test)*
+- **Lifte:** Verbindungen zwischen Etagen steigen direkt von der Abzweighöhe auf (vorher erst hinunter auf den Bus in 1 m); Lifte zu Maschinen enden auf deren Anschlusshöhe (Rohre 1,75 m bzw. 3,75 m), ohne Senke auf 1 m. *(Unit-Test)*
+- **Nur nötige Höhen:** Ein Nacharbeitsschritt senkt hochgelegte Stücke (Lift hoch – waagrecht – Lift runter) auf die Höhe davor ab, wenn darunter weder eine Leitung, ein Lift noch ein Gebäude im Weg ist. Weiterhin 0 Kreuzungen auf gleicher Höhe in allen Testplänen. *(Unit-Test)*
+- **3D:** Fundamentraster als 8-m-Gitter auf der Fundamentplatte (statt Einzelplatten); Namen als HTML-Beschriftung (in jeder Entfernung scharf), sich überdeckende Namen werden ausgeblendet (nähere zuerst); Böden und Flächen verdecken beim Anklicken, was darunter liegt; Pfeile laufen animiert auf Leitungen mit Durchsatz (Schalter „animiert“ = Einstellung „Materialfluss animieren“); Bild hoch/runter wechselt das Stockwerk. *(Unit- und E2E-Test)*
+- **Einstellungen:** „Materialfluss animieren“ steht unter „Darstellung“ (Abschnitt „Materialfluss“) und gilt für Grundriss, Seitenansicht und 3D. *(E2E)*
+
+**Grenzen:** Die Spalte am Linienrand gibt es nur, wenn beide Anschlüsse auf derselben Seite des Busses liegen; sonst bleibt es bei einer Busspur. Die Busleitung selbst liegt weiter auf 1 m unter den Abzweigen. Die Geschwindigkeit der Pfeile ist eine Darstellung (steigt mit der Stufe), nicht die Spielgeschwindigkeit. Bestehende, mit älteren Versionen erzeugte Layouts ändern sich nicht; neu erzeugen übernimmt die Verbesserungen.
+
+### Hotfix 0.8.3
+
+Aus „Hotfixes“ (Sonstiges): Planer-Version bei den Projekten auf der Startseite anzeigen; „Zum Ausprobieren“ besser gestalten. Rückfragen: Version je Projekt; Auswahlliste mit Öffnen.
+
+- **Version je Projekt:** Neues optionales Projektfeld `appVersion` (Planer-Version beim letzten Speichern; keine Formatänderung, ältere Stände laden unverändert). Es wird beim Speichern im Browser und auf dem Server gesetzt. Die Startseite zeigt es in einer Spalte „Version“ (zuletzt geöffnete Server-Projekte, lokale Projekte, Angebot zum Hochladen); ältere Stände zeigen „älter“, bis sie einmal gespeichert werden. *(API- und E2E-Test)*
+- **Zum Ausprobieren:** eigener Abschnitt mit Auswahlliste der vier Beispiele, Beschreibung des gewählten, Haken „mit Logistikebene“ (nur bei den Auto-Layout-Beispielen) und „Beispiel öffnen“. *(E2E)*
+

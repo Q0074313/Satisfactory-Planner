@@ -64,7 +64,15 @@ export function numberLocale(lang: Lang = current): string {
 }
 
 export function formatNumber(v: number, digits = 2): string {
-  return v.toLocaleString(numberLocale(), { maximumFractionDigits: digits });
+  return roundForDisplay(v, digits).toLocaleString(numberLocale(), { maximumFractionDigits: digits });
+}
+
+/** Auf die angezeigten Stellen gerundet; Reste wie −0,004 werden zu 0 (keine „−0“). */
+export function roundForDisplay(v: number, digits = 2): number {
+  if (!Number.isFinite(v)) return v;
+  const f = 10 ** digits;
+  const r = Math.round(v * f) / f;
+  return r === 0 ? 0 : r;
 }
 
 /** Name aus den Spieldaten in der aktuellen Sprache. */

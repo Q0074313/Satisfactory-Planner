@@ -1,0 +1,3368 @@
+{
+  "$comment": "Anschlüsse der Gebäude aus den Spielpaketen (Komponentenvorlagen der Blueprints). Einheiten wie im Spiel: cm, Grad. Erzeugt mit packages/gamedata-tools/ports.",
+  "meta": {
+    "gameVersion": "1.2.4.1",
+    "changelist": 513885,
+    "branch": "++FactoryGame+rel-main-anniversary-2026",
+    "engine": "GAME_UE5_6"
+  },
+  "classes": {
+    "Build_ConveyorWallHole_C": {
+      "connections": [
+        {
+          "name": "SnapOnly",
+          "type": "FGFactoryConnectionComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": -67.5
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_BigGarageDoor_16x8_Concrete_C": {
+      "super": "Build_BigGarageDoor_16x8_C",
+      "connections": []
+    },
+    "Build_BigGarageDoor_16x8_Steel_C": {
+      "super": "Build_BigGarageDoor_16x8_C",
+      "connections": []
+    },
+    "Build_Wall_Conveyor_8x4_01_Steel_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 200.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        },
+        {
+          "name": "SnapOnly1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        },
+        {
+          "name": "SnapOnly2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -200.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_Wall_Conveyor_8x4_01_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -0.0,
+            "Y": 200.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        },
+        {
+          "name": "SnapOnly1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        },
+        {
+          "name": "SnapOnly2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -200.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_Wall_Conveyor_8x4_02_Steel_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -200.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        },
+        {
+          "name": "SnapOnly1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 200.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_Wall_Conveyor_8x4_02_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -200.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        },
+        {
+          "name": "SnapOnly1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 200.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_Wall_Conveyor_8x4_03_Steel_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_Wall_Conveyor_8x4_03_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_Wall_Conveyor_8x4_04_Steel_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 150.0,
+            "Y": 0.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_Wall_Conveyor_8x4_04_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 150.0,
+            "Y": 0.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_Wall_Door_8x4_01_Steel_C": {
+      "super": "Build_SteelWall_8x4_DoorC_01_C",
+      "connections": []
+    },
+    "Build_Wall_Door_8x4_03_Steel_C": {
+      "super": "Build_SteelWall_8x4_DoorS_01_C",
+      "connections": []
+    },
+    "Build_Wall_Concrete_8x4_ConveyorHole_01_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_Wall_Concrete_8x4_ConveyorHole_02_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -200.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        },
+        {
+          "name": "SnapOnly1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 200.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_Wall_Concrete_8x4_ConveyorHole_03_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 200.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        },
+        {
+          "name": "SnapOnly1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        },
+        {
+          "name": "SnapOnly2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -200.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_AlienPowerBuilding_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 910.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        }
+      ]
+    },
+    "Build_AssemblerMk1_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 200.0,
+            "Y": -600.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -200.0,
+            "Y": -600.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 500.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_Blender_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "location": {
+            "X": 200.0,
+            "Y": -700.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "location": {
+            "X": 600.0,
+            "Y": -700.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "location": {
+            "X": -200.0,
+            "Y": 700.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "PipeInputFactory1",
+          "type": "FGPipeConnectionFactory",
+          "location": {
+            "X": -600.0,
+            "Y": -700.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        },
+        {
+          "name": "PipeInputFactory",
+          "type": "FGPipeConnectionFactory",
+          "location": {
+            "X": -200.0,
+            "Y": -700.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        },
+        {
+          "name": "PipeOutputFactory",
+          "type": "FGPipeConnectionFactory",
+          "location": {
+            "X": -600.0,
+            "Y": 740.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        }
+      ]
+    },
+    "Build_ConveyorAttachmentMerger_C": {
+      "connections": [
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -100.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 180.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input3",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 100.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_ConveyorAttachmentMergerLift_C": {
+      "connections": [
+        {
+          "name": "BottomConnection",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 50.0
+          },
+          "rotation": {
+            "Pitch": -90.0,
+            "Yaw": 0.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_ANY"
+        },
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "TopConnection",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -0.0,
+            "Y": 0.0,
+            "Z": 50.0
+          },
+          "rotation": {
+            "Pitch": 90.0,
+            "Yaw": 0.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_ANY"
+        }
+      ]
+    },
+    "Build_ConveyorAttachmentMergerPriorityLift_C": {
+      "connections": [
+        {
+          "name": "BottomConnection",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": -45.0
+          },
+          "rotation": {
+            "Pitch": -90.0,
+            "Yaw": 0.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_ANY"
+        },
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "TopConnection",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 155.0
+          },
+          "rotation": {
+            "Pitch": 90.0,
+            "Yaw": 0.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_ANY"
+        }
+      ]
+    },
+    "Build_ConveyorAttachmentMergerPriority_C": {
+      "connections": [
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -100.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 180.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input3",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 100.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_ConveyorAttachmentSplitter_C": {
+      "connections": [
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -100.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 180.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 100.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "Output2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "Output3",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -0.0,
+            "Y": -100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_ConveyorAttachmentSplitterLift_C": {
+      "connections": [
+        {
+          "name": "BottomConnection",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 50.0
+          },
+          "rotation": {
+            "Pitch": -90.0,
+            "Yaw": 0.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_ANY"
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "Output2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "TopConnection",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 50.0
+          },
+          "rotation": {
+            "Pitch": 90.0,
+            "Yaw": 0.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_ANY"
+        }
+      ]
+    },
+    "Build_ConveyorAttachmentSplitterProgrammableLift_C": {
+      "connections": [
+        {
+          "name": "BottomConnection",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 50.0
+          },
+          "rotation": {
+            "Pitch": -90.0,
+            "Yaw": 180.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_ANY"
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "Output2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "TopConnection",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 50.0
+          },
+          "rotation": {
+            "Pitch": 90.0,
+            "Yaw": 0.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_ANY"
+        }
+      ]
+    },
+    "Build_ConveyorAttachmentSplitterSmartLift_C": {
+      "connections": [
+        {
+          "name": "BottomConnection",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 50.0
+          },
+          "rotation": {
+            "Pitch": -90.0,
+            "Yaw": 180.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_ANY"
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "Output2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "TopConnection",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 50.0
+          },
+          "rotation": {
+            "Pitch": 90.0,
+            "Yaw": 0.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_ANY"
+        }
+      ]
+    },
+    "Build_ConveyorAttachmentSplitterProgrammable_C": {
+      "connections": [
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -100.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 180.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 100.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "Output2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "Output3",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_ConveyorAttachmentSplitterSmart_C": {
+      "connections": [
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -100.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 180.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 100.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "Output2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "Output3",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_CentralStorage_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -0.0,
+            "Y": 390.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        }
+      ]
+    },
+    "Build_CheatFluidPump_C": {
+      "super": "Build_PipelinePumpMk2_C",
+      "connections": []
+    },
+    "Build_ConstructorMk1_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -300.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 300.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_Converter_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -200.0,
+            "Y": -680.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 200.0,
+            "Y": -680.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 200.0,
+            "Y": 660.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "FGPipeConnectionFactory",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": -200.0,
+            "Y": 700.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        }
+      ]
+    },
+    "Build_ConveyorBeltMk1_C": {
+      "connections": [
+        {
+          "name": "ConveyorAny0",
+          "type": "FGFactoryConnectionComponent"
+        },
+        {
+          "name": "ConveyorAny1",
+          "type": "FGFactoryConnectionComponent"
+        }
+      ]
+    },
+    "Build_ConveyorBeltMk2_C": {
+      "super": "Build_ConveyorBeltMk1_C",
+      "connections": [
+        {
+          "name": "ConveyorAny0",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorBeltMk1_C:ConveyorAny0"
+        },
+        {
+          "name": "ConveyorAny1",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorBeltMk1_C:ConveyorAny1"
+        }
+      ]
+    },
+    "Build_ConveyorBeltMk3_C": {
+      "super": "Build_ConveyorBeltMk1_C",
+      "connections": [
+        {
+          "name": "ConveyorAny0",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorBeltMk1_C:ConveyorAny0"
+        },
+        {
+          "name": "ConveyorAny1",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorBeltMk1_C:ConveyorAny1"
+        }
+      ]
+    },
+    "Build_ConveyorBeltMk4_C": {
+      "super": "Build_ConveyorBeltMk1_C",
+      "connections": [
+        {
+          "name": "ConveyorAny0",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorBeltMk1_C:ConveyorAny0"
+        },
+        {
+          "name": "ConveyorAny1",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorBeltMk1_C:ConveyorAny1"
+        }
+      ]
+    },
+    "Build_ConveyorBeltMk5_C": {
+      "super": "Build_ConveyorBeltMk1_C",
+      "connections": [
+        {
+          "name": "ConveyorAny0",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorBeltMk1_C:ConveyorAny0"
+        },
+        {
+          "name": "ConveyorAny1",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorBeltMk1_C:ConveyorAny1"
+        }
+      ]
+    },
+    "Build_ConveyorBeltMk6_C": {
+      "super": "Build_ConveyorBeltMk1_C",
+      "connections": [
+        {
+          "name": "ConveyorAny0",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorBeltMk1_C:ConveyorAny0"
+        },
+        {
+          "name": "ConveyorAny1",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorBeltMk1_C:ConveyorAny1"
+        }
+      ]
+    },
+    "Build_ConveyorLiftMk1_C": {
+      "connections": [
+        {
+          "name": "ConveyorAny0",
+          "type": "FGFactoryConnectionComponent"
+        },
+        {
+          "name": "ConveyorAny1",
+          "type": "FGFactoryConnectionComponent"
+        }
+      ]
+    },
+    "Build_ConveyorLiftMk2_C": {
+      "super": "Build_ConveyorLiftMk1_C",
+      "connections": [
+        {
+          "name": "ConveyorAny0",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorLiftMk1_C:ConveyorAny0"
+        },
+        {
+          "name": "ConveyorAny1",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorLiftMk1_C:ConveyorAny1"
+        }
+      ]
+    },
+    "Build_ConveyorLiftMk3_C": {
+      "super": "Build_ConveyorLiftMk1_C",
+      "connections": [
+        {
+          "name": "ConveyorAny0",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorLiftMk1_C:ConveyorAny0"
+        },
+        {
+          "name": "ConveyorAny1",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorLiftMk1_C:ConveyorAny1"
+        }
+      ]
+    },
+    "Build_ConveyorLiftMk4_C": {
+      "super": "Build_ConveyorLiftMk1_C",
+      "connections": [
+        {
+          "name": "ConveyorAny0",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorLiftMk1_C:ConveyorAny0"
+        },
+        {
+          "name": "ConveyorAny1",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorLiftMk1_C:ConveyorAny1"
+        }
+      ]
+    },
+    "Build_ConveyorLiftMk5_C": {
+      "super": "Build_ConveyorLiftMk1_C",
+      "connections": [
+        {
+          "name": "ConveyorAny0",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorLiftMk1_C:ConveyorAny0"
+        },
+        {
+          "name": "ConveyorAny1",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorLiftMk1_C:ConveyorAny1"
+        }
+      ]
+    },
+    "Build_ConveyorLiftMk6_C": {
+      "super": "Build_ConveyorLiftMk1_C",
+      "connections": [
+        {
+          "name": "ConveyorAny0",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorLiftMk1_C:ConveyorAny0"
+        },
+        {
+          "name": "ConveyorAny1",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Default__Build_ConveyorLiftMk1_C:ConveyorAny1"
+        }
+      ]
+    },
+    "Build_ConveyorPole_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent"
+        }
+      ]
+    },
+    "Build_ConveyorPoleStackable_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 300.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_ConveyorCeilingAttachment_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -0.0,
+            "Z": 200.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 0.0,
+            "Roll": -180.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_ConveyorPoleWall_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 200.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_DroneStation_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 1200.0,
+            "Y": 700.0,
+            "Z": 100.0
+          }
+        },
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 1200.0,
+            "Y": -500.0,
+            "Z": 100.0
+          }
+        },
+        {
+          "name": "Output0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 1200.0,
+            "Y": -900.0,
+            "Z": 100.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_FoundationPassthrough_Hypertube_C": {
+      "connections": [
+        {
+          "name": "Connection0",
+          "type": "FGPipeConnectionComponentHyper"
+        },
+        {
+          "name": "Connection1",
+          "type": "FGPipeConnectionComponentHyper"
+        }
+      ]
+    },
+    "Build_FoundryMk1_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 200.0,
+            "Y": -300.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -200.0,
+            "Y": -300.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -200.0,
+            "Y": 200.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_FrackingExtractor_C": {
+      "connections": [
+        {
+          "name": "FGPipeConnectionFactory",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": 100.0,
+            "Y": 0.0,
+            "Z": 375.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        }
+      ]
+    },
+    "Build_GeneratorBiomass_Automated_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -0.0,
+            "Y": 300.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        }
+      ]
+    },
+    "Build_GeneratorCoal_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 200.0,
+            "Y": 1100.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "FGPipeConnectionFactory",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": -200.0,
+            "Y": 1141.68,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        }
+      ]
+    },
+    "Build_GeneratorFuel_C": {
+      "connections": [
+        {
+          "name": "FGPipeConnectionFactory",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.001,
+            "Y": -860.187,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        }
+      ]
+    },
+    "Build_GeneratorNuclear_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -200.0,
+            "Y": 1987.798,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 200.0,
+            "Y": 1987.816,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "FGPipeConnectionFactory",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 2064.934,
+            "Z": 575.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        }
+      ]
+    },
+    "Build_HadronCollider_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "location": {
+            "X": -600.0,
+            "Y": 900.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "location": {
+            "X": -200.0,
+            "Y": 900.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output0",
+          "type": "FGFactoryConnectionComponent",
+          "location": {
+            "X": -400.0,
+            "Y": -1310.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "FGPipeConnectionFactory",
+          "type": "FGPipeConnectionFactory",
+          "location": {
+            "X": 200.0,
+            "Y": 990.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        }
+      ]
+    },
+    "Build_TreeGiftProducer_C": {
+      "connections": [
+        {
+          "name": "output0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_HyperTubeWallHole_C": {
+      "connections": [
+        {
+          "name": "PipeHyperSupportSnap",
+          "type": "FGPipeConnectionComponentHyper",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 100.0
+          },
+          "pipeType": "PCT_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_HyperTubeWallSupport_C": {
+      "connections": [
+        {
+          "name": "PipeHyperSupportSnap",
+          "type": "FGPipeConnectionComponentHyper",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 100.0
+          },
+          "pipeType": "PCT_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_IndustrialTank_C": {
+      "connections": [
+        {
+          "name": "ConnectionAny0",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 600.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "ConnectionAny1",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -600.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 270.0,
+            "Roll": 0.0
+          }
+        }
+      ]
+    },
+    "Build_JumpPadTilted_C": {
+      "super": "Build_JumpPad_C",
+      "connections": []
+    },
+    "Build_ManufacturerMk1_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 600.0,
+            "Y": -875.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 200.0,
+            "Y": -875.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.001,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -200.0,
+            "Y": -875.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input3",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -600.0,
+            "Y": -875.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 800.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_MinerMk1_C": {
+      "connections": [
+        {
+          "name": "Output0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 800.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_MinerMk2_C": {
+      "connections": [
+        {
+          "name": "Output0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 800.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_MinerMk3_C": {
+      "super": "Build_MinerMk2_C",
+      "connections": [
+        {
+          "name": "Output0",
+          "type": "FGFactoryConnectionComponent",
+          "template": "Build_MinerMk2_C:Output0",
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        }
+      ]
+    },
+    "Build_OilPump_C": {
+      "connections": [
+        {
+          "name": "FGPipeConnectionFactory",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 760.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        }
+      ]
+    },
+    "Build_OilRefinery_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 200.0,
+            "Y": 900.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 200.0,
+            "Y": -900.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "PipeInputFactory",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": -200.0,
+            "Y": 900.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        },
+        {
+          "name": "PipeOutputFactory",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": -200.0,
+            "Y": -900.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        }
+      ]
+    },
+    "Build_Packager_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -300.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -0.0,
+            "Y": 300.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "PipeInputFactory",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.001,
+            "Y": -380.0,
+            "Z": 375.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        },
+        {
+          "name": "PipeOutputFactory",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": -0.001,
+            "Y": 350.0,
+            "Z": 375.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        }
+      ]
+    },
+    "Build_PipeHyper_C": {
+      "connections": [
+        {
+          "name": "PipeHyperConnection0",
+          "type": "FGPipeConnectionComponentHyper"
+        },
+        {
+          "name": "PipeHyperConnection1",
+          "type": "FGPipeConnectionComponentHyper"
+        }
+      ]
+    },
+    "Build_HyperTubeJunction_C": {
+      "connections": [
+        {
+          "name": "Connection2",
+          "type": "FGPipeConnectionComponentHyper",
+          "parent": "RootComponent",
+          "location": {
+            "X": -0.0,
+            "Y": 240.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": -0.0
+          }
+        },
+        {
+          "name": "Connection0",
+          "type": "FGPipeConnectionComponentHyper",
+          "location": {
+            "X": -206.962,
+            "Y": -121.34,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 210.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Connection1",
+          "type": "FGPipeConnectionComponentHyper",
+          "location": {
+            "X": 206.962,
+            "Y": -121.34,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -30.0,
+            "Roll": 0.0
+          }
+        }
+      ]
+    },
+    "Build_PipeHyperStart_C": {
+      "connections": [
+        {
+          "name": "PipeHyperStartConnection",
+          "type": "FGPipeConnectionComponentHyper",
+          "parent": "RootComponent",
+          "location": {
+            "X": -191.0,
+            "Y": 0.0,
+            "Z": 100.0
+          }
+        }
+      ]
+    },
+    "Build_PipeHyperSupport_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGPipeConnectionComponentHyper",
+          "pipeType": "PCT_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_HypertubeTJunction_C": {
+      "super": "Build_HyperTubeJunction_C",
+      "connections": [
+        {
+          "name": "Connection2",
+          "type": "FGPipeConnectionComponentHyper",
+          "template": "Build_HyperTubeJunction_C:Connection2",
+          "location": {
+            "X": -116.132,
+            "Y": 201.097,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 120.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Connection0",
+          "type": "FGPipeConnectionComponentHyper",
+          "template": "Default__Build_HyperTubeJunction_C:Connection0",
+          "location": {
+            "X": 229.783,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 0.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Connection1",
+          "type": "FGPipeConnectionComponentHyper",
+          "template": "Default__Build_HyperTubeJunction_C:Connection1",
+          "location": {
+            "X": -251.98,
+            "Y": -0.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -180.0,
+            "Roll": 0.0
+          }
+        }
+      ]
+    },
+    "Build_PipelineJunction_Cross_C": {
+      "connections": [
+        {
+          "name": "Connection0",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -100.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -180.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Connection1",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 100.0,
+            "Y": 0.0,
+            "Z": 0.0
+          }
+        },
+        {
+          "name": "Connection2",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Connection3",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        }
+      ]
+    },
+    "Build_PipelineJunction_T_C": {
+      "connections": [
+        {
+          "name": "Connection0",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -100.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -180.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Connection1",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 100.0,
+            "Y": 0.0,
+            "Z": 0.0
+          }
+        },
+        {
+          "name": "Connection2",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -100.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        }
+      ]
+    },
+    "Build_Pipeline_NoIndicator_C": {
+      "super": "Build_Pipeline_C",
+      "connections": [
+        {
+          "name": "PipelineConnection0",
+          "type": "FGPipeConnectionComponent",
+          "template": "Default__Build_Pipeline_C:PipelineConnection0"
+        },
+        {
+          "name": "PipelineConnection1",
+          "type": "FGPipeConnectionComponent",
+          "template": "Default__Build_Pipeline_C:PipelineConnection1"
+        }
+      ]
+    },
+    "Build_Pipeline_C": {
+      "connections": [
+        {
+          "name": "PipelineConnection0",
+          "type": "FGPipeConnectionComponent"
+        },
+        {
+          "name": "PipelineConnection1",
+          "type": "FGPipeConnectionComponent"
+        }
+      ]
+    },
+    "Build_PipelineMK2_NoIndicator_C": {
+      "super": "Build_PipelineMK2_C",
+      "connections": [
+        {
+          "name": "PipelineConnection0",
+          "type": "FGPipeConnectionComponent",
+          "template": "Default__Build_PipelineMK2_C:PipelineConnection0"
+        },
+        {
+          "name": "PipelineConnection1",
+          "type": "FGPipeConnectionComponent",
+          "template": "Default__Build_PipelineMK2_C:PipelineConnection1"
+        }
+      ]
+    },
+    "Build_PipelineMK2_C": {
+      "connections": [
+        {
+          "name": "PipelineConnection0",
+          "type": "FGPipeConnectionComponent"
+        },
+        {
+          "name": "PipelineConnection1",
+          "type": "FGPipeConnectionComponent"
+        }
+      ]
+    },
+    "Build_HyperPoleStackable_C": {
+      "connections": [
+        {
+          "name": "Snap Only",
+          "type": "FGPipeConnectionComponentHyper",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 375.0
+          },
+          "pipeType": "PCT_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_PipelineSupport_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGPipeConnectionComponent",
+          "pipeType": "PCT_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_PipeSupportStackable_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 375.0
+          },
+          "pipeType": "PCT_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_PipelineSupportWall_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 200.0,
+            "Y": 0.001,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_PipelineSupportWallHole_C": {
+      "connections": [
+        {
+          "name": "SnapOnly0",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -0.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_SNAP_ONLY"
+        }
+      ]
+    },
+    "Build_PipelinePump_C": {
+      "connections": [
+        {
+          "name": "Connection0",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -150.0,
+            "Y": -0.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 180.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        },
+        {
+          "name": "Connection1",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 195.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        }
+      ]
+    },
+    "Build_PipelinePumpMk2_C": {
+      "connections": [
+        {
+          "name": "Connection0",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -200.0,
+            "Y": -0.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -180.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        },
+        {
+          "name": "Connection1",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 200.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        }
+      ]
+    },
+    "Build_Valve_C": {
+      "connections": [
+        {
+          "name": "Connection0",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -50.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 180.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        },
+        {
+          "name": "Connection1",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 95.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        }
+      ]
+    },
+    "Build_Portal_C": {
+      "connections": [
+        {
+          "name": "ConveyorInput0_0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -300.0,
+            "Y": 0.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 180.0,
+            "Roll": 0.0
+          }
+        }
+      ]
+    },
+    "Build_PowerPoleMk2_C": {
+      "super": "Build_PowerPoleMk1_C",
+      "connections": []
+    },
+    "Build_PowerPoleMk3_C": {
+      "super": "Build_PowerPoleMk1_C",
+      "connections": []
+    },
+    "Build_PowerPoleWall_Mk2_C": {
+      "super": "Build_PowerPoleWall_C",
+      "connections": []
+    },
+    "Build_PowerPoleWall_Mk3_C": {
+      "super": "Build_PowerPoleWall_C",
+      "connections": []
+    },
+    "Build_PowerPoleWallDouble_Mk2_C": {
+      "super": "Build_PowerPoleWallDouble_C",
+      "connections": []
+    },
+    "Build_PowerPoleWallDouble_Mk3_C": {
+      "super": "Build_PowerPoleWallDouble_Mk2_C",
+      "connections": []
+    },
+    "Build_PowerTowerPlatform_C": {
+      "super": "Build_PowerTower_C",
+      "connections": []
+    },
+    "Build_QuantumEncoder_C": {
+      "connections": [
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "location": {
+            "X": 200.0,
+            "Y": -2460.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": -0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input2",
+          "type": "FGFactoryConnectionComponent",
+          "location": {
+            "X": -200.0,
+            "Y": -2460.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": -0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input3",
+          "type": "FGFactoryConnectionComponent",
+          "location": {
+            "X": -600.0,
+            "Y": -2100.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": -0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output0",
+          "type": "FGFactoryConnectionComponent",
+          "location": {
+            "X": -200.0,
+            "Y": 2100.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": -0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "PipeInput1",
+          "type": "FGPipeConnectionFactory",
+          "location": {
+            "X": 600.0,
+            "Y": -2090.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": -0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        },
+        {
+          "name": "PipeOutput1",
+          "type": "FGPipeConnectionFactory",
+          "location": {
+            "X": 200.0,
+            "Y": 2160.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": -0.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        }
+      ]
+    },
+    "Build_ResourceSink_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 500.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        }
+      ]
+    },
+    "Build_SmelterMk1_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -300.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -0.0,
+            "Y": 200.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_SpaceElevator_C": {
+      "connections": [
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 1800.0,
+            "Y": -2000.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 270.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 1500.0,
+            "Y": -2000.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 270.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "InPut3",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 1200.0,
+            "Y": -2000.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 270.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input4",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 1200.0,
+            "Y": 2000.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input5",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 1500.0,
+            "Y": 2000.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input6",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 1800.0,
+            "Y": 2000.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        }
+      ]
+    },
+    "Build_StorageContainerMk1_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -400.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 400.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_StorageContainerMk2_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -400.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -400.0,
+            "Z": 500.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 400.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "Output2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 400.0,
+            "Z": 500.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_PipeStorageTank_C": {
+      "connections": [
+        {
+          "name": "ConnectionAny0",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": 200.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "ConnectionAny1",
+          "type": "FGPipeConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -0.0,
+            "Y": -200.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 270.0,
+            "Roll": 0.0
+          }
+        }
+      ]
+    },
+    "Build_TrainDockingStation_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -300.0,
+            "Y": 1600.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -300.0,
+            "Y": 1600.0,
+            "Z": 500.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 300.0,
+            "Y": 1600.0,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 300.0,
+            "Y": 1600.0,
+            "Z": 500.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_TrainDockingStationLiquid_C": {
+      "connections": [
+        {
+          "name": "PipeFactoryInput0",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": -300.0,
+            "Y": 1600.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        },
+        {
+          "name": "PipeFactoryInput1",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": -300.0,
+            "Y": 1600.0,
+            "Z": 575.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        },
+        {
+          "name": "PipeFactoryOutput0",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": 300.0,
+            "Y": 1600.0,
+            "Z": 175.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        },
+        {
+          "name": "PipeFactoryOutput1",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": 300.0,
+            "Y": 1600.0,
+            "Z": 575.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        }
+      ]
+    },
+    "Build_FluidTruckStation_C": {
+      "connections": [
+        {
+          "name": "FuelInput0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 700.0,
+            "Y": -1005.25,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "PipeInput0",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": 300.0,
+            "Y": -1004.634,
+            "Z": 180.0
+          },
+          "rotation": {
+            "Pitch": -0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        },
+        {
+          "name": "PipeInput1",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": 300.0,
+            "Y": -1004.634,
+            "Z": 380.0
+          },
+          "rotation": {
+            "Pitch": -0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_CONSUMER"
+        },
+        {
+          "name": "PipeOutput0",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": -300.0,
+            "Y": -1005.757,
+            "Z": 180.0
+          },
+          "rotation": {
+            "Pitch": -0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        },
+        {
+          "name": "PipeOutput1",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": -300.0,
+            "Y": -1005.757,
+            "Z": 380.0
+          },
+          "rotation": {
+            "Pitch": -0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        }
+      ]
+    },
+    "Build_TruckStation_C": {
+      "connections": [
+        {
+          "name": "Input0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 700.0,
+            "Y": -1005.25,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 300.0,
+            "Y": -1004.634,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Input2",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": 300.0,
+            "Y": -1004.634,
+            "Z": 300.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          }
+        },
+        {
+          "name": "Output0",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -300.0,
+            "Y": -1005.757,
+            "Z": 100.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        },
+        {
+          "name": "Output1",
+          "type": "FGFactoryConnectionComponent",
+          "parent": "RootComponent",
+          "location": {
+            "X": -300.0,
+            "Y": -1005.757,
+            "Z": 300.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": -90.0,
+            "Roll": 0.0
+          },
+          "direction": "FCD_OUTPUT"
+        }
+      ]
+    },
+    "Build_WaterPump_C": {
+      "connections": [
+        {
+          "name": "FGPipeConnectionFactory",
+          "type": "FGPipeConnectionFactory",
+          "parent": "RootComponent",
+          "location": {
+            "X": 0.0,
+            "Y": -460.0,
+            "Z": 240.0
+          },
+          "rotation": {
+            "Pitch": 0.0,
+            "Yaw": 270.0,
+            "Roll": 0.0
+          },
+          "pipeType": "PCT_PRODUCER"
+        }
+      ]
+    },
+    "Build_VehiclePath_Explorer_C": {
+      "super": "Build_VehiclePath_Base_C",
+      "connections": []
+    },
+    "Build_VehiclePath_FactoryCart_C": {
+      "super": "Build_VehiclePath_Base_C",
+      "connections": []
+    },
+    "Build_VehiclePath_Tractor_C": {
+      "super": "Build_VehiclePath_Base_C",
+      "connections": []
+    },
+    "Build_VehiclePath_Truck_C": {
+      "super": "Build_VehiclePath_Base_C",
+      "connections": []
+    },
+    "Build_VehiclePath_Universal_C": {
+      "super": "Build_VehiclePath_Base_C",
+      "connections": []
+    }
+  }
+}

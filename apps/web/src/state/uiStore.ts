@@ -79,7 +79,7 @@ interface UiState {
   tool: Tool;
   layers: Record<LayerKey, boolean>;
   /** Grundriss oder Seitenansicht (Schnitt entlang x bzw. y). */
-  factoryView: 'plan' | 'side-x' | 'side-y';
+  factoryView: 'plan' | 'side-x' | 'side-y' | '3d';
   bottomTab: BottomTab;
   bottomOpen: boolean;
   /** Befunde: nur die zur Ansicht passenden oder alle. */

@@ -459,7 +459,9 @@ export function MapView() {
       const s = L.st;
       if (e.key === 'Escape') {
         if (s.tool.kind !== 'select') s.setTool({ kind: 'select' });
-        else s.select(null);
+        else if (s.selection) s.select(null);
+        // Standortvorschläge ausblenden (Kreis und Linien zu den Vorkommen)
+        else if (s.sites?.results.length) s.setSites({ ...s.sites, results: [], active: null });
         requestDraw();
         return;
       }

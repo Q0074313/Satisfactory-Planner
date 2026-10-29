@@ -593,10 +593,11 @@ export function insertIntoLink(p: Project, gd: GameDataIndex, linkId: string, ty
   if (vertical) {
     placement = { floorId: floor.id, x: at.x, y: at.y, zOffsetM: at.z - floor.elevationM - (b.maxZ - b.minZ) / 2, rotationDeg: 0, vertical };
   } else {
-    // Lokal +y (Ausgang) zeigt in Flussrichtung; die Anschlussachse geht durch `at`
-    const rot = (Math.atan2(-best.dir.x, best.dir.y) * 180) / Math.PI;
+    // Achse Eingang → Ausgang zeigt in Flussrichtung; ihre Mitte liegt auf `at`
+    const axis = { x: outs[0]!.local.x - ins[0]!.local.x, y: outs[0]!.local.y - ins[0]!.local.y };
+    const rot = ((Math.atan2(best.dir.y, best.dir.x) - Math.atan2(axis.y, axis.x)) * 180) / Math.PI;
     const portZ = ins[0]!.z;
-    const c = rotate({ x: ins[0]!.local.x, y: (b.minY + b.maxY) / 2 }, rot);
+    const c = rotate({ x: (ins[0]!.local.x + outs[0]!.local.x) / 2, y: (ins[0]!.local.y + outs[0]!.local.y) / 2 }, rot);
     placement = { floorId: floor.id, x: at.x - c.x, y: at.y - c.y, zOffsetM: at.z - floor.elevationM - portZ, rotationDeg: Math.round(rot * 1000) / 1000 };
   }
 

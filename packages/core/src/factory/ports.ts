@@ -2,13 +2,14 @@
  * Anschlüsse von Gebäuden.
  *
  * Die **Anzahl** der Anschlüsse stammt aus den Spieldaten (Wiki-Infobox bzw.
- * aus Rezepten abgeleitet). Die **Lage** der Anschlüsse ist in den Docs nicht
- * enthalten. Sie wird hier schematisch erzeugt (Eingänge an der Rückseite,
- * Ausgänge an der Vorderseite) und ist ausdrücklich nicht verifiziert.
+ * aus Rezepten abgeleitet). Die **Lage** kommt aus den Spielpaketen
+ * (`portLayout`, siehe docs/SPIELDATEN.md). Fehlt sie, wird sie schematisch
+ * erzeugt (Eingänge an der Rückseite, Ausgänge an der Vorderseite) und ist
+ * als nicht verifiziert gekennzeichnet.
  */
 import { add, rotate, type Vec2 } from '../geometry/index.ts';
 import { tr } from '../i18n/index.ts';
-import type { GdBuilding, GdPortCounts } from '../gamedata/types.ts';
+import type { GdBuilding, GdPortCounts, GdPortPosition } from '../gamedata/types.ts';
 import type { Building, Floor, Placement, PortRef } from '../model/schema.ts';
 import { canBeVertical, placedBounds, toWorld } from './geometry.ts';
 
@@ -22,10 +23,10 @@ export interface PortDef {
   local: Vec2;
   /** Richtung nach außen (Einheitsvektor, lokal). */
   normal: Vec2;
-  /** Höhe über Gebäudeboden (m) – schematisch. */
+  /** Höhe über Gebäudeboden (m). */
   z: number;
-  /** Immer false: Lage nicht aus Spieldaten belegt. */
-  positionVerified: false;
+  /** Lage aus den Spielpaketen (false: schematisch). */
+  positionVerified: boolean;
   /** Besondere Aufgabe des Anschlusses (z. B. Treibstoff an LKW-Stationen). */
   role?: 'fuel';
   /** Senkrechter Anschluss (senkrechte Pumpe): Austritt nach oben (1) bzw. unten (−1). */
@@ -54,6 +55,7 @@ export function portDefs(gd: GdBuilding): PortDef[] {
 
 function computePortDefs(counts: GdPortCounts | null, gd: GdBuilding): PortDef[] {
   if (!counts) return [];
+  if (gd.portLayout?.length) return markFuel(gd, counts, gd.portLayout.map(fromLayout));
   const b = gd.bounds ?? { minX: -1, maxX: 1, minY: -1, maxY: 1, minZ: 0, maxZ: 2 };
   const cx = (b.minX + b.maxX) / 2;
   const cy = (b.minY + b.maxY) / 2;
@@ -114,8 +116,23 @@ function computePortDefs(counts: GdPortCounts | null, gd: GdBuilding): PortDef[]
   idx.belt = 0;
   idx.pipe = 0;
   outKinds.forEach((k, i) => push(k, 'out', idx[k]++, { x: outX[i]!, y: b.maxY }, front));
-  // LKW- und Tanklaster-Station: Der äußerste Bandeingang füllt nur den
-  // Treibstoffplatz (Wiki „Truck Station“). Er liegt hier als erster Eingang außen.
+  return markFuel(gd, counts, ports);
+}
+
+function fromLayout(p: GdPortPosition): PortDef {
+  const a = (p.yawDeg * Math.PI) / 180;
+  // Gerundet, ohne −0 (gleiche Vektoren wie bei der schematischen Lage)
+  const r = (v: number) => Math.round(v * 1e6) / 1e6 + 0;
+  const n = { x: r(Math.cos(a)), y: r(Math.sin(a)) };
+  return { id: portId(p.kind, p.direction, p.index), kind: p.kind, direction: p.direction, local: { x: p.x, y: p.y }, normal: n, z: p.z, positionVerified: true };
+}
+
+/**
+ * LKW- und Tanklaster-Station: Der äußerste Bandeingang füllt nur den
+ * Treibstoffplatz (Wiki „Truck Station“). Er ist der erste Eingang
+ * (im Spiel „Input0“ bzw. „FuelInput0“ außen).
+ */
+function markFuel(gd: GdBuilding, counts: GdPortCounts, ports: PortDef[]): PortDef[] {
   if (gd.nativeClass === 'FGBuildableDockingStation' && counts.beltIn > 0) {
     const fuel = ports.find((p) => p.id === portId('belt', 'in', 0));
     if (fuel) fuel.role = 'fuel';

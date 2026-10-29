@@ -24,6 +24,7 @@ import type {
   GdFact,
   GdItem,
   GdPortCounts,
+  GdPortPosition,
   GdRecipe,
   GdVehicle,
   ItemForm,
@@ -221,6 +222,92 @@ interface WikiInfobox {
   pipeOutputs?: number;
   pipeAny?: number;
   size?: { width?: string; length?: string; height?: string };
+}
+
+interface PortsGameConnection {
+  name: string;
+  type: string;
+  template?: string;
+  parent?: string;
+  location?: { X: number; Y: number; Z: number };
+  rotation?: { Pitch: number; Yaw: number; Roll: number };
+  direction?: string;
+  pipeType?: string;
+}
+interface PortsGameFile {
+  meta: { gameVersion?: string; changelist?: number };
+  classes: Record<string, { super?: string; connections: PortsGameConnection[] }>;
+}
+
+/**
+ * Anschlüsse einer Gebäudeklasse samt geerbter Komponenten. Überschreibt eine
+ * Unterklasse eine geerbte Vorlage, gelten ihre Felder vor denen der Vorlage.
+ */
+function resolveConnections(file: PortsGameFile, classId: string, depth = 0): PortsGameConnection[] {
+  const key = Object.keys(file.classes).find((k) => k.toLowerCase() === classId.toLowerCase());
+  const entry = key ? file.classes[key] : undefined;
+  if (!entry || depth > 8) return [];
+  const inherited = entry.super ? resolveConnections(file, entry.super, depth + 1) : [];
+  const byName = new Map(inherited.map((c) => [c.name, c]));
+  for (const c of entry.connections) byName.set(c.name, { ...byName.get(c.name), ...c });
+  return [...byName.values()];
+}
+
+/** Zuordnung der Spielkomponenten zu den Anschluss-IDs des Planers (je Art und Richtung nach Namen sortiert). */
+function portLayoutOf(file: PortsGameFile, classId: string, counts: GdPortCounts): GdPortPosition[] | string | null {
+  const conns = resolveConnections(file, classId);
+  if (conns.length === 0) return null;
+  const natural = (a: PortsGameConnection, b: PortsGameConnection) => a.name.localeCompare(b.name, 'en', { numeric: true, sensitivity: 'base' });
+  const belts = conns.filter((c) => c.type === 'FGFactoryConnectionComponent').sort(natural);
+  const pipes = conns.filter((c) => c.type !== 'FGFactoryConnectionComponent').sort(natural);
+  if (conns.some((c) => c.parent && c.parent !== 'RootComponent' && c.parent !== 'DefaultSceneRoot'))
+    return 'Anschluss an einer Unterkomponente';
+  const beltIn = belts.filter((c) => c.direction !== 'FCD_OUTPUT');
+  const beltOut = belts.filter((c) => c.direction === 'FCD_OUTPUT');
+  let pipeIn = pipes.filter((c) => c.pipeType === 'PCT_CONSUMER');
+  let pipeOut = pipes.filter((c) => c.pipeType === 'PCT_PRODUCER');
+  let pipeAny = pipes.filter((c) => c.pipeType !== 'PCT_CONSUMER' && c.pipeType !== 'PCT_PRODUCER');
+  // Richtungsfreie Rohranschlüsse (Flüssigkeitspuffer) füllen die Ein- und Ausgänge des Planers auf.
+  if (counts.pipeAny === 0 && pipeAny.length === counts.pipeIn - pipeIn.length + counts.pipeOut - pipeOut.length) {
+    const free = [...pipeAny];
+    pipeIn = [...pipeIn, ...free.splice(0, counts.pipeIn - pipeIn.length)];
+    pipeOut = [...pipeOut, ...free];
+    pipeAny = [];
+  }
+  const groups: [GdPortPosition['kind'], GdPortPosition['direction'], PortsGameConnection[], number][] = [
+    ['belt', 'in', beltIn, counts.beltIn],
+    ['belt', 'out', beltOut, counts.beltOut],
+    ['pipe', 'in', pipeIn, counts.pipeIn],
+    ['pipe', 'out', pipeOut, counts.pipeOut],
+    ['pipe', 'any', pipeAny, counts.pipeAny],
+  ];
+  const mismatch = groups.filter(([, , list, n]) => list.length !== n);
+  if (mismatch.length) return `Anzahl weicht ab (${mismatch.map(([k, d, list, n]) => `${k}-${d}: Spiel ${list.length}, Planer ${n}`).join(', ')})`;
+  const r = (v: number) => Math.round(v * 1000) / 1000;
+  return groups.flatMap(([kind, direction, list]) =>
+    list.map((c, index) => ({
+      kind,
+      direction,
+      index,
+      // Spiel: Zentimeter, x vorwärts, y rechts – wie die Kollisionsboxen der Docs.
+      x: r((c.location?.X ?? 0) / 100),
+      y: r((c.location?.Y ?? 0) / 100),
+      z: r((c.location?.Z ?? 0) / 100),
+      yawDeg: r((((c.rotation?.Yaw ?? 0) % 360) + 360) % 360),
+      component: c.name,
+    })),
+  );
+}
+
+/**
+ * Gleiche Docs wie im vorhandenen Datensatz (z. B. nach einem Spiel-Hotfix ohne
+ * Datenänderung): Build-Angaben des Datensatzes behalten.
+ */
+function previousBuild(gameVersion: string, docsHash: string): GameData['meta']['gameBuild'] | null {
+  const path = join(repoRoot, 'data/gamedata', gameVersion, 'gamedata.json');
+  if (!existsSync(path)) return null;
+  const meta = (JSON.parse(readFileSync(path, 'utf8')) as GameData).meta;
+  return meta.sources.some((s) => s.id === 'docs' && s.notes?.includes(docsHash)) ? meta.gameBuild : null;
 }
 
 function main() {
@@ -450,6 +537,22 @@ function main() {
     }
   }
 
+  // ---------- Lage der Anschlüsse (Spielpakete) ----------
+  const portsGamePath = join(here, '../curated/ports-game.json');
+  const portsGame = existsSync(portsGamePath) ? (JSON.parse(readFileSync(portsGamePath, 'utf8')) as PortsGameFile) : null;
+  if (portsGame) {
+    for (const b of Object.values(buildings)) {
+      if (!b.ports) continue;
+      const layout = portLayoutOf(portsGame, b.id, b.ports);
+      if (typeof layout === 'string') report.push(`Anschlusslagen ${b.id}: ${layout} – bleibt schematisch.`);
+      else if (layout) {
+        b.portLayout = layout;
+        // Ungeprüfte Anschlusszahl durch die Spielpakete bestätigt
+        if (b.portsSource?.confidence === 'unverified') b.portsSource = { source: 'game-paks', detail: 'Komponenten des Blueprints', confidence: 'game-data' };
+      }
+    }
+  } else report.push('curated/ports-game.json fehlt – alle Anschlusslagen schematisch.');
+
   // Abgleich Grundfläche Docs ↔ Wiki
   for (const b of Object.values(buildings)) {
     const w = wiki[b.id.replace(/^Build_/, 'Desc_')];
@@ -522,7 +625,7 @@ function main() {
       schemaVersion: GAMEDATA_SCHEMA_VERSION,
       datasetId: `sf-${gameVersion}`,
       gameVersion,
-      gameBuild: {
+      gameBuild: previousBuild(gameVersion, docsHash) ?? {
         engineChangelist: versionInfo.Changelist !== undefined ? String(versionInfo.Changelist) : undefined,
         branch: versionInfo.BranchName,
       },
@@ -545,6 +648,16 @@ function main() {
             ? (JSON.parse(readFileSync(wikiPath, 'utf8')) as { retrievedAt: string }).retrievedAt
             : undefined,
         },
+        ...(portsGame
+          ? [
+              {
+                id: 'game-paks',
+                title: 'Spielpakete der lokalen Installation (curated/ports-game.json)',
+                license: 'Bestandteil der Spielinstallation; alle Rechte bei Coffee Stain Studios. Übernommen werden nur Lage und Richtung der Anschlüsse.',
+                notes: `Ausgelesen mit packages/gamedata-tools/ports (CUE4Parse) aus Spielversion ${portsGame.meta.gameVersion ?? '?'}, Changelist ${portsGame.meta.changelist ?? '?'}.`,
+              },
+            ]
+          : []),
         {
           id: 'manual',
           title: 'Manuelle Ergänzung (curated/ports-overrides.json)',
@@ -555,7 +668,7 @@ function main() {
       isDemo: false,
       notes: [
         "Werte mit Quelle 'manual' sind ungeprüfte Spielkenntnis und in der Oberfläche als nicht verifiziert markiert.",
-        'Anschlusspositionen an Gebäuden sind in den Docs nicht enthalten. Der Planer zeigt Anschlüsse schematisch und kennzeichnet sie als nicht verifiziert.',
+        'Anschlusspositionen an Gebäuden stammen aus den Spielpaketen (portLayout). Gebäude ohne portLayout zeigt der Planer schematisch und kennzeichnet sie als nicht verifiziert.',
         'Flüssigkeitsmengen wurden von Litern (Docs) in m³ umgerechnet.',
         'Förderband-Durchsatz: Docs-Feld mSpeed / 2 = Items pro Minute.',
         'Kraftwerksrezepte (Power_<Kraftwerk>_<Brennstoff>) sind aus mFuel, mPowerProduction, mSupplementalToPowerRatio und mEnergyValue abgeleitet; ein Zyklus = 1 min bei 100 % Takt.',

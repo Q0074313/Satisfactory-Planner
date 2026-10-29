@@ -7,7 +7,8 @@ import { projectUrl, useServer } from '../../state/server';
 import { copy } from '../link/ProjectLink';
 import { createExample, createNew, importFromFile, openById, openRemote, removeProject, uploadLocal } from '../../state/session';
 import { useUiStore } from '../../state/uiStore';
-import { t } from '../../i18n';
+import { N_, t } from '../../i18n';
+import type { ExampleKind } from '@satis/core';
 import { usePrefs } from '../../state/prefsStore';
 import { versionLabel } from '../../version';
 
@@ -51,19 +52,7 @@ export function ProjectList({ onClose }: { onClose?: () => void }) {
         <button onClick={async () => done(await importFromFile())}>{t('JSON importieren …')}</button>
         {onClose && <button onClick={onClose}>{t('Abbrechen')}</button>}
       </div>
-      <div className="project-new">
-        <span className="dim small-text">{t('Zum Ausprobieren:')}</span>
-        <button onClick={async () => done(await createExample('simple'))} data-testid="list-example-simple">
-          {t('Beispiel: Eisenwerk')}
-        </button>
-        <button onClick={async () => done(await createExample('complex'))}>{t('Beispiel: Montage mit Transport')}</button>
-        <button onClick={async () => done(await createExample('medium'))} data-testid="list-example-medium">
-          {t('Beispiel: Computerfabrik (Auto-Layout)')}
-        </button>
-        <button onClick={async () => done(await createExample('large'))}>{t('Beispiel: Schwere modulare Rahmen (Auto-Layout, groß)')}</button>
-        <button onClick={async () => done(await createExample('medium', { logistics: true }))}>{t('Mittel mit Logistikebene')}</button>
-        <button onClick={async () => done(await createExample('large', { logistics: true }))}>{t('Groß mit Logistikebenen')}</button>
-      </div>
+      <ExamplePicker onOpened={() => onClose?.()} />
       {server ? (
         <>
           <RecentList date={date} onOpened={() => onClose?.()} />
@@ -78,6 +67,58 @@ export function ProjectList({ onClose }: { onClose?: () => void }) {
 
 type ListProps = { date: (iso: string) => string; onOpened: () => void };
 
+/** Beispielprojekte zum Ausprobieren (Name, Beschreibung, Logistikebene wo möglich). */
+const EXAMPLES: { kind: ExampleKind; name: string; text: string; logistics: boolean }[] = [
+  { kind: 'simple', name: N_('Eisenwerk (klein)'), text: N_('Eine Fabrik: ein Miner, zwei Schmelzöfen und drei Konstruktoren für Eisenplatten und -stangen, alles genau ausgelastet. Gut für den Einstieg in Grundriss, Bänder und Produktionsplan.'), logistics: false },
+  { kind: 'complex', name: N_('Montage mit Transport'), text: N_('Zwei Fabriken: Das Eisenwerk liefert Platten per Lkw und Stangen über ein direktes Band an eine Montage für verstärkte Eisenplatten. Zeigt Transportaufträge und Importe.'), logistics: false },
+  { kind: 'medium', name: N_('Computerfabrik (mittel, Auto-Layout)'), text: N_('Mit dem automatischen Layout erzeugt: 5 Computer pro Minute, 28 Maschinen mit Raffinerien, Rohren und Hauptbus.'), logistics: true },
+  { kind: 'large', name: N_('Schwere modulare Rahmen (groß, Auto-Layout)'), text: N_('Mit dem automatischen Layout erzeugt: 5 schwere modulare Rahmen pro Minute, rund 150 Maschinen auf drei Etagen.'), logistics: true },
+];
+
+function ExamplePicker({ onOpened }: { onOpened: () => void }) {
+  const [kind, setKind] = useState<ExampleKind>('simple');
+  const [logistics, setLogistics] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const ex = EXAMPLES.find((e) => e.kind === kind)!;
+  return (
+    <section className="example-picker" data-testid="example-picker">
+      <h2>{t('Zum Ausprobieren')}</h2>
+      <div className="example-row">
+        <select value={kind} onChange={(e) => setKind(e.target.value as ExampleKind)} data-testid="list-example-select">
+          {EXAMPLES.map((e) => (
+            <option key={e.kind} value={e.kind}>
+              {t(e.name)}
+            </option>
+          ))}
+        </select>
+        <label className={`check-row ${ex.logistics ? '' : 'dim'}`} title={ex.logistics ? t('Bus, Zuführungen und Sammelleitungen auf einer Logistikebene unter jeder Produktionsebene') : t('Nur bei den Auto-Layout-Beispielen')}>
+          <input type="checkbox" checked={ex.logistics && logistics} disabled={!ex.logistics} onChange={(e) => setLogistics(e.target.checked)} data-testid="list-example-logistics" />
+          {t('mit Logistikebene')}
+        </label>
+        <button
+          className="primary"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            const ok = await createExample(kind, { logistics: ex.logistics && logistics });
+            setBusy(false);
+            if (ok) onOpened();
+          }}
+          data-testid="list-example-open"
+        >
+          {busy ? t('Wird erstellt …') : t('Beispiel öffnen')}
+        </button>
+      </div>
+      <p className="dim small-text">{t(ex.text)}</p>
+    </section>
+  );
+}
+
+/** Planer-Version, mit der ein Projekt zuletzt gespeichert wurde. */
+function VersionCell({ version }: { version?: string }) {
+  return version ? <td>{version}</td> : <td className="dim" title={t('Mit einer Planer-Version vor 0.8.3 gespeichert; die Version wird beim nächsten Speichern eingetragen.')}>{t('älter')}</td>;
+}
+
 /** Zuletzt auf diesem Gerät geöffnete Server-Projekte (Merkzettel im Browser). */
 function RecentList({ date, onOpened }: ListProps) {
   const [recent, setRecent] = useState<RecentProject[]>(recentProjects);
@@ -89,6 +130,7 @@ function RecentList({ date, onOpened }: ListProps) {
           <tr>
             <th>{t('Projekt')}</th>
             <th>{t('Zuletzt geöffnet')}</th>
+            <th title={t('Planer-Version beim letzten Speichern')}>{t('Version')}</th>
             <th />
           </tr>
         </thead>
@@ -107,6 +149,7 @@ function RecentList({ date, onOpened }: ListProps) {
                 </a>
               </td>
               <td>{date(r.openedAt)}</td>
+              <VersionCell version={r.appVersion} />
               <td className="actions">
                 <button className="small" onClick={() => void copy(projectUrl(r.id))} title={t('Projekt-Link in die Zwischenablage kopieren')}>
                   {t('Link kopieren')}
@@ -126,7 +169,7 @@ function RecentList({ date, onOpened }: ListProps) {
           ))}
           {recent.length === 0 && (
             <tr>
-              <td colSpan={3} className="dim">
+              <td colSpan={4} className="dim">
                 {t('Noch keine Projekte auf diesem Gerät geöffnet. Hast du einen Projekt-Link, öffne ihn einfach im Browser.')}
               </td>
             </tr>
@@ -157,6 +200,7 @@ function UploadOffer({ projects, date, onOpened }: ListProps & { projects: Proje
               <tr key={p.id}>
                 <td>{p.name}</td>
                 <td>{date(p.updatedAt)}</td>
+                <VersionCell version={p.appVersion} />
                 <td className="num">{t('{n} Fabriken', { n: p.factories })}</td>
                 <td className="actions">
                   {remoteId ? (
@@ -216,6 +260,7 @@ function LocalTable({ projects, date, onOpened, refresh }: ListProps & { project
         <tr>
           <th>{t('Projekt')}</th>
           <th>{t('Zuletzt geändert')}</th>
+          <th title={t('Planer-Version beim letzten Speichern')}>{t('Version')}</th>
           <th>{t('Spieldaten')}</th>
           <th className="num">{t('Fabriken')}</th>
           <th className="num">{t('Gebäude')}</th>
@@ -238,6 +283,7 @@ function LocalTable({ projects, date, onOpened, refresh }: ListProps & { project
               </a>
             </td>
             <td>{date(p.updatedAt)}</td>
+            <VersionCell version={p.appVersion} />
             <td>{p.datasetId}</td>
             <td className="num">{p.factories}</td>
             <td className="num">{p.buildings}</td>
@@ -267,7 +313,7 @@ function LocalTable({ projects, date, onOpened, refresh }: ListProps & { project
         ))}
         {projects?.length === 0 && (
           <tr>
-            <td colSpan={7} className="dim">
+            <td colSpan={8} className="dim">
               {t('Noch keine Projekte gespeichert.')}
             </td>
           </tr>

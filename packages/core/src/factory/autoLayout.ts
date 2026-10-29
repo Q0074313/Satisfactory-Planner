@@ -23,7 +23,7 @@
  * erst `applyLayout` setzt den Entwurf an eine Stelle der Fabrik.
  */
 import type { GameDataIndex, GdBuilding } from '../gamedata/index.ts';
-import { rotate, segmentIntersection, type Vec2 } from '../geometry/index.ts';
+import { distToSegment, rotate, segmentIntersection, type Vec2 } from '../geometry/index.ts';
 import { tr } from '../i18n/index.ts';
 import { clone } from '../model/clone.ts';
 import type { FloorKind, Project, TransportOrder } from '../model/schema.ts';
@@ -210,6 +210,27 @@ function portWorld(def: GdBuilding, portId: string, b: { x: number; y: number; r
   return { x: b.x + r.x, y: b.y + r.y };
 }
 
+/** Achsparallele Hülle eines Gebäudes in Einbaulage (90°-Schritte). */
+function rotatedBounds(def: GdBuilding, rot: number): { minX: number; maxX: number; minY: number; maxY: number } {
+  const b = def.bounds!;
+  const cs = [
+    rot90({ x: b.minX, y: b.minY }, rot),
+    rot90({ x: b.maxX, y: b.maxY }, rot),
+  ];
+  return { minX: Math.min(cs[0]!.x, cs[1]!.x), maxX: Math.max(cs[0]!.x, cs[1]!.x), minY: Math.min(cs[0]!.y, cs[1]!.y), maxY: Math.max(cs[0]!.y, cs[1]!.y) };
+}
+
+/**
+ * Drehung einer Maschine in der Linie: Eingänge zeigen nach oben (zu den
+ * Zuführungen), sonst die Ausgänge nach unten (zu den Sammelleitungen).
+ */
+function machineRotation(def: GdBuilding): number {
+  const ports = portDefs(def);
+  const first = ports.find((p) => p.direction === 'in') ?? ports.find((p) => p.direction === 'out');
+  if (!first) return 0;
+  return rotationFor(def, first.id, first.direction === 'in' ? { x: 0, y: -1 } : { x: 0, y: 1 });
+}
+
 const isFluid = (gd: GameDataIndex, itemId: string) => (gd.item(itemId)?.form ?? 'solid') !== 'solid';
 
 // ---------------------------------------------------------------------------
@@ -233,6 +254,8 @@ interface Segment {
   inItems: string[];
   outItems: string[];
   stage: number;
+  /** Drehung der Maschinen (Eingänge oben). */
+  rot: number;
 }
 
 interface Anchor {
@@ -292,7 +315,7 @@ function buildSegments(
   result: SolveResult,
   opts: AutoLayoutOptions,
   caps: { belt: number; pipe: number },
-  maxPerRow: (def: GdBuilding) => number,
+  maxPerRow: (def: GdBuilding, rot: number) => number,
   notes: Set<string>,
 ): Segment[] {
   const stages = itemStages(gd, result);
@@ -328,7 +351,10 @@ function buildSegments(
     }
     const capOf = (item: string) => (isFluid(gd, item) ? caps.pipe : caps.belt);
     const stage = Math.max(0, ...recipe.outputs.map((o) => stages.get(o.item) ?? 0));
-    const limit = Math.max(1, maxPerRow(def));
+    const rot = machineRotation(def);
+    if (ports.some((p) => p.direction === 'out' && near(rot90(p.normal, rot), { x: 0, y: -1 })))
+      notes.add(tr('{building}: Ausgänge liegen auf der Seite der Eingänge; die Sammelleitung führt um die Maschine herum.', { building: gd.name(def.id) }));
+    const limit = Math.max(1, maxPerRow(def, rot));
     let cur: MachineSpec[] = [];
     const sum = new Map<string, number>();
     const flush = () => {
@@ -343,6 +369,7 @@ function buildSegments(
         inItems: recipe.inputs.map((a) => a.item),
         outItems: recipe.outputs.map((a) => a.item),
         stage,
+        rot,
       });
       cur = [];
       sum.clear();
@@ -376,8 +403,9 @@ function treeSplit(m: number): { parts: number[]; exact: boolean } {
 }
 
 /** Rastermaß der Maschinen in einer Linie: halbe bzw. ganze Fundamente (4 bzw. 8 m). */
-function machinePitch(def: GdBuilding, spacing: AutoLayoutOptions['spacing']): number {
-  const w = def.bounds!.maxX - def.bounds!.minX;
+function machinePitch(def: GdBuilding, spacing: AutoLayoutOptions['spacing'], rot = 0): number {
+  const b = rotatedBounds(def, rot);
+  const w = b.maxX - b.minX;
   return spacing === 'wide' ? Math.ceil((w + 4) / 8) * 8 : Math.ceil((w + 1) / 4) * 4;
 }
 
@@ -412,8 +440,8 @@ function buildRow(
   const sinks: Anchor[] = [];
   const sources: Anchor[] = [];
   const def = seg.def;
-  const b = def.bounds!;
-  const pitch = machinePitch(def, opts.spacing);
+  const b = rotatedBounds(def, seg.rot);
+  const pitch = machinePitch(def, opts.spacing, seg.rot);
   const n = seg.machines.length;
   const pt = (x: number, y: number, h = LINE_H): DraftPoint => ({ x, y, ...onFloor(floor, h) });
   const splitter = gd.building(SPLITTER)!;
@@ -461,7 +489,7 @@ function buildRow(
   const machines = seg.machines.map((m, i) => {
     const cell = ROW_MARGIN + i * pitch + pitch / 2;
     const x = dir * cell - (b.minX + b.maxX) / 2;
-    return add({ key: keys.next('m'), type: seg.type, role: 'machine', recipeId: seg.recipeId, clock: m.clock, x, y: originY, rotationDeg: 0 });
+    return add({ key: keys.next('m'), type: seg.type, role: 'machine', recipeId: seg.recipeId, clock: m.clock, x, y: originY, rotationDeg: seg.rot });
   });
   const length = ROW_MARGIN + n * pitch;
 
@@ -474,7 +502,9 @@ function buildRow(
     const total = rates.reduce((s, v) => s + v, 0);
     const { y, h } = feed.get(item)!;
     /** Direkt hinter dem Splitter (bzw. der Ecke bei `at`) auf Anschlusshöhe absenken. */
-    const drop = (x: number, at = y + 3) => lift(x, at, h, LINE_H);
+    // Lift endet auf Anschlusshöhe der Maschine (Bänder 1 m, Rohre z. B. 1,75 m)
+    const portH = avoid || opts.logistics ? (portDefs(def).find((q) => q.id === portId)?.z ?? LINE_H) : LINE_H;
+    const drop = (x: number, at = y + 3) => lift(x, at, h, portH);
     const anchor = (ref: { key: string; portId: string }, approach: DraftPoint[]) =>
       sinks.push({ itemId: item, kind, perMin: total, ref, y, approach, h, floor, edge: 0, dir });
     if (n === 1) {
@@ -504,6 +534,7 @@ function buildRow(
     }
     // Splitterbaum (Load Balancer): Zufluss von oben, Ebenen zu den Maschinen hin
     const levelY = (l: number) => y + 3 + 6 * l;
+    const treeRot = rotationFor(splitter, 'belt-in-0', { x: 0, y: -1 });
     type Node = { leaf: true; i: number; x: number } | { leaf: false; key: string; x: number };
     const build = (group: number[], level: number): Node => {
       if (group.length === 1) return { leaf: true, i: group[0]!, x: px[group[0]!]! };
@@ -517,10 +548,10 @@ function buildRow(
       }
       const children = groups.map((g) => build(g, level + 1));
       const straight = children[parts.length === 3 ? 1 : 0]!;
-      const node = add({ key: keys.next('s'), type: SPLITTER, role: 'splitter', x: straight.x, y: levelY(level), rotationDeg: 0, h: h - portZ(splitter) });
+      const node = add({ key: keys.next('s'), type: SPLITTER, role: 'splitter', x: straight.x, y: levelY(level), rotationDeg: treeRot, h: h - portZ(splitter) });
       children.forEach((c, ci) => {
         const want = Math.abs(c.x - node.x) < 1e-6 ? { x: 0, y: 1 } : { x: Math.sign(c.x - node.x), y: 0 };
-        const out = portFacing(splitter, 0, 'belt', ['out'], want)!.id;
+        const out = portFacing(splitter, treeRot, 'belt', ['out'], want)!.id;
         const rate = groups[ci]!.reduce((s, i) => s + rates[i]!, 0);
         const via = want.y === 1 ? [] : [pt(c.x, levelY(level), h)];
         if (c.leaf) link('belt', item, rate, node, out, machines[c.i]!, portId, [...via, ...drop(c.x, via.length ? levelY(level) : levelY(level) + 3)]);
@@ -541,7 +572,8 @@ function buildRow(
     const total = rates.reduce((s, v) => s + v, 0);
     const { y, h } = collect.get(item)!;
     /** Direkt vor der Zusammenführung auf die Höhe der Sammelleitung steigen. */
-    const rise = (x: number) => lift(x, y - 3, LINE_H, h);
+    const portH = avoid || opts.logistics ? (portDefs(def).find((q) => q.id === portId)?.z ?? LINE_H) : LINE_H;
+    const rise = (x: number) => lift(x, y - 3, portH, h);
     const anchor = (ref: { key: string; portId: string }, depart: DraftPoint[]) =>
       sources.push({ itemId: item, kind, perMin: total, ref, y, approach: depart, h, floor, edge: 0, dir });
     if (n === 1) {
@@ -678,6 +710,12 @@ interface Lane {
   exclusive: boolean;
   pairs: Pair[];
   x: number;
+  /**
+   * Verbindung zwischen Etagen bzw. Rückführung gegen die Flussrichtung mit
+   * beiden Anschlüssen auf derselben Seite: keine Busspur, sondern eine Spalte
+   * am Linienrand (zwischen Verteilketten und Bus).
+   */
+  edge?: 1 | -1;
 }
 
 const ENTRY_Y = -1e6;
@@ -688,6 +726,102 @@ const EXIT_Y = 1e6;
  * Reihenfolge auf der Spur erhalten und Knoten überschneiden sich nicht.
  */
 const NODE_GAP = 11;
+
+/**
+ * Senkt hochgelegte Leitungsstücke (Lift hoch – waagrecht – Lift runter auf
+ * dieselbe Höhe) auf die Höhe davor ab, wenn dort weder eine andere Leitung
+ * (auch kein Lift) noch ein Gebäude im Weg ist. So liegen Leitungen nur dort
+ * in der Luft, wo sie über etwas hinwegführen; Kreuzungen auf gleicher Höhe
+ * entstehen dabei nicht.
+ */
+function lowerFreeRuns(gd: GameDataIndex, buildings: DraftBuilding[], links: DraftLink[]): void {
+  const byKey = new Map(buildings.map((b) => [b.key, b]));
+  const endPoint = (ref: { key: string; portId: string }): DraftPoint => {
+    const b = byKey.get(ref.key)!;
+    const def = gd.building(b.type)!;
+    const w = portWorld(def, ref.portId, b);
+    return { x: w.x, y: w.y, h: b.h + (portDefs(def).find((q) => q.id === ref.portId)?.z ?? 0), floor: b.floor };
+  };
+  const ends = links.map((l) => [endPoint(l.from), endPoint(l.to)] as const);
+  const poly = (i: number) => [ends[i]![0], ...links[i]!.waypoints, ends[i]![1]];
+  const sameXY = (a: DraftPoint, b: DraftPoint) => Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.y - b.y) < 1e-6;
+  const boxes = buildings.map((b) => {
+    const def = gd.building(b.type)!;
+    const r = rotatedBounds(def, b.rotationDeg);
+    return { key: b.key, floor: b.floor, minX: b.x + r.minX, maxX: b.x + r.maxX, minY: b.y + r.minY, maxY: b.y + r.maxY, z0: b.h + def.bounds!.minZ, z1: b.h + def.bounds!.maxZ };
+  });
+
+  /** Ist das waagrechte Stück a → b auf Höhe h (Etage f) frei? */
+  const free = (self: number, a: DraftPoint, b: DraftPoint, h: number, f: number) => {
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    for (let i = 0; i < links.length; i++) {
+      if (i === self) continue;
+      const pts = poly(i);
+      for (let k = 1; k < pts.length; k++) {
+        const p = pts[k - 1]!;
+        const q = pts[k]!;
+        if (p.floor !== f && q.floor !== f) continue;
+        if (sameXY(p, q)) {
+          // Lift: steht er im Weg (Höhenbereich enthält h)?
+          if (p.floor === f && q.floor === f && Math.min(p.h, q.h) - 0.3 > h) continue;
+          if (p.floor === f && q.floor === f && Math.max(p.h, q.h) + 0.3 < h) continue;
+          if (distToSegment(p, a, b) < 1.2) return false;
+          continue;
+        }
+        if (p.floor !== f || q.floor !== f) continue;
+        const x = segmentIntersection(a, b, p, q);
+        if (x) {
+          if (Math.abs(p.h + (q.h - p.h) * x.tb - h) < 0.6) return false;
+          continue;
+        }
+        // Parallel daneben bzw. darüber auf gleicher Höhe (Bandbreite)
+        if (len > 1e-6 && Math.abs((p.h + q.h) / 2 - h) < 0.6) {
+          const u = { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+          const off = (r: DraftPoint) => Math.abs((r.x - a.x) * u.y - (r.y - a.y) * u.x);
+          const t = (r: DraftPoint) => (r.x - a.x) * u.x + (r.y - a.y) * u.y;
+          const lo = Math.max(0, Math.min(t(p), t(q)));
+          const hi = Math.min(len, Math.max(t(p), t(q)));
+          if (off(p) < 1.2 && off(q) < 1.2 && hi - lo > 0.3) return false;
+        }
+      }
+    }
+    const own = new Set([links[self]!.from.key, links[self]!.to.key]);
+    const steps = Math.max(1, Math.ceil(len / 0.5));
+    for (const bx of boxes) {
+      if (bx.floor !== f || own.has(bx.key) || h < bx.z0 - 0.1 || h > bx.z1) continue;
+      for (let k = 0; k <= steps; k++) {
+        const x = a.x + ((b.x - a.x) * k) / steps;
+        const y = a.y + ((b.y - a.y) * k) / steps;
+        if (x > bx.minX - 0.5 && x < bx.maxX + 0.5 && y > bx.minY - 0.5 && y < bx.maxY + 0.5) return false;
+      }
+    }
+    return true;
+  };
+
+  for (let pass = 0, changed = true; changed && pass < 8; pass++) {
+    changed = false;
+    links.forEach((l, li) => {
+      const w = l.waypoints;
+      for (let i = 1; i < w.length - 1; i++) {
+        const up = w[i]!;
+        const low = w[i - 1]!;
+        if (!sameXY(low, up) || low.floor !== up.floor || up.h < low.h + 0.5) continue;
+        let j = i;
+        while (j + 1 < w.length && w[j + 1]!.floor === up.floor && Math.abs(w[j + 1]!.h - up.h) < 1e-6) j++;
+        const after = w[j + 1];
+        if (j === i || !after || !sameXY(w[j]!, after) || after.floor !== up.floor || Math.abs(after.h - low.h) > 1e-6) continue;
+        let ok = true;
+        for (let k = i; k < j && ok; k++) ok = free(li, w[k]!, w[k + 1]!, low.h, up.floor);
+        if (!ok) continue;
+        // Absenken: Lift oben und unten entfällt
+        const lowered = w.slice(i, j + 1).map((q) => ({ ...q, h: low.h }));
+        l.waypoints = [...w.slice(0, i), ...lowered.slice(1, -1), ...w.slice(j + 1)];
+        changed = true;
+        return;
+      }
+    });
+  }
+}
 
 function buildVariant(
   gd: GameDataIndex,
@@ -710,10 +844,10 @@ function buildVariant(
     return (list.find((t) => t.cap >= perMin - 1e-6) ?? list.at(-1)!).id;
   };
   const sides: (1 | -1)[] = variant === 'rows' ? [1] : [1, -1];
-  const maxPerRow = (def: GdBuilding) => {
+  const maxPerRow = (def: GdBuilding, rot: number) => {
     if (opts.maxWidthM === null) return 12;
     const avail = (opts.maxWidthM - corridorGuess) / sides.length - ROW_MARGIN;
-    return Math.max(1, Math.floor(avail / machinePitch(def, opts.spacing)));
+    return Math.max(1, Math.floor(avail / machinePitch(def, opts.spacing, rot)));
   };
   const segments = buildSegments(gd, result, opts, caps, maxPerRow, notes);
   if (segments.length === 0) return null;
@@ -839,7 +973,9 @@ function buildVariant(
     const down = yOfEnd(endOf(p, 'src')) < yOfEnd(endOf(p, 'dst'));
     const kind: 'belt' | 'pipe' = isFluid(gd, p.itemId) ? 'pipe' : 'belt';
     if (fl.from !== fl.to || !down) {
-      lanes.push({ itemId: p.itemId, kind, floor: fl.to, exclusive: true, pairs: [p], x: 0 });
+      // Beide Anschlüsse auf derselben Seite: Lift bzw. Rückführung am Linienrand statt einer Busspur
+      const edge = p.src.kind === 'anchor' && p.dst.kind === 'anchor' && p.src.anchor.dir === p.dst.anchor.dir ? p.src.anchor.dir : undefined;
+      lanes.push({ itemId: p.itemId, kind, floor: fl.to, exclusive: true, pairs: [p], x: 0, edge });
       continue;
     }
     // Bevorzugt Spuren, die einen der beiden Anschlüsse schon tragen (keine Verteilkette nötig)
@@ -934,7 +1070,8 @@ function buildVariant(
   };
   const pitch = opts.spacing === 'wide' ? 8 : 7;
   const slotEnds: number[] = [];
-  const order = [...lanes].sort((a, b) => span(a)[0] - span(b)[0]);
+  const busLanes = lanes.filter((l) => !l.edge);
+  const order = [...busLanes].sort((a, b) => span(a)[0] - span(b)[0]);
   for (const l of order) {
     const [lo, hi] = span(l);
     let k = slotEnds.findIndex((end) => end < lo);
@@ -944,11 +1081,76 @@ function buildVariant(
     } else slotEnds[k] = hi;
     l.x = k;
   }
-  const leftHub = sides.includes(-1) ? hubW(-1) : 0;
-  const rightHub = hubW(1);
+  // Verbesserung bei gleicher Spurzahl: Spuren verschieben bzw. tauschen, solange die Abzweige
+  // kürzer werden (rechte Linien → rechte Spuren); sonst laufen Abzweige quer über den ganzen Bus
+  {
+    const K = slotEnds.length;
+    const spans = new Map(busLanes.map((l) => [l, span(l)] as const));
+    const dirsOf = new Map(busLanes.map((l) => [l, l.pairs.flatMap((q) => [q.src, q.dst]).flatMap((e) => (e.kind === 'anchor' ? [e.anchor.dir] : []))] as const));
+    const cost = (l: Lane, k: number) => dirsOf.get(l)!.reduce((sum, d) => sum + Math.abs(k - (d > 0 ? K - 1 : 0)), 0);
+    const free = (l: Lane, k: number, ignore?: Lane) => {
+      const [lo, hi] = spans.get(l)!;
+      return busLanes.every((o) => o === l || o === ignore || o.x !== k || spans.get(o)![1] < lo || hi < spans.get(o)![0]);
+    };
+    for (let round = 0, changed = true; changed && round < 20; round++) {
+      changed = false;
+      for (const l of busLanes) {
+        for (let k = 0; k < K; k++) {
+          if (k === l.x) continue;
+          if (free(l, k)) {
+            if (cost(l, k) < cost(l, l.x) - 1e-9) {
+              l.x = k;
+              changed = true;
+            }
+            continue;
+          }
+          // Tausch: alle Spuren, die dort im Weg sind, wechseln gemeinsam auf den bisherigen Platz
+          const [lo, hi] = spans.get(l)!;
+          const blockers = busLanes.filter((o) => o !== l && o.x === k && !(spans.get(o)![1] < lo || hi < spans.get(o)![0]));
+          const from = l.x;
+          const before = cost(l, from) + blockers.reduce((sum, o) => sum + cost(o, k), 0);
+          const after = cost(l, k) + blockers.reduce((sum, o) => sum + cost(o, from), 0);
+          if (after >= before - 1e-9) continue;
+          const others = (o: Lane) => busLanes.filter((x) => x !== l && !blockers.includes(x) && x !== o);
+          const fitsIn = (o: Lane, slot: number) => {
+            const [a1, b1] = spans.get(o)!;
+            return others(o).every((x) => x.x !== slot || spans.get(x)![1] < a1 || b1 < spans.get(x)![0]);
+          };
+          if (!fitsIn(l, k) || !blockers.every((o) => fitsIn(o, from))) continue;
+          for (const o of blockers) o.x = from;
+          l.x = k;
+          changed = true;
+        }
+      }
+    }
+  }
+  // Spalten für Lifte am Linienrand: je Seite eigene Spuren nach y-Intervall
+  const edgeTrack = new Map<Lane, number>();
+  const edgeTracks = { 1: 0, [-1]: 0 } as Record<1 | -1, number>;
+  for (const side of [1, -1] as const) {
+    const ends: number[] = [];
+    for (const l of lanes.filter((x) => x.edge === side).sort((a, b) => span(a)[0] - span(b)[0])) {
+      const [lo, hi] = span(l);
+      let k = ends.findIndex((end) => end < lo);
+      if (k < 0) {
+        k = ends.length;
+        ends.push(hi);
+      } else ends[k] = hi;
+      edgeTrack.set(l, k);
+    }
+    edgeTracks[side] = ends.length;
+  }
+  const EDGE_STEP = 2;
+  const leftHub = sides.includes(-1) ? hubW(-1) + EDGE_STEP * edgeTracks[-1] : 0;
+  const rightHub = hubW(1) + EDGE_STEP * edgeTracks[1];
   const corridor = Math.ceil((leftHub + Math.max(1, slotEnds.length) * pitch + rightHub) / 8) * 8;
   const busLeft = leftHub + (corridor - leftHub - rightHub - Math.max(1, slotEnds.length) * pitch) / 2;
-  for (const l of lanes) l.x = busLeft + pitch * (l.x + 0.5);
+  for (const l of busLanes) l.x = busLeft + pitch * (l.x + 0.5);
+  for (const l of lanes) {
+    if (!l.edge) continue;
+    const t = edgeTrack.get(l)!;
+    l.x = l.edge === 1 ? corridor - hubW(1) - EDGE_STEP / 2 - EDGE_STEP * t : hubW(-1) + EDGE_STEP / 2 + EDGE_STEP * t;
+  }
 
   // --- Linien an ihren Rand schieben: rechte beginnen bei x = corridor, linke enden bei 0 ---
   const edgeOf = (dir: 1 | -1) => (dir === 1 ? corridor : 0);
@@ -1034,17 +1236,20 @@ function buildVariant(
     const amount = l.pairs.filter((q) => (dir === 'in' ? q.src : q.dst).kind === 'terminal').reduce((s, q) => s + q.perMin, 0);
     const fluid = l.kind === 'pipe';
     const type = fluid ? FLUID_BUFFER : STORAGE;
-    const bb = gd.building(type)!.bounds!;
+    const tdef = gd.building(type)!;
+    const portId = fluid ? (dir === 'in' ? 'pipe-out-0' : 'pipe-in-0') : dir === 'in' ? 'belt-out-0' : 'belt-in-0';
+    // Anschluss zum Bus zeigt zur Spur: bei Eingängen nach unten, bei Ausgängen nach oben
+    const rot = rotationFor(tdef, portId, { x: 0, y: dir === 'in' ? 1 : -1 });
+    const bb = rotatedBounds(tdef, rot);
     // Eingänge enden unten an der Eingangszone, Ausgänge beginnen oben an der Ausgangszone
     const cy = dir === 'in' ? entryZone - 2 - bb.maxY : exitTop + 2 - bb.minY;
     const key = keys.next(dir === 'in' ? 'e' : 'x');
-    const portId = fluid ? (dir === 'in' ? 'pipe-out-0' : 'pipe-in-0') : dir === 'in' ? 'belt-out-0' : 'belt-in-0';
     const otherPort = fluid ? (dir === 'in' ? 'pipe-in-0' : 'pipe-out-0') : dir === 'in' ? 'belt-in-0' : 'belt-out-0';
     const same = (dir === 'in' ? entryLanes : exitLanes).filter((x) => x.itemId === l.itemId);
     const label =
       (dir === 'in' ? tr('Eingang: {item}', { item: gd.name(l.itemId) }) : tr('Ausgang: {item}', { item: gd.name(l.itemId) })) +
       (same.length > 1 ? ` (${same.indexOf(l) + 1}/${same.length})` : '');
-    buildings.push({ key, type, role: dir === 'in' ? 'entry' : 'exit', recipeId: null, clock: 1, ...onFloor(l.floor, busH - LINE_H), x: l.x, y: cy, rotationDeg: 0, label, itemId: l.itemId });
+    buildings.push({ key, type, role: dir === 'in' ? 'entry' : 'exit', recipeId: null, clock: 1, ...onFloor(l.floor, busH - LINE_H), x: l.x, y: cy, rotationDeg: rot, label, itemId: l.itemId });
     terminals.push({ key, itemId: l.itemId, perMin: amount, dir, portId: otherPort });
     const r = termRef.get(l) ?? {};
     r[dir] = { key, portId };
@@ -1088,11 +1293,12 @@ function buildVariant(
     /** Höhe des Abzweigs und Lift am Linienrand (bei Verteilketten sitzt der Lift zwischen Kette und Linie). */
     const th = (a: Anchor) => tapH(a.dir);
     const edgeLift = (a: Anchor, y: number, from: number, to: number) => (viaChain(a) ? [] : vert(y, from, to, a.floor, a.edge - a.dir));
-    const fromAnchor = (a: Anchor, y: number, toX: number) => [
+    /** `descend`: auf der Spur auf Bushöhe absenken (nicht bei Stockwerkswechsel – der Lift geht direkt von der Abzweighöhe aus). */
+    const fromAnchor = (a: Anchor, y: number, toX: number, descend = true) => [
       ...(viaChain(a) ? [] : copy(a.approach)),
       ...edgeLift(a, y, a.h, th(a)),
       pt(y, th(a), a.floor, toX),
-      ...vert(y, th(a), busH, a.floor, toX),
+      ...(descend ? vert(y, th(a), busH, a.floor, toX) : []),
     ];
     const toAnchor = (a: Anchor, y: number, fromX: number) => [
       ...vert(y, busH, th(a), a.floor, fromX),
@@ -1144,7 +1350,10 @@ function buildVariant(
       else {
         from = refAt(a.end, 'out');
         if (a.end.kind === 'entry') wps.push(...vert(entryPortY + 1.5, busH, busH));
-        else if (a.end.kind === 'anchor') wps.push(...fromAnchor(a.end.anchor, a.y, l.x));
+        else if (a.end.kind === 'anchor') {
+          const floorChange = b.end.kind === 'anchor' && a.end.anchor.floor !== b.end.anchor.floor;
+          wps.push(...fromAnchor(a.end.anchor, a.y, l.x, !floorChange));
+        }
       }
       // Etagenwechsel (nur Einzelspuren): Lift auf der Spur am Abgang
       if (!na && a.end.kind === 'anchor' && b.end.kind === 'anchor' && a.end.anchor.floor !== b.end.anchor.floor) wps.push(pt(a.y, busH, b.end.anchor.floor));
@@ -1171,6 +1380,9 @@ function buildVariant(
       }
     }
   }
+
+  // --- Hochgelegte Stücke absenken, wo darunter nichts kreuzt ---
+  if (avoid) lowerFreeRuns(gd, buildings, links);
 
   // --- Maße auf dem 8-m-Raster, Etagenhöhen, Vorgaben ---
   const xs: number[] = [];

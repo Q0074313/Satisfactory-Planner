@@ -57,7 +57,7 @@ erDiagram
 ## Objekte
 
 ### Projekt
-`formatVersion`, `id`, `name`, `description`, `createdAt`, `updatedAt`, `gameData { datasetId, gameVersion }`, `settings` (Raster, Fangweite, Fangwinkel, Simulationseinstellungen), dazu alle ID-Tabellen und `findingStates` (bestätigte oder ignorierte Befunde, Schlüssel = Befundschlüssel).
+`formatVersion`, `id`, `name`, `description`, `createdAt`, `updatedAt`, `appVersion` (optional, Planer-Version beim letzten Speichern, seit 0.8.3), `gameData { datasetId, gameVersion }`, `settings` (Raster, Fangweite, Fangwinkel, Simulationseinstellungen), dazu alle ID-Tabellen und `findingStates` (bestätigte oder ignorierte Befunde, Schlüssel = Befundschlüssel).
 
 ### Fabrik, Stockwerk, Fläche
 - **Factory**: `name`, `color`, `floorIds` (geordnet nach Höhe), `notes`, `map` (Standort auf der Weltkarte oder `null`): `{ x, y, rotationDeg }` – der lokale Ursprung des Grundrisses liegt am Weltpunkt (x, y) in Metern, der Grundriss ist um `rotationDeg` im Uhrzeigersinn gedreht. Welt = Drehung(lokal) + (x, y). Weltkoordinaten sind die Spielkoordinaten in Metern (x Osten, y Süden). Schienennetze liegen direkt in Weltkoordinaten. `blackbox` (seit Format 4, Standard `false`): Die Fabrik wird nur über ihre Produktionspläne geplant; Grundrissprüfungen entfallen, Herstellung und Verbrauch für den Transport stammen aus den Plänen, die Kartenfläche wird aus den Maschinen geschätzt.
@@ -79,7 +79,7 @@ erDiagram
 Abmessungen und Kollisionsboxen werden **nicht** im Projekt gespeichert, sondern aus den Spieldaten gelesen (`mClearanceData`). So bleibt das Projekt schlank und nutzt nach einem Datensatzwechsel automatisch die neuen Maße.
 
 ### Anschlüsse und Verbindungen
-- **Anschluss** (abgeleitet, nicht gespeichert): stabile ID `belt-in-0`, `belt-out-0`, `pipe-in-0`, `pipe-any-2` … Die Anzahl stammt aus den Spieldaten (Wiki-Infobox bzw. aus Rezepten abgeleitet), die Lage ist schematisch (`positionVerified: false`).
+- **Anschluss** (abgeleitet, nicht gespeichert): stabile ID `belt-in-0`, `belt-out-0`, `pipe-in-0`, `pipe-any-2` … Die Anzahl stammt aus den Spieldaten (Wiki-Infobox bzw. aus Rezepten abgeleitet), Lage, Höhe und Richtung aus den Spielpaketen (`GdBuilding.portLayout`, `positionVerified: true`); fehlt die Lage, wird sie schematisch erzeugt (`positionVerified: false`). Die Zuordnung zur ID: Komponenten je Art und Richtung nach Namen sortiert (`Input0` → `belt-in-0`).
 - **LogisticsLink**: `kind` (`belt` oder `pipe`), `tier` (Band- bzw. Rohrstufe als Gebäudeklasse), `from`/`to` als **PortRef `{ buildingId, portId }`** (immer in Flussrichtung Ausgang → Eingang, auch wenn vom Eingang aus gezeichnet), `waypoints` (3D), `routing` (`direct` = gerade Abschnitte, `straight` = rechtwinklig, `curved` = weiche Kurve). Ein senkrechter Abschnitt (gleiche x/y-Lage, andere Höhe) steht für einen Förderlift bzw. ein senkrechtes Rohr.
 - Splitter, Zusammenführungen und Rohrkreuzungen sind Gebäude mit Anschlüssen. Es gibt keinen eigenen Objekttyp dafür.
 

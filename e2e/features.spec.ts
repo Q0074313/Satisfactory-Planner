@@ -7,14 +7,17 @@ test('Förderband vom Eingang zum Ausgang, Verlegemodus Gerade per erneutem B, S
   await newProject(page);
   await placeFromCatalog(page, 'Eisenbarren', 'Eisenbarren', [[0, 0]]);
   await placeFromCatalog(page, 'Eisenplatte', 'Eisenplatte', [[16, 24]]);
+  // Lage der Anschlüsse aus den Spieldaten (Gebäude ungedreht)
   const geo = await page.evaluate(() => {
-    const s = (window as any).__satis.useProjectStore.getState();
+    const w = (window as any).__satis;
+    const s = w.useProjectStore.getState();
     const [smelter, ctor] = Object.values(s.project.buildings) as any[];
-    const b = s.gd.building('Build_SmelterMk1_C').bounds;
-    const c = s.gd.building('Build_ConstructorMk1_C').bounds;
+    const at = (type: string, id: string) => w.core.portDefs(s.gd.building(type)).find((p: { id: string }) => p.id === id).local;
+    const o = at('Build_SmelterMk1_C', 'belt-out-0');
+    const i = at('Build_ConstructorMk1_C', 'belt-in-0');
     return {
-      out: { x: smelter.placement.x + (b.minX + b.maxX) / 2, y: smelter.placement.y + b.maxY },
-      inp: { x: ctor.placement.x + (c.minX + c.maxX) / 2, y: ctor.placement.y + c.minY },
+      out: { x: smelter.placement.x + o.x, y: smelter.placement.y + o.y },
+      inp: { x: ctor.placement.x + i.x, y: ctor.placement.y + i.y },
     };
   });
   await page.keyboard.press('b');

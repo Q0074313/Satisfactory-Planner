@@ -56,8 +56,8 @@ export const FAB_PORTS_UNVERIFIED = defineRule({
   certainty: 'static',
   severity: 'info',
   description:
-    'Die Anzahl der Anschlüsse stammt aus Wiki-Angaben bzw. ist aus Rezepten abgeleitet. Die genaue Lage der Anschlüsse am Gebäude steht nicht in den Spieldaten. Eingänge werden schematisch hinten, Ausgänge vorn dargestellt. Ob ein Anschluss im Spiel tatsächlich auf dieser Seite liegt, ist nicht geprüft.',
-  sources: [DOCS, { label: 'Satisfactory Wiki, Infobox-Felder beltInputs/pipeInputs', url: 'https://satisfactory.wiki.gg/' }],
+    'Die Lage der Anschlüsse stammt aus den Spielpaketen. Für einzelne Gebäude fehlt sie dort; ihre Eingänge werden schematisch hinten, Ausgänge vorn dargestellt. Ob ein Anschluss im Spiel tatsächlich auf dieser Seite liegt, ist für diese Gebäude nicht geprüft.',
+  sources: [DOCS, { label: 'Spielpakete (Blueprint-Komponenten), siehe docs/SPIELDATEN.md' }],
 });
 
 export const FAB_LINK_UNCHECKED = defineRule({

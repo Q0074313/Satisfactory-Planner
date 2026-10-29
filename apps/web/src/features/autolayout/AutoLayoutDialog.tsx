@@ -484,7 +484,7 @@ function VariantDetails({
         </tbody>
       </table>
       <p className="dim small-text">
-        {t('Eingänge werden in der Prüfung als voll versorgt angenommen. Anschlusslagen sind schematisch. Im Grundriss liegen Leitungen übereinander, wenn sie auf verschiedenen Höhen verlaufen.')}
+        {t('Eingänge werden in der Prüfung als voll versorgt angenommen. Im Grundriss liegen Leitungen übereinander, wenn sie auf verschiedenen Höhen verlaufen.')}
       </p>
       {draft.notes.length > 0 && (
         <ul className="small-text al-notes">

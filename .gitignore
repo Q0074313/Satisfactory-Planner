@@ -12,3 +12,7 @@ playwright-report/
 # Laufzeitdaten des Servers (Projekte) und Sicherungen – nie einchecken
 /storage/
 /backups/
+
+# Auslesewerkzeug für Anschlüsse (.NET)
+packages/gamedata-tools/ports/bin/
+packages/gamedata-tools/ports/obj/

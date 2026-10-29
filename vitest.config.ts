@@ -4,5 +4,7 @@ export default defineConfig({
   test: {
     include: ['packages/*/test/**/*.test.ts', 'apps/*/src/**/*.test.ts', 'apps/server/test/**/*.test.ts'],
     environment: 'node',
+    // Auto-Layout-Tests mit großen Plänen brauchen auf langsamen Rechnern mehrere Sekunden
+    testTimeout: 30000,
   },
 });

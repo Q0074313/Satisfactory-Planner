@@ -369,7 +369,7 @@ export function diagnoseItem(p: Project, gd: GameDataIndex, factoryId: string, i
 /** Häufige Ursachen, die der Planer nicht prüfen kann. */
 export function uncheckedCauses(): string[] {
   return [
-    tr('Anschlüsse liegen im Planer schematisch: Im Spiel kann ein Band am falschen Anschluss oder falsch herum angeschlossen sein.'),
+    tr('Im Spiel kann ein Band am falschen Anschluss oder falsch herum angeschlossen sein.'),
     tr('Splitter verteilen im Spiel gleichmäßig (mit Überlauf), der Planer rechnet mit der bestmöglichen Verteilung.'),
     tr('Filter intelligenter und programmierbarer Splitter werden nicht berücksichtigt.'),
     tr('Strom: Sicherung im Stromnetz ausgelöst, Netz überlastet oder Gebäude ohne Stromanschluss.'),

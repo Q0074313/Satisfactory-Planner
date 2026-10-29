@@ -543,6 +543,8 @@ export const ProjectSchema = z.object({
   description: z.string().default(''),
   createdAt: z.string(),
   updatedAt: z.string(),
+  /** Planer-Version, mit der das Projekt zuletzt gespeichert wurde (z. B. „0.8.3“); fehlt bei älteren Ständen. */
+  appVersion: z.string().optional(),
   gameData: z.object({ datasetId: z.string(), gameVersion: z.string() }),
   settings: ProjectSettingsSchema,
   factories: table(FactorySchema),

@@ -149,8 +149,9 @@ export function hitTest(
   }
   if (opts.links) {
     for (const sl of scene.links) {
-      if (!sl.visibleOnFloor) continue;
       for (let i = 1; i < sl.points.length; i++) {
+        // Nur Stücke auf dem gewählten Stockwerk (wie kräftig gezeichnet); blasse sind nicht wählbar
+        if (sl.floors[i - 1] !== opts.floorId || sl.floors[i] !== opts.floorId) continue;
         if (geo.distToSegment(pt, sl.points[i - 1]!, sl.points[i]!) <= tolM) return { kind: 'link', id: sl.link.id };
       }
     }

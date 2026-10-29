@@ -32,7 +32,6 @@ export const CORE_EN: Record<string, string> = {
   '{name} ohne Rezept': '{name} without recipe',
   'Ohne Rezept trägt die Maschine nichts zur Produktionsbilanz bei.': 'Without a recipe the machine does not contribute to the production balance.',
   'In den Eigenschaften ein Rezept wählen.': 'Choose a recipe in the properties.',
-  'Anschlusslagen sind schematisch dargestellt': 'Port positions are shown schematically',
   'Anschlussseiten im Spiel kontrollieren, bevor Bandverläufe endgültig festgelegt werden.': 'Check port sides in the game before finalising belt routes.',
   'Baubarkeit der Förderbänder und Rohre nicht geprüft': 'Buildability of belts and pipes not checked',
   'Leitungsverläufe im Spiel prüfen. Der Planer prüft nur Anschlussart, Richtung und Durchsatz.':
@@ -82,8 +81,6 @@ export const CORE_EN: Record<string, string> = {
     'Pipes flow in drawing direction; head lift, pumps and pressure are not calculated.',
   'Kraftwerke mit gewähltem Brennstoff verbrauchen wie Maschinen; ohne Brennstoffwahl nehmen sie Brennstoff ohne modellierten Verbrauch ab.':
     'Power plants with a chosen fuel consume like machines; without a chosen fuel they accept fuel without modelled consumption.',
-  'Produkte werden den Ausgängen in Rezeptreihenfolge zugeordnet (Anschlusslage schematisch).':
-    'Products are assigned to outputs in recipe order (port positions schematic).',
   'Durchsatzmodell nicht lösbar ({status}).': 'Throughput model not solvable ({status}).',
 
   // --- Anschlüsse ---
@@ -405,9 +402,6 @@ export const CORE_EN: Record<string, string> = {
   'Gebäude im Planungsabstand': 'Building in clearance zone',
   'Das Gebäude ragt in einen selbst festgelegten Planungsabstand, z. B. einen Wartungs- oder Laufweg.': 'The building extends into a user-defined clearance zone, e.g. a maintenance path or walkway.',
   'Anschlusslagen sind schematisch': 'Port positions are schematic',
-  'Die Anzahl der Anschlüsse stammt aus Wiki-Angaben bzw. ist aus Rezepten abgeleitet. Die genaue Lage der Anschlüsse am Gebäude steht nicht in den Spieldaten. Eingänge werden schematisch hinten, Ausgänge vorn dargestellt. Ob ein Anschluss im Spiel tatsächlich auf dieser Seite liegt, ist nicht geprüft.':
-    'The number of ports comes from wiki data or is derived from recipes. The exact position of ports on the building is not in the game data. Inputs are shown schematically at the back, outputs at the front. Whether a port really is on this side in the game is not checked.',
-  'Satisfactory Wiki, Infobox-Felder beltInputs/pipeInputs': 'Satisfactory Wiki, infobox fields beltInputs/pipeInputs',
   'Baubarkeit von Leitungen nicht geprüft': 'Buildability of lines not checked',
   'Für Förderbänder und Rohre werden Kurvenradien, Mindestlängen, Steigungen, Kollisionen mit anderen Objekten und Pumpenförderhöhen nicht geprüft. Eine im Editor gezeichnete Verbindung ist daher nicht automatisch im Spiel baubar.':
     'For belts and pipes, curve radii, minimum lengths, slopes, collisions with other objects and pump head lift are not checked. A connection drawn in the editor is therefore not automatically buildable in the game.',
@@ -655,7 +649,6 @@ export const CORE_EN: Record<string, string> = {
   "Keine aufgestellte Maschine verbraucht {item}. Erzeuger:": "No placed machine consumes {item}. Producers:",
   "Alle {n} Abnehmer von {item} erhalten laut Planer ihre volle Menge.": "According to the planner, all {n} consumers of {item} receive their full amount.",
   "{name} erhält {got} von {need} {item}.": "{name} receives {got} of {need} {item}.",
-  "Anschlüsse liegen im Planer schematisch: Im Spiel kann ein Band am falschen Anschluss oder falsch herum angeschlossen sein.": "Ports are schematic in the planner: in the game a belt may be attached to the wrong port or the wrong way round.",
   "Splitter verteilen im Spiel gleichmäßig (mit Überlauf), der Planer rechnet mit der bestmöglichen Verteilung.": "In the game splitters distribute evenly (with overflow); the planner assumes the best possible distribution.",
   "Strom: Sicherung im Stromnetz ausgelöst, Netz überlastet oder Gebäude ohne Stromanschluss.": "Power: fuse in the power grid tripped, grid overloaded or building without a power connection.",
   "Rohre: Förderhöhe, fehlende Pumpe, Rückfluss oder Luft im Rohr nach Umbauten (im Spiel ggf. Leitung leeren).": "Pipes: head lift, missing pump, backflow or air in the pipe after rebuilding (flush the pipe in the game if necessary).",
@@ -787,6 +780,12 @@ export const CORE_EN: Record<string, string> = {
   "Logistikebene unter jeder Produktionsebene: Bus, Zuführungen, Sammelleitungen und Ein-/Ausgänge liegen dort (Ebenen 1, 3 und 5 m über dem Logistikboden), Lifte führen durch die Decke zu den Maschinen.": "Logistics floor below every production floor: bus, feeders, collectors and inputs/outputs lie there (levels 1, 3 and 5 m above the logistics floor), lifts lead through the ceiling to the machines.",
   "mit Logistikebenen": "with logistics floors",
   "Bus, Zuführungen und Sammelleitungen liegen auf einer Logistikebene unter jeder Produktionsebene.": "Bus, feeders and collectors lie on a logistics floor below every production floor.",
+  "{building}: Ausgänge liegen auf der Seite der Eingänge; die Sammelleitung führt um die Maschine herum.": "{building}: outputs are on the same side as the inputs; the collector runs around the machine.",
+  "Anschlusslagen von {n} Gebäuden sind schematisch dargestellt": "Port positions of {n} buildings are shown schematically",
+  "Im Spiel kann ein Band am falschen Anschluss oder falsch herum angeschlossen sein.": "In the game a belt may be attached to the wrong port or the wrong way round.",
+  "Produkte werden den Ausgängen in Rezeptreihenfolge zugeordnet.": "Products are assigned to the outputs in recipe order.",
+  "Die Lage der Anschlüsse stammt aus den Spielpaketen. Für einzelne Gebäude fehlt sie dort; ihre Eingänge werden schematisch hinten, Ausgänge vorn dargestellt. Ob ein Anschluss im Spiel tatsächlich auf dieser Seite liegt, ist für diese Gebäude nicht geprüft.": "Port positions come from the game packages. They are missing there for individual buildings; their inputs are shown schematically at the back and outputs at the front. Whether a port really is on that side in the game is not checked for these buildings.",
+  "Spielpakete (Blueprint-Komponenten), siehe docs/SPIELDATEN.md": "Game packages (blueprint components), see docs/SPIELDATEN.md",
 };
 
 registerTranslations('en', CORE_EN);

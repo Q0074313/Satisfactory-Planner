@@ -13,6 +13,7 @@ import {
   localName,
   orderMapDistance,
   placedPortDefs,
+  roundForDisplay,
   transferCargo,
   transferInterface,
   transportAssumptions,
@@ -366,7 +367,7 @@ function TradeSection() {
               <td>{gd.name(r.itemId)}</td>
               <td className="num">{r.produced ? fmtNum(r.produced, 2) : ''}</td>
               <td className="num">{r.consumed ? fmtNum(r.consumed, 2) : ''}</td>
-              <td className={`num ${r.net < -1e-6 ? 'neg' : r.net > 1e-6 ? 'pos' : ''}`}>{fmtNum(r.net, 2)}</td>
+              <td className={`num ${roundForDisplay(r.net, 2) < 0 ? 'neg' : roundForDisplay(r.net, 2) > 0 ? 'pos' : ''}`}>{fmtNum(r.net, 2)}</td>
               <td className="num">{r.imports ? fmtNum(r.imports, 2) : ''}</td>
               <td className="num">
                 {r.exports ? fmtNum(r.exports, 2) : ''}

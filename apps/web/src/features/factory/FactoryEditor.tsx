@@ -1,7 +1,7 @@
 /**
  * Maßstabsgetreuer 2D-Grundrisseditor einer Fabrik (Canvas 2D).
  */
-import { useEffect, useMemo, useRef } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef } from 'react';
 import {
   buildingFootprint,
   buildingOutline,
@@ -42,6 +42,9 @@ import { useUiStore, type Tool } from '../../state/uiStore';
 import { drawBuilding, drawPort, linkTierStyle, renderFactory, snapOrigin } from './render';
 import { buildScene, hitTest, hitToRef, neighborGaps, portKey, type FactoryScene, type Hit } from './scene';
 import { ElevationView } from './ElevationView';
+
+// three.js erst beim Öffnen der 3D-Ansicht laden
+const View3D = lazy(() => import('./View3D'));
 import { EditorToolbar, ROUTING_LABELS, tierShort } from './EditorToolbar';
 import { linkToolFor, nextRouting, nextTier } from '../../state/linkTool';
 
@@ -77,6 +80,12 @@ const isTyping = () => {
 
 export function FactoryEditor() {
   const view = useUiStore((s) => s.factoryView);
+  if (view === '3d')
+    return (
+      <Suspense fallback={<div className="editor pad dim">{t('3D-Ansicht wird geladen …')}</div>}>
+        <View3D />
+      </Suspense>
+    );
   return view === 'plan' ? <PlanEditor /> : <ElevationView axis={view === 'side-x' ? 'x' : 'y'} />;
 }
 

@@ -258,6 +258,64 @@ code {
   min-width: 0;
 }
 
+/* 3D-Ansicht */
+.view3d-panel {
+  position: absolute;
+  z-index: 2;
+  top: 48px;
+  left: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  max-height: calc(100% - 100px);
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  opacity: 0.94;
+}
+
+.view3d-floor {
+  text-align: left;
+}
+.view3d-floor.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.view3d-floor.dim {
+  opacity: 0.5;
+}
+.view3d-labels {
+  position: absolute;
+  inset: 0;
+  /* eigene Ebene: die Tiefensortierung der Namen bleibt unter Leiste und Infoschild */
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.view3d-label {
+  padding: 1px 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 3px;
+}
+.view3d-tip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 6;
+  max-width: 320px;
+  padding: 4px 8px;
+  font-size: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
 /* Editor */
 .editor {
   flex: 1;
@@ -1013,6 +1071,12 @@ tr.clickable:hover {
   fill: var(--dim);
   pointer-events: none;
 }
+g.fn-node {
+  cursor: grab;
+}
+g.fn-node:active {
+  cursor: grabbing;
+}
 g.fn-recipe rect {
   fill: var(--panel-2);
   stroke: var(--info);
@@ -1248,6 +1312,24 @@ g.fn-shortfall rect {
   margin: 0 4px 0 0;
   vertical-align: middle;
   pointer-events: none;
+}
+.example-picker .example-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.example-picker .example-row select {
+  min-width: 280px;
+}
+.example-picker p {
+  max-width: 720px;
+  margin-top: 6px;
+}
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 .site-list {
   margin-top: 6px;

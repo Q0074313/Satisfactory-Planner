@@ -206,7 +206,7 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
     tr('Filter intelligenter und programmierbarer Splitter werden nicht berücksichtigt.'),
     tr('Rohre fließen in Zeichenrichtung; Förderhöhe, Pumpen und Druck werden nicht berechnet.'),
     tr('Kraftwerke mit gewähltem Brennstoff verbrauchen wie Maschinen; ohne Brennstoffwahl nehmen sie Brennstoff ohne modellierten Verbrauch ab.'),
-    tr('Produkte werden den Ausgängen in Rezeptreihenfolge zugeordnet (Anschlusslage schematisch).'),
+    tr('Produkte werden den Ausgängen in Rezeptreihenfolge zugeordnet.'),
   ];
   const nodes = new Map<string, Node>();
   const imports = ctx.imports ?? platformImports(p, factoryId, gd);

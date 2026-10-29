@@ -8,6 +8,8 @@ export interface RecentProject {
   id: string;
   name: string;
   openedAt: string;
+  /** Planer-Version beim letzten Speichern (soweit bekannt). */
+  appVersion?: string;
 }
 
 const RECENT_KEY = 'satis-planner:recent';
@@ -34,9 +36,11 @@ function write(key: string, value: unknown) {
 
 export const recentProjects = (): RecentProject[] => read<RecentProject[]>(RECENT_KEY, []);
 
-export function rememberRecent(id: string, name: string) {
-  const list = recentProjects().filter((r) => r.id !== id);
-  write(RECENT_KEY, [{ id, name, openedAt: new Date().toISOString() }, ...list].slice(0, MAX_RECENT));
+export function rememberRecent(id: string, name: string, appVersion?: string) {
+  const old = recentProjects();
+  const list = old.filter((r) => r.id !== id);
+  const version = appVersion ?? old.find((r) => r.id === id)?.appVersion;
+  write(RECENT_KEY, [{ id, name, openedAt: new Date().toISOString(), ...(version ? { appVersion: version } : {}) }, ...list].slice(0, MAX_RECENT));
 }
 
 export function forgetRecent(id: string) {

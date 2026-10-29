@@ -310,10 +310,14 @@ export function checkFactory(p: Project, gd: GameDataIndex, factoryId: string, o
   findings.push(...checkFlow(p, gd, factoryId, opts.flow));
   findings.push(...checkHeights(p, gd, factoryId));
 
-  if (shapes.some((s) => (gd.building(s.building.type)?.ports ?? null) !== null)) {
+  const schematic = shapes.filter((s) => {
+    const def = gd.building(s.building.type);
+    return !!def?.ports && !def.portLayout?.length && !s.building.placement?.vertical;
+  });
+  if (schematic.length > 0) {
     findings.push(
-      makeFinding(FAB_PORTS_UNVERIFIED, [{ table: 'factories', id: factoryId }], {
-        message: tr('Anschlusslagen sind schematisch dargestellt'),
+      makeFinding(FAB_PORTS_UNVERIFIED, schematic.map((s) => ref(s.building)), {
+        message: tr('Anschlusslagen von {n} Gebäuden sind schematisch dargestellt', { n: schematic.length }),
         explanation: tr(FAB_PORTS_UNVERIFIED.description),
         suggestion: tr('Anschlussseiten im Spiel kontrollieren, bevor Bandverläufe endgültig festgelegt werden.'),
       }),

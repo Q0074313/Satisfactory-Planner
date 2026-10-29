@@ -18,7 +18,7 @@ import { migrateProject } from './migrations.ts';
 export { ImportError };
 
 export const FILE_KIND = 'satis-planner-project';
-export const APP_VERSION = 'satis-planner 0.7.3';
+export const APP_VERSION = 'satis-planner 0.8.3';
 
 export interface ProjectFile {
   kind: typeof FILE_KIND;

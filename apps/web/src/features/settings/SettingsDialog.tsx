@@ -66,10 +66,6 @@ function GeneralTab() {
         />
       </Row>
       <label className="check-row">
-        <input type="checkbox" checked={prefs.animateFlow} onChange={(e) => prefs.setAnimateFlow(e.target.checked)} />
-        {t('Materialfluss auf Förderbändern animieren')}
-      </label>
-      <label className="check-row">
         <input type="checkbox" data-testid="detailed-tours" checked={prefs.detailedTours} onChange={(e) => prefs.setDetailedTours(e.target.checked)} />
         {t('Tutorial: ausführliche Erklärungen für Einsteiger')}
       </label>
@@ -125,6 +121,12 @@ function DisplayTab() {
   const theme = effectiveTheme(prefs.theme);
   return (
     <div className="display-settings">
+      <Section title={t('Materialfluss')}>
+        <label className="check-row">
+          <input type="checkbox" data-testid="animate-flow" checked={prefs.animateFlow} onChange={(e) => prefs.setAnimateFlow(e.target.checked)} />
+          {t('Materialfluss auf Förderbändern und Rohren animieren (Grundriss, Seitenansicht und 3D-Ansicht)')}
+        </label>
+      </Section>
       <Section title={t('Stockwerke')}>
         <Row label={t('Andere Stockwerke')} hint={t('Deckkraft von Leitungen und Gebäudeumrissen auf den nicht gewählten Stockwerken (Grundriss und Seitenansicht)')}>
           <span className="inline">

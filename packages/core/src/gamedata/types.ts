@@ -148,6 +148,21 @@ export interface GdPortCounts {
   pipeAny: number;
 }
 
+/** Anschluss laut Spielpaketen, in Metern relativ zum Gebäudeursprung. */
+export interface GdPortPosition {
+  kind: 'belt' | 'pipe';
+  direction: 'in' | 'out' | 'any';
+  /** Laufende Nummer je Art und Richtung (wie die Anschluss-ID). */
+  index: number;
+  x: number;
+  y: number;
+  z: number;
+  /** Austrittsrichtung (Grad, 0 = +x, 90 = +y). */
+  yawDeg: number;
+  /** Name der Komponente im Spiel, z. B. „Input0“. */
+  component: string;
+}
+
 export interface GdBuilding {
   id: BuildingId;
   name: LocalizedName;
@@ -171,6 +186,8 @@ export interface GdBuilding {
   boundsSource: SourceRef | null;
   ports: GdPortCounts | null;
   portsSource: SourceRef | null;
+  /** Lage der Anschlüsse laut Spielpaketen (fehlt: schematisch). */
+  portLayout?: GdPortPosition[];
   extractor?: {
     cycleTimeS: number;
     itemsPerCycle: number;

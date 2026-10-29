@@ -16,14 +16,14 @@ describe('Gebäudegrundrisse aus Spieldaten', () => {
     expect(c.bounds!.maxZ - c.bounds!.minZ).toBe(6);
   });
 
-  it('Anschlüsse: Anzahl laut Quelle, Lage als nicht verifiziert markiert', () => {
+  it('Anschlüsse: Anzahl laut Quelle, Lage aus den Spielpaketen', () => {
     const gd = gameData();
     const man = portDefs(gd.building('Build_ManufacturerMk1_C')!);
     expect(man.filter((p) => p.direction === 'in')).toHaveLength(4);
     expect(man.filter((p) => p.direction === 'out')).toHaveLength(1);
     const refinery = portDefs(gd.building('Build_OilRefinery_C')!);
     expect(refinery.map((p) => p.id).sort()).toEqual(['belt-in-0', 'belt-out-0', 'pipe-in-0', 'pipe-out-0']);
-    expect(refinery.every((p) => p.positionVerified === false)).toBe(true);
+    expect(refinery.every((p) => p.positionVerified)).toBe(true);
     const junction = portDefs(gd.building('Build_PipelineJunction_Cross_C')!);
     expect(junction.filter((p) => p.direction === 'any')).toHaveLength(4);
   });
@@ -106,7 +106,8 @@ describe('Flächen und Planungsabstände', () => {
     const b = ops.addBuilding(p, gd, { factoryId: factory.id, type: 'Build_ConstructorMk1_C', recipeId: 'Recipe_IronPlate_C', placement: { floorId, x: 20, y: 0, zOffsetM: 0, rotationDeg: 0 } });
     ops.addLink(p, gd, { kind: 'belt', tier: 'Build_ConveyorBeltMk1_C', from: { buildingId: a, portId: 'belt-out-0' }, to: { buildingId: b, portId: 'belt-in-0' } });
     const f = checkFactory(p, gd, factory.id);
-    expect(f.filter((x) => x.kind === 'unchecked').map((x) => x.ruleId).sort()).toEqual(['FAB-005', 'FAB-006', 'FAB-015']);
+    // Anschlusslagen stammen aus den Spielpaketen: kein FAB-005 mehr
+    expect(f.filter((x) => x.kind === 'unchecked').map((x) => x.ruleId).sort()).toEqual(['FAB-006', 'FAB-015']);
   });
 });
 

@@ -29,6 +29,7 @@ export function EditorToolbar() {
           { value: 'plan', label: t('Grundriss') },
           { value: 'side-x', label: t('Seite (x)'), title: t('Seitenansicht: Blick von Süden, alle Stockwerke') },
           { value: 'side-y', label: t('Seite (y)'), title: t('Seitenansicht: Blick von Osten, alle Stockwerke') },
+          { value: '3d', label: t('3D'), title: t('3D-Ansicht zum Ansehen (nicht bearbeiten), alle Stockwerke') },
         ]}
       />
       {view === 'plan' && (

@@ -10,12 +10,12 @@ Satis Planner ist eine Webanwendung zur Planung von Satisfactory-Fabriken. Sie v
 
 | Modul | Ort | Zuständigkeit | Darf abhängen von |
 |---|---|---|---|
-| **Spieldaten-Werkzeuge** | `packages/gamedata-tools` | Liest die offiziellen Docs-Dateien des Spiels und das Wiki aus und erzeugt den normalisierten Datensatz `data/gamedata/<version>/`. Läuft nur zur Entwicklungszeit. | `core/gamedata/types` |
+| **Spieldaten-Werkzeuge** | `packages/gamedata-tools` | Liest die offiziellen Docs-Dateien des Spiels, die Anschlusslagen aus den Spielpaketen (.NET-Werkzeug `ports/`) und das Wiki aus und erzeugt den normalisierten Datensatz `data/gamedata/<version>/`. Läuft nur zur Entwicklungszeit. | `core/gamedata/types` |
 | **Core: Modell** | `packages/core/src/model` | Projektschema (zod), Typen, IDs, Objektreferenzen. | – |
 | **Core: Projekt** | `packages/core/src/project` | Projekt anlegen, Operationen (Befehle), Serialisierung, Import/Export, Formatmigrationen. | Modell, Spieldaten |
 | **Core: Spieldaten** | `packages/core/src/gamedata` | Typen des Datensatzes, Index für schnellen Zugriff (Rezepte je Produkt usw.), Datensatz-Registry. | – |
 | **Core: Geometrie** | `packages/core/src/geometry` | Vektoren, gedrehte Rechtecke, Schnitttests, Bezierkurven, Kurvenradien. | – |
-| **Core: Fabrik** | `packages/core/src/factory` | Gebäudegrundrisse, Anschlusslagen, Kollisionsprüfung, Flächenberechnung, Verlauf von Bändern/Rohren (Verlegemodi), Durchsatzmodell (LP über die eingezeichneten Verbindungen), Höhen- und Liftprüfung, automatisches Layout aus einem Produktionsplan (`autoLayout.ts`: Linien, Hauptbus, Höhenstaffel gegen Kreuzungen, Varianten, Prüfung an einer Projektkopie inkl. Kreuzungszählung). | Geometrie, Spieldaten, Produktion (Maschinenraten) |
+| **Core: Fabrik** | `packages/core/src/factory` | Gebäudegrundrisse, Anschlusslagen (aus den Spieldaten bzw. schematisch), Kollisionsprüfung, Flächenberechnung, Verlauf von Bändern/Rohren (Verlegemodi), Durchsatzmodell (LP über die eingezeichneten Verbindungen), Höhen- und Liftprüfung, automatisches Layout aus einem Produktionsplan (`autoLayout.ts`: Linien, Hauptbus, Höhenstaffel gegen Kreuzungen, Varianten, Prüfung an einer Projektkopie inkl. Kreuzungszählung). | Geometrie, Spieldaten, Produktion (Maschinenraten) |
 | **Core: Produktion** | `packages/core/src/production` | Lineares Programm für die Produktionsplanung (Ziele, Rohstoffgrenzen, Maschinengrenzen), Bilanz Soll/Geplant/Platziert/Angeschlossen/Durchsatz, Produktionsgraph mit Schichtenlayout und Sortierung nach Kettenstufe, Rezeptvergleich (Kosten je Rezept für 60/min). | Spieldaten |
 | **Core: Schiene** | `packages/core/src/rail` | Gleistopologie, Blockbildung, Signalprüfregeln, Wegfindung (BFS und Dijkstra), vereinfachte Zugsimulation (Blöcke, Pfadreservierung, Halte, Deadlock- und Kollisionserkennung). | Geometrie, Spieldaten |
 | **Core: Transport** | `packages/core/src/transport` | Zugkapazität, Umlaufschätzung, Durchsatz je Auftrag, Bilanz lokal/extern je Fabrik, Transportbefunde. | Schiene, Produktion |
@@ -56,7 +56,7 @@ Was der Editor leisten muss:
 - Mit Sichtbereichs-Culling über einen räumlichen Index zeichnet Canvas 2D 10.000+ einfache Formen flüssig. Das reicht für die Zielgröße.
 - Die Trefferprüfung erfolgt geometrisch im Core, in Weltkoordinaten. Sie hängt nicht vom Rendering ab.
 - Der Renderer liegt hinter einer kleinen Schnittstelle (Zeichenschichten: Raster, Inhalt, Overlay). Zeigt das Profiling Engpässe, kann eine Schicht auf WebGL umgestellt werden, ohne Werkzeuge oder Modell zu ändern.
-- **3D-Ansicht (später):** three.js (WebGL) als zusätzliche Ansicht. Das Datenmodell speichert dafür schon heute Höhen (z), Stockwerke, Kollisionsboxen in 3D und Gleishöhen. Die 3D-Ansicht liest dasselbe Projekt.
+- **3D-Ansicht (seit 0.8, nur ansehen):** three.js (WebGL) als zusätzliche Ansicht im Fabrikgrundriss (`features/factory/View3D.tsx`, Körper in `scene3d.ts`, erst beim Öffnen nachgeladen). Sie liest dasselbe Projekt: Gebäude als Körper aus den Kollisionsboxen mit Namen, Bänder als flache Bahnen, Rohre rund, Richtungspfeile, Flächen als Platten bzw. Fundamentkacheln, Infos beim Überfahren; das gewählte Stockwerk ist der Schnitt; Bearbeiten bleibt im Grundriss.
 
 ## 3. Ordnerstruktur
 
@@ -93,7 +93,8 @@ satis-planner/
 │  │  └─ test/               Vitest-Tests (ohne UI)
 │  └─ gamedata-tools/
 │     ├─ src/                extract.ts, fetch-wiki-infobox.ts, fetch-map.ts, ue-parse.ts
-│     └─ curated/            Kuratierte Ergänzungen mit Quellenangabe
+│     ├─ ports/              .NET-Werkzeug: Anschlusslagen aus den Spielpaketen (CUE4Parse)
+│     └─ curated/            Kuratierte Ergänzungen mit Quellenangabe, ports-game.json
 └─ apps/
    ├─ web/
    │  ├─ public/gamedata/    Kopie des Datensatzes zur Auslieferung (Build-Schritt)
@@ -104,7 +105,7 @@ satis-planner/
    │     ├─ canvas/          Viewport, Renderer, Treffer, Werkzeug-Infrastruktur
    │     ├─ i18n/            Wörterbuch der Oberfläche (Englisch), Übersetzungstest
    │     ├─ features/
-   │     │  ├─ factory/      Grundriss, Seitenansicht, Werkzeugleiste, Eigenschaften, Bilanz, Blackbox-Ansicht
+   │     │  ├─ factory/      Grundriss, Seitenansicht, 3D-Ansicht, Werkzeugleiste, Eigenschaften, Bilanz, Blackbox-Ansicht
    │     │  ├─ autolayout/   Dialog „Layout automatisch erzeugen“ (Vorgaben, Varianten, Vorschau, Prüfung)
    │     │  ├─ rail/         Schienen-Editor
    │     │  ├─ production/   Produktionsplanung und Bilanz, Rezepte nachschlagen

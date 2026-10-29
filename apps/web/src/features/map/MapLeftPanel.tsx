@@ -254,9 +254,16 @@ function SiteSection({ plans, onPlace }: { plans: { id: string; label: string }[
               ? t('Bedarf: {list}', { list: demand.map((d) => `${gd.name(d.itemId)} ${fmtNum(d.perMin, 1)}${unit(d.itemId)}`).join(', ') })
               : t('Der Plan braucht keine Rohstoffe aus eigener Gewinnung (Wasser und Importe zählen nicht).')}
           </p>
-          <button onClick={run} disabled={!demand.length} data-testid="site-run">
-            {t('Standorte suchen')}
-          </button>
+          <div className="row-actions">
+            <button onClick={run} disabled={!demand.length} data-testid="site-run">
+              {t('Standorte suchen')}
+            </button>
+            {sites && sites.results.length > 0 && (
+              <button onClick={() => setSites({ ...sites, results: [], active: null })} title={t('Vorschläge und ihre Markierungen auf der Karte ausblenden (Esc)')} data-testid="site-clear">
+                {t('Vorschläge ausblenden')}
+              </button>
+            )}
+          </div>
           {sites && sites.planId === planId && (
             <ol className="item-list site-list" data-testid="site-results">
               {sites.results.length === 0 && <li className="dim">{t('Keine passenden Vorkommen gefunden.')}</li>}

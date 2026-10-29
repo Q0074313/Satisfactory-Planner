@@ -93,6 +93,17 @@ describe('API', () => {
     expect(disk.name).toBe('Werk 2');
   });
 
+  it('Planer-Version beim Speichern bleibt erhalten (Hotfix 0.8.3), ältere Stände ohne Feld laden weiter', async () => {
+    const { id, revision } = await create('Versioniert');
+    const project = { ...newProj('Versioniert'), appVersion: '0.8.3' };
+    const put = await app.inject({ method: 'PUT', url: `/api/factory/${id}`, headers: H, payload: { project, baseRevision: revision } });
+    expect(put.statusCode).toBe(200);
+    const got = await app.inject({ method: 'GET', url: `/api/factory/${id}` });
+    expect((got.json() as { project: { appVersion?: string } }).project.appVersion).toBe('0.8.3');
+    const old = await create('Alt');
+    expect(((await app.inject({ method: 'GET', url: `/api/factory/${old.id}` })).json() as { project: { appVersion?: string } }).project.appVersion).toBeUndefined();
+  });
+
   it('erkennt Konflikte zwischen zwei Geräten (409), Überschreiben ohne Revision ist möglich', async () => {
     const { id, revision } = await create('Konflikt');
     const p = (await app.inject({ method: 'GET', url: `/api/factory/${id}` })).json().project;

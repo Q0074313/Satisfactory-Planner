@@ -6,6 +6,8 @@ export default defineConfig({
   testDir: 'e2e',
   timeout: 30_000,
   fullyParallel: false,
+  // Ein Worker: parallele Läufe überlasten den Vite-Dev-Server (Zeitüberschreitungen), seriell ist es schneller
+  workers: 1,
   use: {
     baseURL: 'http://localhost:5199',
     viewport: { width: 1500, height: 900 },
