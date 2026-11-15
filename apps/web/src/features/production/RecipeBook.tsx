@@ -4,7 +4,8 @@
  * 60/min im Vergleich. Gegenstände lassen sich anklicken (Vorprodukte, Verwendung).
  */
 import { useId, useMemo, useState } from 'react';
-import { getLanguage, localName, recipesFor, type RecipeInfo } from '@satis/core';
+import { getLanguage, localName, recipesFor, unlockSource, type RecipeInfo } from '@satis/core';
+import { useUnlocks } from '../../state/unlocks';
 import { t } from '../../i18n';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
@@ -36,6 +37,7 @@ export function RecipeBook() {
     }
   };
   const infos = useMemo(() => (itemId ? recipesFor(gd, itemId) : []), [gd, itemId]);
+  const unlocks = useUnlocks();
   const used = useMemo(() => {
     const set = new Set<string>();
     for (const b of Object.values(project.buildings)) if (b.recipeId) set.add(b.recipeId);
@@ -106,11 +108,15 @@ export function RecipeBook() {
                 </thead>
                 <tbody>
                   {infos.map((x: RecipeInfo) => (
-                    <tr key={x.recipe.id} data-testid="rb-row">
+                    <tr key={x.recipe.id} data-testid="rb-row" className={unlocks.recipeLocked(x.recipe.id) ? 'locked' : undefined}>
                       <td>
                         {localName(x.recipe.name)} {x.recipe.alternate && <Badge kind="info">{t('Alt')}</Badge>}{' '}
                         {used.has(x.recipe.id) && <Badge kind="ok">{t('im Projekt')}</Badge>}
-                        <div className="dim small-text">{t('{s} s je Zyklus', { s: fmtNum(x.recipe.durationS, 2) })}</div>
+                        {unlocks.recipeLocked(x.recipe.id) && <Badge kind="muted">{t('gesperrt')}</Badge>}
+                        <div className="dim small-text">
+                          {t('{s} s je Zyklus', { s: fmtNum(x.recipe.durationS, 2) })}
+                          {unlockSource(gd, x.recipe.id) && <> · {t('Freischaltung: {how}', { how: unlockSource(gd, x.recipe.id)! })}</>}
+                        </div>
                       </td>
                       <td>{gd.name(x.building)}</td>
                       <td>{rateList(x.inputs)}</td>
@@ -157,7 +163,7 @@ export function RecipeBook() {
           )}
           <p className="dim small-text pad-x">
             {t(
-              'Kosten: 60/min des Gegenstands nur mit diesem Rezept, Vorprodukte mit Standardrezepten, Maschinen bei 100 % Takt (Summe der Maschinenäquivalente). Wie ein Rezept freigeschaltet wird (Festplatte, M.A.M., Meilenstein), steht nicht in den Spieldaten des Planers.',
+              'Kosten: 60/min des Gegenstands nur mit diesem Rezept, Vorprodukte mit Standardrezepten, Maschinen bei 100 % Takt (Summe der Maschinenäquivalente). Freischaltung laut Schaltplänen der Spieldaten (frühester Weg).',
             )}
           </p>
         </>

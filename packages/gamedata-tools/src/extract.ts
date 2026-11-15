@@ -26,7 +26,9 @@ import type {
   GdPortCounts,
   GdPortPosition,
   GdRecipe,
+  GdSchematic,
   GdVehicle,
+  SchematicKind,
   ItemForm,
   SourceRef,
   GdVec3 as Vec3,
@@ -331,7 +333,9 @@ function main() {
   const docsHash = createHash('sha256').update(enRaw).digest('hex');
   const en = loadDocs(join(docsDir, 'en-US.json'));
   const deNames = displayNames(loadDocs(join(docsDir, 'de.json')));
-  const name = (c: DocsClass) => ({ en: c.mDisplayName ?? c.ClassName, de: deNames.get(c.ClassName) ?? c.mDisplayName ?? c.ClassName });
+  // Zeilenenden vereinheitlichen (de.json ab 1.2.5.0 mit \r\n)
+  const lf = (t: string) => t.replace(/\r\n/g, '\n');
+  const name = (c: DocsClass) => ({ en: lf(c.mDisplayName ?? c.ClassName), de: lf(deNames.get(c.ClassName) ?? c.mDisplayName ?? c.ClassName) });
   const report: string[] = [];
 
   // ---------- Gegenstände ----------
@@ -620,6 +624,63 @@ function main() {
     };
   }
 
+  // ---------- Schaltpläne (Freischaltung) ----------
+  // Meilensteine, HUB-Upgrades, M.A.M., Alternativen und die von ihnen freigeschalteten
+  // Schaltpläne. Gebäude über ihre Baurezepte (Produkt Desc_X → Gebäude Build_X).
+  const KIND: Record<string, SchematicKind> = {
+    EST_Custom: 'other',
+    EST_Tutorial: 'hub',
+    EST_Milestone: 'milestone',
+    EST_MAM: 'mam',
+    EST_Alternate: 'alternate',
+  };
+  const allRecipes = new Map((en.get('FGRecipe') ?? []).map((c) => [c.ClassName, c]));
+  const buildingOfRecipe = (id: string): string[] =>
+    asList(parseUe(allRecipes.get(id)?.mProduct ?? ''))
+      .map((a) => classNameFromPath(String(asStruct(a).ItemClass ?? '')).replace(/^Desc_/, 'Build_'))
+      .filter((b) => buildings[b]);
+  const schematics: Record<string, GdSchematic> = {};
+  for (const c of en.get('FGSchematic') ?? []) {
+    let kind = KIND[c.mType ?? ''];
+    if (!kind) continue;
+    if (c.ClassName === 'Schematic_StartingRecipes_C') kind = 'start';
+    const tree = kind === 'mam' ? /\/Research\/(\w+?)_RS\//.exec(c.FullName ?? '')?.[1] : undefined;
+    // Saisonale Forschung (FICSMAS) gehört nicht zur Planung
+    if (tree === 'XMas') continue;
+    const unlocks = c.mUnlocks as unknown as { Class: string; mRecipes?: string; mSchematics?: string }[] | undefined;
+    const recipesOf: string[] = [];
+    const buildingsOf: string[] = [];
+    const next: string[] = [];
+    for (const u of unlocks ?? []) {
+      if (u.Class === 'BP_UnlockRecipe_C')
+        for (const p of asList(parseUe(u.mRecipes ?? ''))) {
+          const id = classNameFromPath(String(p));
+          if (recipes[id]) recipesOf.push(id);
+          else buildingsOf.push(...buildingOfRecipe(id));
+        }
+      if (u.Class === 'BP_UnlockSchematic_C') for (const p of asList(parseUe(u.mSchematics ?? ''))) next.push(classNameFromPath(String(p)));
+    }
+    const deps = c.mSchematicDependencies as unknown as { mSchematics?: string }[] | undefined;
+    const requires = (deps ?? []).flatMap((d) => asList(parseUe(d.mSchematics ?? '')).map((p) => classNameFromPath(String(p))));
+    schematics[c.ClassName] = {
+      id: c.ClassName,
+      name: name(c),
+      kind,
+      tier: num(c.mTechTier),
+      ...(tree ? { tree } : {}),
+      recipes: [...new Set(recipesOf)],
+      buildings: [...new Set(buildingsOf)],
+      unlocks: [...new Set(next)],
+      requires: [...new Set(requires)],
+    };
+  }
+  // „other“ nur behalten, wenn ein anderer Schaltplan sie freischaltet und sie etwas Planbares enthalten
+  const reachable = new Set(Object.values(schematics).flatMap((x) => x.unlocks));
+  for (const [id, x] of Object.entries(schematics)) {
+    if (x.kind === 'other' && (!reachable.has(id) || x.recipes.length + x.buildings.length === 0)) delete schematics[id];
+  }
+  for (const x of Object.values(schematics)) x.unlocks = x.unlocks.filter((id) => schematics[id]);
+
   const data: GameData = {
     meta: {
       schemaVersion: GAMEDATA_SCHEMA_VERSION,
@@ -679,6 +740,7 @@ function main() {
     buildings,
     facts,
     vehicles,
+    schematics,
   };
 
   const outDir = resolve(arg('out') ?? join(repoRoot, 'data/gamedata', gameVersion));
@@ -691,7 +753,7 @@ function main() {
       '',
       `- Erzeugt: ${data.meta.generatedAt}`,
       `- Spielversion: ${gameVersion} (Engine-Changelist ${data.meta.gameBuild.engineChangelist ?? '?'}, ${data.meta.gameBuild.branch ?? '?'})`,
-      `- Gegenstände: ${Object.keys(items).length}, Rezepte: ${Object.keys(recipes).length}, Gebäude: ${Object.keys(buildings).length}, Fahrzeuge: ${Object.keys(vehicles).length}, Fakten: ${Object.keys(facts).length}`,
+      `- Gegenstände: ${Object.keys(items).length}, Rezepte: ${Object.keys(recipes).length}, Gebäude: ${Object.keys(buildings).length}, Fahrzeuge: ${Object.keys(vehicles).length}, Schaltpläne: ${Object.keys(schematics).length}, Fakten: ${Object.keys(facts).length}`,
       `- Quelle Docs SHA-256: \`${docsHash}\``,
       '',
       '## Befunde',

@@ -15,6 +15,7 @@ import {
   geo,
   LAYOUT_DEFAULTS,
   solveProduction,
+  lockedRecipesOf,
   type AutoLayoutOptions,
   type LayoutCheck,
   type LayoutDraft,
@@ -125,7 +126,8 @@ export function AutoLayoutDialog() {
 
   // Wie in der Produktionsansicht: „nur vorhandene Maschinen“ rechnet mit den Maschinen der Fabrik
   const existing = useMemo(() => Object.values(project.buildings).filter((b) => b.factoryId === factoryId), [project.buildings, factoryId]);
-  const result = useMemo(() => (plan ? solveProduction(gd, plan, { existingMachines: existing }) : null), [gd, plan, existing]);
+  const locked = lockedRecipesOf(project, gd);
+  const result = useMemo(() => (plan ? solveProduction(gd, plan, { existingMachines: existing, locked }) : null), [gd, plan, existing, locked]);
   const effKey = JSON.stringify(effective);
   const drafts = useMemo(() => (result ? generateLayouts(gd, result, effective) : []), [gd, result, effKey]);
   const [selected, setSelected] = useState<LayoutVariant>(BUILTIN_PRESETS.find((x) => x.id === lastPreset)?.variant ?? 'rows');
@@ -378,6 +380,10 @@ export function AutoLayoutDialog() {
               <input type="checkbox" checked={opts.foundations} onChange={(e) => setOpts({ foundations: e.target.checked })} />
               {t('Fundamentfläche anlegen')}
             </label>
+            <label className="check-row" title={t('Flüssige Zwischenprodukte laufen vor dem ersten Verbraucher durch einen Flüssigkeitspuffer (gleicht Schwankungen im Rohrnetz aus)')}>
+              <input type="checkbox" checked={opts.fluidBuffers} onChange={(e) => setOpts({ fluidBuffers: e.target.checked })} data-testid="al-fluid-buffers" />
+              {t('Flüssigkeitspuffer zwischen den Schritten')}
+            </label>
           </Section>
         </div>
 
@@ -446,6 +452,7 @@ function VariantDetails({
             <th>{t('Gebäude')}</th>
             <td>
               {t('{m} Maschinen in {l} Linien, {b} Busspuren', { m: c.machines, l: c.lines, b: c.lanes })} · {t('{s} Splitter, {g} Zusammenführungen, {j} Rohrkreuzungen', { s: c.splitters, g: c.mergers, j: c.junctions })}
+              {c.buffers > 0 && <> · {t('{n} Flüssigkeitspuffer', { n: c.buffers })}</>}
             </td>
           </tr>
           <tr>

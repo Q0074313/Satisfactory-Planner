@@ -13,6 +13,7 @@ import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
 import { Badge, Dialog, Row, Section, Segmented } from '../../ui/fields';
 import { APP_BUILT, APP_COMMIT, APP_VERSION } from '../../version';
+import { ProgressSection } from '../project/ProgressSection';
 
 type Tab = 'general' | 'display' | 'keys' | 'data';
 
@@ -301,6 +302,19 @@ function DataTab() {
     }
   };
   return (
+    <>
+    <ProgressSection />
+    <Section title={t('Durchsatzmodell')}>
+      <label className="check-row" title={t('Entladende Bahnsteige und Lkw-Stationen ohne Transportauftrag liefern im Durchsatzmodell, was die Maschinen dahinter brauchen (Annahme). Standard bei aus Spielständen importierten Projekten.')}>
+        <input
+          type="checkbox"
+          checked={project.settings.stationsOnDemand}
+          onChange={(e) => useProjectStore.getState().apply(t('Stationen nach Bedarf'), (d) => void (d.settings.stationsOnDemand = e.target.checked))}
+          data-testid="stations-on-demand"
+        />
+        {t('Stationen ohne Transportauftrag liefern nach Bedarf')}
+      </label>
+    </Section>
     <Section title={t('Spieldatensatz des Projekts')}>
       <Row label={t('Aktuell')}>
         {current} <Badge kind="ok">{project.gameData.gameVersion}</Badge>
@@ -340,5 +354,6 @@ function DataTab() {
           : t('Der Wechsel lässt sich rückgängig machen. Gebäude mit unbekanntem Typ bleiben erhalten und werden als Befund gemeldet.')}
       </p>
     </Section>
+    </>
   );
 }

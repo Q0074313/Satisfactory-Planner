@@ -7,7 +7,9 @@
  * 2. Je Kandidat und Rohstoff werden die nächstgelegenen freien Vorkommen
  *    genommen, bis der Bedarf gedeckt ist (höchstens bis zum Suchradius).
  *    Förderrate je Vorkommen: gewählte Minerstufe bzw. Ölpumpe bzw.
- *    Quellenextraktor mit gewähltem Takt × Reinheit.
+ *    Quellenextraktor mit gewähltem Takt × Reinheit, höchstens so viel, wie
+ *    das schnellste Band bzw. Rohr abführt. Übertaktete Vorkommen bekommen
+ *    nur den nötigen Takt; daraus folgen die Energiesplitter.
  * 3. Bewertung: mittlere Entfernung der genutzten Vorkommen zum Standort,
  *    gewichtet mit der genutzten Menge. Danach wird der Standort einmal auf
  *    den gewichteten Schwerpunkt verschoben, wenn das besser ist.
@@ -20,10 +22,11 @@
 import type { GameDataIndex } from '../gamedata/index.ts';
 import { dist, rectContains, type Rect, type Vec2 } from '../geometry/index.ts';
 import type { Project } from '../model/schema.ts';
-import { machineRates } from '../production/machine.ts';
+import { machineRates, shardsForClock } from '../production/machine.ts';
 import { solveProduction } from '../production/solver.ts';
 import { canUseNode, nodeRate, nodeUsage } from './index.ts';
 import type { MapNode } from './types.ts';
+import { lockedRecipesOf } from '../progress/index.ts';
 
 export interface SiteDemand {
   itemId: string;
@@ -54,6 +57,12 @@ export interface SitePick {
   /** Davon genutzt. */
   used: number;
   distM: number;
+  /** Nötiger Takt für die genutzte Menge (höchstens der gewählte). */
+  clock: number;
+  /** Energiesplitter für diesen Takt. */
+  shards: number;
+  /** Förderrate durch das schnellste Band bzw. Rohr begrenzt. */
+  capped: boolean;
 }
 
 export interface SiteItem {
@@ -71,6 +80,8 @@ export interface SiteSuggestion {
   maxDistM: number;
   picks: SitePick[];
   items: SiteItem[];
+  /** Energiesplitter aller genutzten Vorkommen. */
+  shards: number;
 }
 
 /** Gebäudetyp, mit dem das Vorkommen im Vorschlag genutzt wird. */
@@ -92,7 +103,7 @@ export function siteDemandFromPlan(p: Project, gd: GameDataIndex, planId: string
   const plan = p.productionPlans[planId];
   if (!plan) return [];
   const imports = new Set(plan.supplies.filter((s) => s.origin === 'import').map((s) => s.itemId));
-  const res = solveProduction(gd, plan);
+  const res = solveProduction(gd, plan, { locked: lockedRecipesOf(p, gd) });
   return res.items
     .filter((i) => i.supplied > 1e-6 && gd.item(i.itemId)?.isResource && i.itemId !== 'Desc_Water_C' && !imports.has(i.itemId))
     .map((i) => ({ itemId: i.itemId, perMin: i.supplied }))
@@ -108,15 +119,19 @@ export function suggestSites(gd: GameDataIndex, demand: SiteDemand[], opts: Site
   if (!gd.map || wanted.length === 0) return [];
 
   // Freie Vorkommen je Rohstoff mit Förderrate
-  const pool = new Map<string, { node: MapNode; capacity: number }[]>();
+  // Abtransport: schnellstes Band bzw. Rohr
+  const beltMax = gd.beltTiers.at(-1)?.conveyor?.itemsPerMin ?? Infinity;
+  const pipeMax = gd.pipeTiers.at(-1)?.pipe?.m3PerMin ?? Infinity;
+  const pool = new Map<string, { node: MapNode; capacity: number; perClock: number; capped: boolean }[]>();
   for (const d of wanted) {
-    const list: { node: MapNode; capacity: number }[] = [];
+    const list: { node: MapNode; capacity: number; perClock: number; capped: boolean }[] = [];
+    const max = gd.item(d.itemId)?.form === 'solid' ? beltMax : pipeMax;
     for (const n of gd.map.nodes) {
       if (n.itemId !== d.itemId || used.has(n.id)) continue;
       if (opts.bounds && !rectContains(opts.bounds, n)) continue;
       const type = extractorFor(gd, n, opts.minerType);
-      const capacity = type ? nodeRate(gd, n, type, opts.clock) : 0;
-      if (capacity > 0) list.push({ node: n, capacity });
+      const raw = type ? nodeRate(gd, n, type, opts.clock) : 0;
+      if (raw > 0) list.push({ node: n, capacity: Math.min(raw, max), perClock: raw / opts.clock, capped: raw > max + 1e-9 });
     }
     pool.set(d.itemId, list);
   }
@@ -134,7 +149,9 @@ export function suggestSites(gd: GameDataIndex, demand: SiteDemand[], opts: Site
       for (const x of near) {
         if (rest <= 1e-9) break;
         const take = Math.min(rest, x.capacity);
-        picks.push({ nodeId: x.node.id, itemId: d.itemId, capacity: x.capacity, used: take, distM: x.distM });
+        // Takt nur so hoch wie nötig (Rate wächst linear mit dem Takt), auf 1 % aufgerundet
+        const clock = Math.min(opts.clock, Math.ceil((take / x.perClock) * 100 - 1e-6) / 100);
+        picks.push({ nodeId: x.node.id, itemId: d.itemId, capacity: x.capacity, used: take, distM: x.distM, clock, shards: shardsForClock(clock), capped: x.capped });
         rest -= take;
       }
       items.push({ itemId: d.itemId, demand: d.perMin, covered: d.perMin - Math.max(0, rest) });
@@ -143,7 +160,8 @@ export function suggestSites(gd: GameDataIndex, demand: SiteDemand[], opts: Site
     const covered = items.reduce((s, i) => s + i.covered, 0);
     const usedSum = picks.reduce((s, x) => s + x.used, 0);
     const meanDistM = usedSum > 0 ? picks.reduce((s, x) => s + x.distM * x.used, 0) / usedSum : Infinity;
-    return { center, coverage: total > 0 ? covered / total : 0, meanDistM, maxDistM: Math.max(0, ...picks.map((x) => x.distM)), picks, items };
+    const shards = picks.reduce((s, x) => s + x.shards, 0);
+    return { center, coverage: total > 0 ? covered / total : 0, meanDistM, maxDistM: Math.max(0, ...picks.map((x) => x.distM)), picks, items, shards };
   };
 
   const better = (a: SiteSuggestion, b: SiteSuggestion) => (Math.abs(a.coverage - b.coverage) > 1e-9 ? a.coverage > b.coverage : a.meanDistM < b.meanDistM);

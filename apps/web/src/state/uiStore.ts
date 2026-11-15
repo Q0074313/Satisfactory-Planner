@@ -89,6 +89,8 @@ interface UiState {
   diagnoseOpen: boolean;
   /** Dialog „Layout automatisch erzeugen“ (Fabrik und vorgewählter Plan). */
   autoLayout: { factoryId: string; planId: string | null } | null;
+  /** Dialog „Automatisch verbinden“ für eine Fabrik. */
+  autoConnect: { factoryId: string } | null;
   /** Dialog „Rezepte nachschlagen“ (vorgewählter Gegenstand). */
   recipeBook: { itemId: string | null } | null;
   /** Aktive Führung (Tutorial) und Schritt. */
@@ -113,6 +115,8 @@ interface UiState {
   setSettingsOpen(open: boolean): void;
   setDiagnoseOpen(open: boolean): void;
   openAutoLayout(factoryId: string, planId?: string | null): void;
+  openAutoConnect(factoryId: string): void;
+  closeAutoConnect(): void;
   closeAutoLayout(): void;
   openRecipeBook(itemId?: string | null): void;
   closeRecipeBook(): void;
@@ -159,6 +163,7 @@ export const useUiStore = create<UiState>((set) => ({
   settingsOpen: false,
   diagnoseOpen: false,
   autoLayout: null,
+  autoConnect: null,
   recipeBook: null,
   tour: null,
   focus: null,
@@ -185,6 +190,8 @@ export const useUiStore = create<UiState>((set) => ({
   setDiagnoseOpen: (diagnoseOpen) => set({ diagnoseOpen }),
   openAutoLayout: (factoryId, planId = null) => set({ autoLayout: { factoryId, planId } }),
   closeAutoLayout: () => set({ autoLayout: null }),
+  openAutoConnect: (factoryId) => set({ autoConnect: { factoryId } }),
+  closeAutoConnect: () => set({ autoConnect: null }),
   openRecipeBook: (itemId = null) => set({ recipeBook: { itemId } }),
   closeRecipeBook: () => set({ recipeBook: null }),
   startTour: (id) => set({ tour: { id, step: 0 } }),

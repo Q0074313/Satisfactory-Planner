@@ -55,7 +55,7 @@ export function portDefs(gd: GdBuilding): PortDef[] {
 
 function computePortDefs(counts: GdPortCounts | null, gd: GdBuilding): PortDef[] {
   if (!counts) return [];
-  if (gd.portLayout?.length) return markFuel(gd, counts, gd.portLayout.map(fromLayout));
+  if (gd.portLayout?.length) return anyReservoir(gd, markFuel(gd, counts, gd.portLayout.map(fromLayout)));
   const b = gd.bounds ?? { minX: -1, maxX: 1, minY: -1, maxY: 1, minZ: 0, maxZ: 2 };
   const cx = (b.minX + b.maxX) / 2;
   const cy = (b.minY + b.maxY) / 2;
@@ -125,6 +125,16 @@ function fromLayout(p: GdPortPosition): PortDef {
   const r = (v: number) => Math.round(v * 1e6) / 1e6 + 0;
   const n = { x: r(Math.cos(a)), y: r(Math.sin(a)) };
   return { id: portId(p.kind, p.direction, p.index), kind: p.kind, direction: p.direction, local: { x: p.x, y: p.y }, normal: n, z: p.z, positionVerified: true };
+}
+
+/**
+ * Flüssigkeitspuffer: Im Spiel sind beide Anschlüsse richtungsfrei
+ * (ConnectionAny0/1), jeder kann Zu- oder Ablauf sein. Die Anschluss-IDs
+ * bleiben `pipe-in-0`/`pipe-out-0` (bestehende Projekte), die Richtung ist „any“.
+ */
+function anyReservoir(gd: GdBuilding, ports: PortDef[]): PortDef[] {
+  if (gd.nativeClass !== 'FGBuildablePipeReservoir') return ports;
+  return ports.map((p) => (p.kind === 'pipe' ? { ...p, direction: 'any' as const } : p));
 }
 
 /**

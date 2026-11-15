@@ -171,19 +171,21 @@ export function pathPolyline(ctx: CanvasRenderingContext2D, vp: Viewport, pts: V
   });
 }
 
-export function drawGrid(ctx: CanvasRenderingContext2D, vp: Viewport, majorM: number, minorM: number): void {
+/** Raster zeichnen; `offsetM` verschiebt die Linien (Weltraster: Fundamentkanten bei 8k + 4 m). */
+export function drawGrid(ctx: CanvasRenderingContext2D, vp: Viewport, majorM: number, minorM: number, offsetM = 0): void {
   const b = vp.bounds();
   const drawLines = (step: number, color: string) => {
     if (step * vp.scale < 6) return;
     ctx.strokeStyle = color;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    for (let x = Math.floor(b.minX / step) * step; x <= b.maxX; x += step) {
+    const start = (min: number) => Math.floor((min - offsetM) / step) * step + offsetM;
+    for (let x = start(b.minX); x <= b.maxX; x += step) {
       const s = Math.round(vp.toScreen({ x, y: 0 }).x) + 0.5;
       ctx.moveTo(s, 0);
       ctx.lineTo(s, vp.height);
     }
-    for (let y = Math.floor(b.minY / step) * step; y <= b.maxY; y += step) {
+    for (let y = start(b.minY); y <= b.maxY; y += step) {
       const s = Math.round(vp.toScreen({ x: 0, y }).y) + 0.5;
       ctx.moveTo(0, s);
       ctx.lineTo(vp.width, s);

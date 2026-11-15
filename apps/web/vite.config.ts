@@ -28,6 +28,9 @@ export default defineConfig({
     // Optionaler Server (npm run dev:server) für Konten und Freigaben
     proxy: { '/api': { target: process.env.SATIS_API ?? 'http://localhost:8080', changeOrigin: false } },
   },
+  // Spielstand-Parser wird erst im Web Worker geladen: vorab optimieren, sonst lädt der Dev-Server beim ersten Import neu
+  optimizeDeps: { include: ['@etothepii/satisfactory-file-parser'] },
+  worker: { format: 'es' },
   build: {
     target: 'es2022',
     sourcemap: true,

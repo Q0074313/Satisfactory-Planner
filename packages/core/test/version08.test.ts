@@ -156,7 +156,9 @@ describe('Hotfix 0.8.2: Auto-Layout – kürzere Wege, Lifte, nur nötige Höhen
       if (Math.min(...zs) < Math.min(e.from.world.z, e.to.world.z) - 0.5 && (crossFloor || l.kind === 'pipe')) dips++;
       if (Math.max(...zs) > Math.max(e.from.world.z, e.to.world.z) + 0.5) elevated++;
     }
-    return { detour, worst, dips, elevated };
+    // Flüssigkeitspuffer (0.9) teilen einen Spurabschnitt in zwei
+    const buffers = Object.values(p.buildings).filter((b) => b.type === 'Build_PipeStorageTank_C' && b.label.startsWith('Puffer')).length;
+    return { detour, worst, dips, elevated, buffers };
   };
 
   it('großes Beispiel: Umwege mehr als halbiert, kein Lift taucht unter beide Enden ab', () => {
@@ -165,13 +167,13 @@ describe('Hotfix 0.8.2: Auto-Layout – kürzere Wege, Lifte, nur nötige Höhen
     expect(s.detour).toBeLessThan(500);
     expect(s.worst).toBeLessThan(80);
     expect(s.dips).toBe(0);
-    expect(s.elevated).toBeLessThanOrEqual(14);
+    expect(s.elevated).toBeLessThanOrEqual(14 + s.buffers);
   });
 
   it('mittleres Beispiel: weniger Leitungen in der Luft, keine Senken', () => {
     const s = stats('medium');
     // vorher: 12 höher als beide Enden, 8 Rohre mit Senke auf 1 m vor dem Anschluss auf 1,75 m
-    expect(s.elevated).toBeLessThanOrEqual(9);
+    expect(s.elevated).toBeLessThanOrEqual(9 + s.buffers);
     expect(s.dips).toBe(0);
   });
 });

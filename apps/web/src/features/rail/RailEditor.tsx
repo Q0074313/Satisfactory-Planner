@@ -16,6 +16,7 @@ import {
   segmentPolyline,
   segmentShape,
   tAtLength,
+  WORLD_GRID_OFFSET_M,
   type ObjectRef,
   type Project,
   type Vec3,
@@ -321,7 +322,7 @@ export function RailEditor() {
     ctx.fillRect(0, 0, vp.width, vp.height);
     // Schienennetze liegen in Weltkoordinaten: Kartenbild direkt darunter
     if (L.layers.map && L.gd.map && L.tiles !== 'off') drawMapTiles(ctx, vp, L.gd.map, L.tiles, L.tileOpacity * 0.5);
-    if (L.layers.grid) drawGrid(ctx, vp, L.project.settings.gridM, 0);
+    if (L.layers.grid) drawGrid(ctx, vp, L.project.settings.gridM, 0, WORLD_GRID_OFFSET_M);
     if (L.layers.factories) drawFactoryOutlines(ctx, vp);
     if (L.layers.resources && L.gd.map) {
       for (const { node, s } of visibleNodes(vp, L.gd.map.nodes, (n) => n, () => true)) drawNode(ctx, s, node, nodeRadiusPx(vp.scale, node), { used: L.usage.has(node.id), dim: true });

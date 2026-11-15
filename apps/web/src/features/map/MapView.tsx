@@ -15,6 +15,7 @@ import {
   segmentPolyline,
   segmentShape,
   snapToWorldGrid,
+  WORLD_GRID_OFFSET_M,
   toWorldOf,
   type FactoryMapPlacement,
   type MapNode,
@@ -161,7 +162,7 @@ export function MapView() {
     ctx.lineWidth = 1;
     ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
     ctx.setLineDash([]);
-    if (s.layers.grid) drawGrid(ctx, vp, p.settings.gridM, 0);
+    if (s.layers.grid) drawGrid(ctx, vp, p.settings.gridM, 0, WORLD_GRID_OFFSET_M);
 
     if (s.layers.rail) drawRail(ctx, vp, p);
     if (s.layers.factories) drawFactories(ctx, vp);

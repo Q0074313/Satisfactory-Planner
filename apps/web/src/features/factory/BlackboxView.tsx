@@ -4,7 +4,7 @@
  * Layout oder zurück zur Grundrissplanung.
  */
 import { useMemo, type ReactNode } from 'react';
-import { BLACKBOX_AREA_FACTOR, blackboxSideM, factoryOps as ops, factoryTrade, getLanguage, solveProduction } from '@satis/core';
+import { BLACKBOX_AREA_FACTOR, blackboxSideM, factoryOps as ops, factoryTrade, getLanguage, lockedRecipesOf, solveProduction } from '@satis/core';
 import { t } from '../../i18n';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
@@ -34,7 +34,7 @@ export function BlackboxView({ factoryId, bottom }: { factoryId: string; bottom?
     let generated = 0;
     let unsolved = 0;
     for (const plan of plans) {
-      const res = solveProduction(gd, plan);
+      const res = solveProduction(gd, plan, { locked: lockedRecipesOf(project, gd) });
       if (res.status !== 'optimal') {
         unsolved++;
         continue;

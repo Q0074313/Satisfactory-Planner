@@ -4,7 +4,7 @@
 
 | Datensatz | Spielversion | Engine | Quelle |
 |---|---|---|---|
-| `sf-1.2.4.0` | **1.2.4.0** (Branch `rel-main-anniversary-2026`, Changelist 502094) | UE 5.6.1 | Lokale Steam-Installation, `CommunityResources/Docs` |
+| `sf-1.2.4.0` | **1.2.4.0** (Branch `rel-main-anniversary-2026`, Changelist 502094); Docs von 1.2.4.1 und 1.2.5.0 inhaltlich identisch | UE 5.6.1 | Lokale Steam-Installation, `CommunityResources/Docs` |
 
 Entscheidung: Unterstützt wird die **aktuell installierte stabile Version 1.2.4.0**. Ältere Datensätze (1.0, 1.1) werden nicht mitgeliefert. Der Aufbau unterstützt aber mehrere Datensätze nebeneinander (`data/gamedata/<version>/`), und jedes Projekt merkt sich seinen Datensatz.
 
@@ -30,6 +30,9 @@ Entscheidung: Unterstützt wird die **aktuell installierte stabile Version 1.2.4
    - Stand: ausgelesen aus Spielversion 1.2.4.1 (Changelist 513885). Die Docs dieser Version sind mit 1.2.4.0 identisch (gleiche Prüfsumme), der Datensatz heißt weiter `sf-1.2.4.0`.
 6. **Manuelle Ergänzung** (`curated/ports-overrides.json`): nur dort, wo keine Quelle verfügbar war. Immer als `unverified` gekennzeichnet. Der dort ergänzte Rohreingang am Treibstoffgenerator ist inzwischen durch die Spielpakete bestätigt.
 
+6. **Schaltpläne** (seit 0.9, `schematics` im Datensatz): aus den Docs (`FGSchematic`: `mType`, `mTechTier`, `mUnlocks` mit `BP_UnlockRecipe_C` bzw. `BP_UnlockSchematic_C`, `mSchematicDependencies`). Gebäude über ihre Baurezepte (Produkt `Desc_X` → Gebäude `Build_X`). M.A.M.-Bäume aus dem Ordnernamen (`Research/<Baum>_RS/`); die saisonale FICSMAS-Forschung entfällt. Phase des Weltraumlifts → höchstes Tier aus dem Wiki („Space Elevator“, „Milestones“) als kuratierte Fakten `progress.phase.<n>.maxTier`.
+7. **Spielstände** (seit 0.9, nur beim Import im Browser): gelesen mit [@etothepii/satisfactory-file-parser](https://github.com/etothepii4/satisfactory-file-parser) (MIT), Version 4.1.2, unterstützt Spielstände ab Update 8 bis 1.2. Weltraster aus Spielständen nachgemessen: Fundament-Mitten liegen auf Vielfachen von 8 m (≈ 1400 von 1700 Fundamenten eines Testspielstands genau dort). Ursprung eines Fundaments ist seine Mitte; Gebäude stehen auf Mitte + halber Fundamenthöhe.
+
 ## Was fehlt bzw. unsicher ist
 
 | Thema | Status | Umgang im Planer |
@@ -42,6 +45,8 @@ Entscheidung: Unterstützt wird die **aktuell installierte stabile Version 1.2.4
 | Gleis-Hitbox seit 1.2 | Wert nicht dokumentiert | Kreuzungsprüfung mit vorsichtiger Höhenschwelle, als Annahme markiert |
 | Signal-Kollisionsboxen | in Docs leer | Signale ohne Grundfläche |
 | Variable Leistung | nur Spanne bekannt | Mittelwert als Annahme |
+| Phase ↔ Tier | nicht in den Docs | Wiki „Space Elevator“ (kuratiert) |
+| Wirkrichtung von Signalen im Spielstand | `mGuardedConnections` ohne Doku | gilt für Züge, die das geschützte Gleis verlassen (am Spielstand geprüft: nur so findet der Zug seinen Fahrweg) |
 | Maße Bahnhof / Bahnsteig | Docs: 16 × 34 m (Gleisachse = lokale x-Achse, 16 m = Wagenlänge laut Wiki) | Gleisachse aus Wiki „Freight Car“ abgeleitet |
 
 ## Aktualisierung bei einem Spiel-Update

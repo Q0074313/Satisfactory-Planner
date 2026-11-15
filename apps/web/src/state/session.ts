@@ -134,6 +134,11 @@ export async function createExample(kind: ExampleKind, opts: { logistics?: boole
   return store(buildExampleProject(gd, kind, { datasetId: ds.datasetId, gameVersion: ds.gameVersion }, opts));
 }
 
+/** Neues Projekt speichern (Server bzw. Browser) und öffnen, z. B. nach dem Spielstand-Import. */
+export async function storeNewProject(p: Project): Promise<boolean> {
+  return store(p);
+}
+
 /** Neues Projekt speichern (Server bzw. Browser) und öffnen. */
 async function store(p: Project): Promise<boolean> {
   if (useServer.getState().available) {

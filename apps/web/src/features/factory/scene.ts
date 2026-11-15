@@ -49,14 +49,17 @@ export interface FactoryScene {
 
 export const portKey = (buildingId: string, portId: string) => `${buildingId}/${portId}`;
 
-/** Stockwerk, in dessen Höhenbereich z liegt (oberstes mit Boden ≤ z). */
+/** Stockwerk, in dessen Höhenbereich z liegt (oberstes mit Boden ≤ z); unter dem untersten: das unterste. */
 export function floorAtZ(p: Project, factoryId: string, z: number): string | null {
   let best: { id: string; elevationM: number } | null = null;
+  let lowest: { id: string; elevationM: number } | null = null;
   for (const id of p.factories[factoryId]?.floorIds ?? []) {
     const fl = p.floors[id];
-    if (fl && fl.elevationM <= z + 1e-3 && (!best || fl.elevationM > best.elevationM)) best = fl;
+    if (!fl) continue;
+    if (fl.elevationM <= z + 1e-3 && (!best || fl.elevationM > best.elevationM)) best = fl;
+    if (!lowest || fl.elevationM < lowest.elevationM) lowest = fl;
   }
-  return best?.id ?? null;
+  return (best ?? lowest)?.id ?? null;
 }
 
 export function buildScene(p: Project, gd: GameDataIndex, factoryId: string, floorId: string): FactoryScene {

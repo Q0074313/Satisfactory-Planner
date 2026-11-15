@@ -57,7 +57,7 @@ erDiagram
 ## Objekte
 
 ### Projekt
-`formatVersion`, `id`, `name`, `description`, `createdAt`, `updatedAt`, `appVersion` (optional, Planer-Version beim letzten Speichern, seit 0.8.3), `gameData { datasetId, gameVersion }`, `settings` (Raster, Fangweite, Fangwinkel, Simulationseinstellungen), dazu alle ID-Tabellen und `findingStates` (bestätigte oder ignorierte Befunde, Schlüssel = Befundschlüssel).
+`formatVersion`, `id`, `name`, `description`, `createdAt`, `updatedAt`, `appVersion` (optional, Planer-Version beim letzten Speichern, seit 0.8.3), `gameData { datasetId, gameVersion }`, `settings` (Raster, Fangweite, Fangwinkel, Simulationseinstellungen, seit 0.9 `progress`: Spielfortschritt `{ source: 'manual' | 'save', maxTier, schematics, phase }` oder `null` = alles frei; seit 0.9.2 `stationsOnDemand`: Stationen ohne Transportauftrag liefern im Durchsatzmodell nach Bedarf), dazu alle ID-Tabellen und `findingStates` (bestätigte oder ignorierte Befunde, Schlüssel = Befundschlüssel).
 
 ### Fabrik, Stockwerk, Fläche
 - **Factory**: `name`, `color`, `floorIds` (geordnet nach Höhe), `notes`, `map` (Standort auf der Weltkarte oder `null`): `{ x, y, rotationDeg }` – der lokale Ursprung des Grundrisses liegt am Weltpunkt (x, y) in Metern, der Grundriss ist um `rotationDeg` im Uhrzeigersinn gedreht. Welt = Drehung(lokal) + (x, y). Weltkoordinaten sind die Spielkoordinaten in Metern (x Osten, y Süden). Schienennetze liegen direkt in Weltkoordinaten. `blackbox` (seit Format 4, Standard `false`): Die Fabrik wird nur über ihre Produktionspläne geplant; Grundrissprüfungen entfallen, Herstellung und Verbrauch für den Transport stammen aus den Plänen, die Kartenfläche wird aus den Maschinen geschätzt.

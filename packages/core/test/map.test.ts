@@ -91,10 +91,10 @@ describe('Fabrikstandort', () => {
     expect(fa.rect).toEqual({ minX: 0, minY: 0, maxX: 64, maxY: 32 });
   });
 
-  it('Weltraster: Fundamentkanten auf Vielfachen von 8 m, auch gedreht und mit versetzter Fundamentfläche', () => {
+  it('Weltraster: Fundamentkanten bei 8k + 4 m (Mitten auf Vielfachen von 8 m), auch gedreht und mit versetzter Fundamentfläche', () => {
     const p = newProject();
     const { factory, floorId } = firstFactory(p);
-    const edge = (v: number) => Math.abs(((v % 8) + 8) % 8) < 1e-6 || Math.abs(((v % 8) + 8) % 8 - 8) < 1e-6;
+    const edge = (v: number) => Math.abs((((v - 4) % 8) + 8) % 8) < 1e-6 || Math.abs((((v - 4) % 8) + 8) % 8 - 8) < 1e-6;
     // Ohne Fundament: Ursprung auf einer Kante
     const a = snapToWorldGrid(p, factory.id, { x: 101, y: -37, rotationDeg: 0 });
     expect(edge(a.x) && edge(a.y)).toBe(true);

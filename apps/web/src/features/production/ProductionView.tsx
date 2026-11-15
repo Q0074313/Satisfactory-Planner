@@ -13,6 +13,7 @@ import {
   productionOps as ops,
   resourceWeight,
   solveProduction,
+  lockedRecipesOf,
   sortItems,
   suggestAlternates,
   transportNeed,
@@ -28,6 +29,8 @@ import { useUiStore } from '../../state/uiStore';
 import { Badge, fmtNum, NumberField, Row, Section, Segmented, TextField } from '../../ui/fields';
 import { SortSelect } from '../factory/BalancePanel';
 import { FlowDiagram } from './FlowDiagram';
+import { ProgressSection } from '../project/ProgressSection';
+import { lockedNote, useUnlocks } from '../../state/unlocks';
 
 function ItemPicker({ onPick, placeholder, filter }: { onPick: (id: string) => void; placeholder: string; filter?: (id: string) => boolean }) {
   const gd = useProjectStore((s) => s.gd)!;
@@ -126,6 +129,7 @@ export function ProductionView({ bottom }: { bottom?: ReactNode }) {
           </button>
         </Section>
         {plan && <PlanSettings plan={plan} />}
+        <ProgressSection />
       </aside>
       <div className="center">
         <div className="scroll">{plan ? <PlanBody plan={plan} /> : <div className="empty pad">{t('Produktionsplan anlegen, um Ziele zu berechnen.')}</div>}</div>
@@ -180,7 +184,8 @@ function PlanBody({ plan }: { plan: ProductionPlan }) {
   const gd = useProjectStore((s) => s.gd)!;
   const apply = useProjectStore((s) => s.apply);
   const buildings = useMemo(() => Object.values(project.buildings).filter((b) => b.factoryId === plan.factoryId), [project.buildings, plan.factoryId]);
-  const result = useMemo(() => solveProduction(gd, plan, { existingMachines: buildings }), [gd, plan, buildings]);
+  const locked = lockedRecipesOf(project, gd);
+  const result = useMemo(() => solveProduction(gd, plan, { existingMachines: buildings, locked }), [gd, plan, buildings, locked]);
   const upd = (label: string, patch: ops.PlanPatch) => apply(label, (d, g) => ops.updatePlan(d, g, plan.id, patch));
   const targetLabel = plan.mode === 'maximize' ? t('Verhältnis ändern') : t('Menge ändern');
 
@@ -262,6 +267,7 @@ function PowerPlants({ plan, result }: { plan: ProductionPlan; result: SolveResu
     [gd],
   );
   const gens = plan.power.generators;
+  const unlocks = useUnlocks();
   const set = (generators: typeof gens) => apply(t('Kraftwerke'), (d, g) => ops.updatePlan(d, g, plan.id, { power: { generators } }));
   const total = gens.reduce((s, x) => s + (gd.recipe(x.recipeId)?.generator?.powerMW ?? 0) * x.count, 0);
   return (
@@ -284,8 +290,9 @@ function PowerPlants({ plan, result }: { plan: ProductionPlan; result: SolveResu
           <div key={i} className="inline power-row" data-testid="power-row">
             <select value={x.recipeId} onChange={(e) => set(gens.map((y, k) => (k === i ? { ...y, recipeId: e.target.value } : y)))}>
               {options.map((o) => (
-                <option key={o.id} value={o.id}>
+                <option key={o.id} value={o.id} className={unlocks.recipeLocked(o.id) ? 'locked' : undefined}>
                   {gd.name(o.producedIn[0]!)} – {gd.name(o.inputs[0]!.item)}
+                  {unlocks.recipeLocked(o.id) ? ` – ${lockedNote(unlocks, o.id)}` : ''}
                 </option>
               ))}
             </select>
@@ -312,7 +319,8 @@ function PowerPlants({ plan, result }: { plan: ProductionPlan; result: SolveResu
 function AlternateHints({ plan, buildings }: { plan: ProductionPlan; buildings: Building[] }) {
   const gd = useProjectStore((s) => s.gd)!;
   const apply = useProjectStore((s) => s.apply);
-  const hints = useMemo(() => suggestAlternates(gd, plan, { existingMachines: buildings }), [gd, plan, buildings]);
+  const locked = useProjectStore((s) => lockedRecipesOf(s.project!, s.gd!));
+  const hints = useMemo(() => suggestAlternates(gd, plan, { existingMachines: buildings, locked }), [gd, plan, buildings, locked]);
   const list = [...(hints.combined ? [hints.combined] : []), ...hints.single.slice(0, 8)];
   const take = (ids: string[]) =>
     apply(t('Alternativen übernehmen'), (d, g) => ops.updatePlan(d, g, plan.id, { enabledAlternates: [...new Set([...plan.enabledAlternates, ...ids])] }));
@@ -363,7 +371,8 @@ function RecipeSelection({ plan, result }: { plan: ProductionPlan; result: Solve
   }, [gd, q]);
   const enabled = new Set(plan.enabledAlternates);
   const disabled = new Set(plan.disabledRecipes);
-  const allowedCount = allowedRecipes(gd, plan).length;
+  const unlocks = useUnlocks();
+  const allowedCount = allowedRecipes(gd, plan, unlocks.lockedRecipes).length;
   const toggle = (id: string, alternate: boolean, on: boolean) => {
     if (alternate) {
       const next = on ? [...plan.enabledAlternates, id] : plan.enabledAlternates.filter((x) => x !== id);
@@ -400,12 +409,13 @@ function RecipeSelection({ plan, result }: { plan: ProductionPlan; result: Solve
               return (
                 <label
                   key={r.id}
-                  className={`recipe-opt ${used.has(r.id) ? 'used' : ''}`}
-                  title={`${r.inputs.map((a) => `${a.amount} ${gd.name(a.item)}`).join(' + ')} → ${r.outputs.map((a) => `${a.amount} ${gd.name(a.item)}`).join(' + ')} (${r.durationS} s, ${gd.name(r.producedIn[0]!)})`}
+                  className={`recipe-opt ${used.has(r.id) ? 'used' : ''} ${unlocks.recipeLocked(r.id) ? 'locked' : ''}`}
+                  title={`${lockedNote(unlocks, r.id) ? `${lockedNote(unlocks, r.id)} · ` : ''}${r.inputs.map((a) => `${a.amount} ${gd.name(a.item)}`).join(' + ')} → ${r.outputs.map((a) => `${a.amount} ${gd.name(a.item)}`).join(' + ')} (${r.durationS} s, ${gd.name(r.producedIn[0]!)})`}
                 >
                   <input type="checkbox" checked={on} onChange={(e) => toggle(r.id, r.alternate, e.target.checked)} />
                   <span>{localName(r.name)}</span>
                   {r.alternate && <Badge kind="info">{t('Alt')}</Badge>}
+                  {unlocks.recipeLocked(r.id) && <Badge kind="muted">{unlocks.requirement(r.id)}</Badge>}
                   <button
                     className="link-button small"
                     title={t('Rezepte für {item} vergleichen', { item: gd.name(r.outputs[0]!.item) })}

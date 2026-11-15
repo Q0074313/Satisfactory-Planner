@@ -35,6 +35,7 @@ import type { Project, TimetableStop, Train, TransportMode, TransportOrder } fro
 import { machineRates } from '../production/machine.ts';
 import { solveProduction } from '../production/solver.ts';
 import { buildGraph, isBidirectional, shortestRoute } from '../rail/topology.ts';
+import { lockedRecipesOf } from '../progress/index.ts';
 
 export type CargoKind = 'solid' | 'liquid';
 
@@ -313,7 +314,7 @@ export function factoryTrade(p: Project, gd: GameDataIndex, factoryId: string): 
   if (p.factories[factoryId]?.blackbox && plans.length > 0) {
     // Blackbox: Herstellung und Verbrauch laut Plan; eigene Gewinnung zählt als Herstellung
     for (const plan of plans) {
-      const res = solveProduction(gd, plan);
+      const res = solveProduction(gd, plan, { locked: lockedRecipesOf(p, gd) });
       const imported = new Set(plan.supplies.filter((s) => s.origin === 'import').map((s) => s.itemId));
       for (const it of res.items) {
         row(it.itemId).produced += it.produced + (imported.has(it.itemId) ? 0 : it.supplied);
@@ -338,7 +339,7 @@ export function factoryTrade(p: Project, gd: GameDataIndex, factoryId: string): 
   for (const plan of plans) {
     const imports = plan.supplies.filter((s) => s.origin === 'import');
     if (imports.length === 0) continue;
-    const res = solveProduction(gd, plan, { existingMachines: Object.values(p.buildings).filter((b) => b.factoryId === factoryId) });
+    const res = solveProduction(gd, plan, { existingMachines: Object.values(p.buildings).filter((b) => b.factoryId === factoryId), locked: lockedRecipesOf(p, gd) });
     for (const s of imports) {
       const used = res.items.find((i) => i.itemId === s.itemId)?.supplied ?? 0;
       row(s.itemId).planImports += used;

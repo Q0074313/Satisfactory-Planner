@@ -143,6 +143,9 @@ code {
 .small-text {
   font-size: 12px;
 }
+.warn-text {
+  color: var(--warn);
+}
 .pad {
   padding: 8px 12px;
 }
@@ -228,6 +231,13 @@ code {
   padding: 4px 10px 0;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
+  /* Viele Fabriken: Reiter waagrecht scrollbar statt zusammengedrückt */
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.factory-tabs > button {
+  flex: none;
+  white-space: nowrap;
 }
 .factory-tabs > button:not(.small) {
   border-radius: 4px 4px 0 0;
@@ -1493,6 +1503,84 @@ g.fn-shortfall rect {
 @media (max-width: 900px) {
   .al-grid,
   .blackbox {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Spielfortschritt */
+.progress-trees,
+.progress-nodes {
+  list-style: none;
+  margin: 2px 0;
+  padding: 0;
+}
+.progress-trees > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+.progress-nodes {
+  flex-basis: 100%;
+  padding-left: 18px;
+}
+/* Nicht freigeschaltet: stark ausgegraut, bleibt wählbar */
+.locked {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+option.locked {
+  color: var(--dim, #888);
+}
+
+/* Spielstand-Import */
+.save-import-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 12px;
+  min-height: 420px;
+}
+.save-import-map {
+  width: 100%;
+  height: 520px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+}
+.save-import-side {
+  max-height: 520px;
+  overflow: auto;
+}
+.save-groups {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+}
+.save-groups > li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 2px 6px;
+  align-items: center;
+  padding: 3px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.save-groups > li.active {
+  background: var(--active-bg);
+}
+.save-groups > li > .dim.small-text {
+  grid-column: 2 / 4;
+}
+.save-groups > li > select {
+  grid-column: 3;
+  grid-row: 1;
+  max-width: 130px;
+}
+.save-group-name {
+  min-width: 0;
+}
+@media (max-width: 900px) {
+  .save-import-body {
     grid-template-columns: 1fr;
   }
 }

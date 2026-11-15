@@ -523,6 +523,24 @@ export const SimulationSettingsSchema = z.object({
 });
 export type SimulationSettings = z.infer<typeof SimulationSettingsSchema>;
 
+/**
+ * Spielfortschritt: was im Spiel freigeschaltet ist. Gesperrte Rezepte und
+ * Gebäude erscheinen ausgegraut und werden in Produktionsplänen nicht
+ * verwendet. Ohne Angabe (`null`) ist alles frei.
+ * - `manual`: Meilensteine bis `maxTier` (plus HUB-Upgrades und Startrezepte),
+ *   M.A.M.-Forschungen aus `schematics`, Alternativrezepte wie im Plan gewählt.
+ * - `save`: genau die gekauften Schaltpläne eines Spielstands (`schematics`),
+ *   auch bei Alternativrezepten (Festplatten).
+ */
+export const ProgressSchema = z.object({
+  source: z.enum(['manual', 'save']),
+  maxTier: z.number().int().min(0).max(9),
+  schematics: z.array(z.string()).default([]),
+  /** Abgeschlossene Phasen des Weltraumlifts (nur Spielstand, zur Anzeige). */
+  phase: z.number().int().min(0).max(5).nullable().default(null),
+});
+export type Progress = z.infer<typeof ProgressSchema>;
+
 export const ProjectSettingsSchema = z.object({
   /** Rasterweite in Metern (Fundament = 8 m). */
   gridM: finite.positive().default(8),
@@ -531,6 +549,14 @@ export const ProjectSettingsSchema = z.object({
   /** Fangwinkel in Grad. */
   snapAngleDeg: finite.positive().default(90),
   simulation: SimulationSettingsSchema.default(SimulationSettingsSchema.parse({})),
+  /** Spielfortschritt (Freischaltung); `null` = alles frei. */
+  progress: ProgressSchema.nullable().default(null),
+  /**
+   * Durchsatzmodell: Entladende Bahnsteige und Lkw-Stationen ohne
+   * Transportauftrag liefern, was die Maschinen dahinter brauchen (Annahme;
+   * Standard bei aus Spielständen importierten Projekten).
+   */
+  stationsOnDemand: z.boolean().default(false),
 });
 export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
 

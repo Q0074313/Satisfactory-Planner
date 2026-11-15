@@ -7,6 +7,7 @@ import { usePrefs } from '../../state/prefsStore';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore, type Tool } from '../../state/uiStore';
 import { Section } from '../../ui/fields';
+import { lockedNote, useUnlocks } from '../../state/unlocks';
 
 const CATEGORY_LABEL: Partial<Record<BuildingCategory, string>> = {
   production: N_('Produktion'),
@@ -43,6 +44,7 @@ export function LeftPanel() {
   const bindings = usePrefs((s) => s.bindings);
   const lang = usePrefs((s) => s.language);
   const [query, setQuery] = useState('');
+  const unlocks = useUnlocks();
   const factory = project.factories[factoryId];
   const key = (id?: string) => (id ? keyLabel(bindings, id, lang) : '');
 
@@ -211,7 +213,8 @@ export function LeftPanel() {
                 <li
                   key={r.id}
                   onClick={() => setTool({ kind: 'place', type: r.producedIn[0]!, recipeId: r.id, rotationDeg: 0 })}
-                  className={tool.kind === 'place' && !tool.buildingId && tool.recipeId === r.id ? 'active' : ''}
+                  className={`${tool.kind === 'place' && !tool.buildingId && tool.recipeId === r.id ? 'active' : ''} ${unlocks.recipeLocked(r.id) ? 'locked' : ''}`}
+                  title={lockedNote(unlocks, r.id) ?? undefined}
                 >
                   <span>
                     {localName(r.name)} {r.alternate && <span className="badge badge-info">{t('Alt')}</span>}
@@ -229,7 +232,12 @@ export function LeftPanel() {
               {list.map((b) => {
                 const bb = b.bounds!;
                 return (
-                  <li key={b.id} className={tool.kind === 'place' && !tool.buildingId && !tool.recipeId && tool.type === b.id ? 'active' : ''} onClick={() => setTool({ kind: 'place', type: b.id, recipeId: null, rotationDeg: 0 })}>
+                  <li
+                    key={b.id}
+                    className={`${tool.kind === 'place' && !tool.buildingId && !tool.recipeId && tool.type === b.id ? 'active' : ''} ${unlocks.buildingLocked(b.id) ? 'locked' : ''}`}
+                    title={lockedNote(unlocks, b.id) ?? undefined}
+                    onClick={() => setTool({ kind: 'place', type: b.id, recipeId: null, rotationDeg: 0 })}
+                  >
                     <span>{localName(b.name)}</span>
                     <span className="dim">
                       {+(bb.maxX - bb.minX).toFixed(1)} × {+(bb.maxY - bb.minY).toFixed(1)} m

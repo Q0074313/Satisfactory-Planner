@@ -233,7 +233,7 @@ function SiteSection({ plans, onPlace }: { plans: { id: string; label: string }[
               ))}
             </select>
           </Row>
-          <Row label={t('Takt')} hint={t('Takt aller Gewinnungsgebäude im Vorschlag')}>
+          <Row label={t('Takt')} hint={t('Höchster Takt der Gewinnungsgebäude im Vorschlag; über 100 % braucht je 50 % einen Energiesplitter')}>
             <NumberField value={cur.clock * 100} min={1} max={250} suffix="%" onCommit={(v) => setSites({ ...cur, planId, clock: v / 100 })} />
           </Row>
           <Row label={t('Suchen in')} plain>
@@ -317,6 +317,19 @@ function SiteDetail({ index, onPlace }: { index: number; onPlace: (c: { x: numbe
         </tbody>
       </table>
       <p className="dim small-text">{t('Weiteste Entfernung {d} m', { d: fmtNum(r.maxDistM, 0) })}</p>
+      {r.shards > 0 && (
+        <p className="small-text" data-testid="site-shards">
+          {t('Übertaktet: {n} Energiesplitter für {m} von {k} Gewinnungsgebäuden (je Vorkommen nur der nötige Takt, höchster {c} %). Strombedarf steigt überproportional.', {
+            n: r.shards,
+            m: r.picks.filter((x) => x.shards > 0).length,
+            k: r.picks.length,
+            c: fmtNum(Math.max(...r.picks.map((x) => x.clock)) * 100, 0),
+          })}
+        </p>
+      )}
+      {r.picks.some((x) => x.capped) && (
+        <p className="small-text warn-text">{t('Mindestens ein Vorkommen liefert mit diesem Takt mehr, als das schnellste Band bzw. Rohr abführt; gerechnet wird mit dessen Höchstwert.')}</p>
+      )}
       <button onClick={() => onPlace(r.center)} data-testid="site-place">
         {t('Fabrik hier platzieren')}
       </button>

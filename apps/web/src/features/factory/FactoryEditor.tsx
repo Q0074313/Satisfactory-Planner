@@ -286,6 +286,12 @@ function PlanEditor() {
     const v = vertical ? { vertical } : {};
     if (!def || free || step <= 0) return { floorId: fl, x: cursor.x, y: cursor.y, zOffsetM: 0, rotationDeg, ...v };
     const r0 = geo.rectOf(buildingOutline(def, { x: 0, y: 0, rotationDeg, vertical }));
+    // Umriss kein Vielfaches des Fangrasters (z. B. Rohrkreuzung 2,4 m): Mitte statt Ecke einrasten
+    const fits = (len: number) => Math.abs(len / step - Math.round(len / step)) < 1e-6;
+    if (!fits(r0.maxX - r0.minX) || !fits(r0.maxY - r0.minY)) {
+      const c = snapPoint(cursor, false);
+      return { floorId: fl, x: c.x, y: c.y, zOffsetM: 0, rotationDeg, ...v };
+    }
     const corner = snapPoint({ x: cursor.x + r0.minX, y: cursor.y + r0.minY }, false);
     return { floorId: fl, x: corner.x - r0.minX, y: corner.y - r0.minY, zOffsetM: 0, rotationDeg, ...v };
   }

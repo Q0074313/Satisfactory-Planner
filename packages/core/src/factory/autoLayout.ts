@@ -69,6 +69,12 @@ export interface AutoLayoutOptions {
    * durch die Decke zu den Maschinen.
    */
   logistics: boolean;
+  /**
+   * Flüssigkeitspuffer in der Busspur von Zwischenprodukten (Flüssigkeiten,
+   * die eine Linie herstellt und eine andere verbraucht), vor dem ersten
+   * Verbraucher. Gleicht Schwankungen im Rohrnetz aus.
+   */
+  fluidBuffers: boolean;
 }
 
 /** Punkt eines Entwurfs: lokale Lage, Etage (Index) und Höhe über dem Etagenboden. */
@@ -79,7 +85,7 @@ export interface DraftPoint {
   h: number;
 }
 
-export type DraftRole = 'machine' | 'splitter' | 'merger' | 'junction' | 'entry' | 'exit';
+export type DraftRole = 'machine' | 'splitter' | 'merger' | 'junction' | 'buffer' | 'entry' | 'exit';
 
 export interface DraftBuilding {
   key: string;
@@ -130,7 +136,7 @@ export interface LayoutDraft {
   /** Passt in die vorgegebene Fläche bzw. Etagenzahl. */
   fits: boolean;
   terminals: DraftTerminal[];
-  counts: { machines: number; splitters: number; mergers: number; junctions: number; entries: number; exits: number; lines: number; lanes: number };
+  counts: { machines: number; splitters: number; mergers: number; junctions: number; buffers: number; entries: number; exits: number; lines: number; lanes: number };
   /** Hinweise und Vereinfachungen dieses Entwurfs. */
   notes: string[];
 }
@@ -147,6 +153,7 @@ export const LAYOUT_DEFAULTS: AutoLayoutOptions = {
   foundations: true,
   crossings: 'avoid',
   logistics: false,
+  fluidBuffers: true,
 };
 
 const SPLITTER = 'Build_ConveyorAttachmentSplitter_C';
@@ -1337,6 +1344,49 @@ function buildVariant(
     });
     const dy = down ? 1 : -1;
     const nodePort = (nd: DraftBuilding, want: Vec2, dirs: PortDef['direction'][]) => portFacing(gd.building(nd.type)!, nd.rotationDeg, l.kind, dirs, want)!.id;
+    // Flüssigkeitspuffer bei Zwischenprodukten: im Abschnitt vor dem ersten Verbraucher, an einer
+    // Stelle, an der kein Abzweig einer anderen Spur den Bus quert
+    let buffer: { at: number; node: DraftBuilding } | null = null;
+    const intermediate = l.kind === 'pipe' && !l.exclusive && list.some((ev) => ev.end.kind === 'anchor' && ev.inflow > 0) && list.some((ev) => ev.end.kind === 'anchor' && ev.outflow > 0);
+    if (opts.fluidBuffers && intermediate) {
+      const bdef = gd.building(FLUID_BUFFER)!;
+      const half = Math.max(bdef.bounds!.maxY, -bdef.bounds!.minY);
+      const at = list.findIndex((ev, i) => i + 1 < list.length && list[i + 1]!.outflow > 0 && flowAfter[i]! > 1e-9);
+      const a = list[at];
+      const b = list[at + 1];
+      if (a && b) {
+        // Freie Stelle: Abstand zu den Knoten der Spur (Rohrkreuzung ±1,2 m) und zu allen Abgängen (Anschlusslinien)
+        const blocked = [...lanes.flatMap((o) => o.pairs.flatMap((q) => [endOf(q, 'src'), endOf(q, 'dst')].map((e) => eventY(o, e)))), ...[...sinks, ...sources].map((an) => an.y)];
+        const lo = Math.min(a.y, b.y) + half + 2.5;
+        const hi = Math.max(a.y, b.y) - half - 2.5;
+        let y: number | null = null;
+        for (let c = Math.round((lo + hi) / 2), k = 0; c - k >= lo || c + k <= hi; k++) {
+          for (const cand of [c - k, c + k]) {
+            if (y !== null || cand < lo || cand > hi) continue;
+            if (blocked.every((v) => Math.abs(v - cand) >= half + 2)) y = cand;
+          }
+          if (y !== null) break;
+        }
+        if (y === null) notes.add(tr('Flüssigkeitspuffer für {item} ausgelassen: kein freier Platz auf der Busspur.', { item: gd.name(l.itemId) }));
+        else {
+          const node: DraftBuilding = {
+            key: keys.next('b'),
+            type: FLUID_BUFFER,
+            role: 'buffer',
+            recipeId: null,
+            clock: 1,
+            ...onFloor(l.floor, busH - LINE_H),
+            x: l.x,
+            y,
+            rotationDeg: rotationFor(bdef, 'pipe-in-0', { x: 0, y: -dy }),
+            label: tr('Puffer: {item}', { item: gd.name(l.itemId) }),
+            itemId: l.itemId,
+          };
+          buildings.push(node);
+          buffer = { at, node };
+        }
+      }
+    }
     // Leitungen entlang der Spur
     for (let i = 0; i + 1 < list.length; i++) {
       const a = list[i]!;
@@ -1357,13 +1407,23 @@ function buildVariant(
       }
       // Etagenwechsel (nur Einzelspuren): Lift auf der Spur am Abgang
       if (!na && a.end.kind === 'anchor' && b.end.kind === 'anchor' && a.end.anchor.floor !== b.end.anchor.floor) wps.push(pt(a.y, busH, b.end.anchor.floor));
+      const split = wps.length;
       if (nb) to = { key: nb.key, portId: nodePort(nb, { x: 0, y: -dy }, l.kind === 'pipe' ? ['any'] : ['in']) };
       else {
         to = refAt(b.end, 'in');
         if (b.end.kind === 'exit') wps.push(...vert(exitPortY - 1.5, busH, busH));
         else if (b.end.kind === 'anchor') wps.push(...toAnchor(b.end.anchor, b.y, l.x));
       }
-      link(l.kind, l.itemId, flowAfter[i]!, from, to, wps);
+      if (buffer && buffer.at === i) {
+        // Abschnitt durch den Puffer: Zulauf hinten, Ablauf vorn; am Puffer auf dessen Anschlusshöhe statt auf Bushöhe
+        const bz = buffer.node.h + portZ(gd.building(FLUID_BUFFER)!);
+        const head = wps.slice(0, split);
+        const tail = wps.slice(split);
+        for (let k = head.length - 1; k >= 0 && Math.abs(head[k]!.h - busH) < EPS; k--) head[k]!.h = bz;
+        for (let k = 0; k < tail.length && Math.abs(tail[k]!.h - busH) < EPS; k++) tail[k]!.h = bz;
+        link(l.kind, l.itemId, flowAfter[i]!, from, { key: buffer.node.key, portId: 'pipe-in-0' }, head);
+        link(l.kind, l.itemId, flowAfter[i]!, { key: buffer.node.key, portId: 'pipe-out-0' }, to, tail);
+      } else link(l.kind, l.itemId, flowAfter[i]!, from, to, wps);
     }
     // Abzweige und Einspeisungen an den Knoten
     for (const [ev, nd] of nodes) {
@@ -1457,6 +1517,7 @@ function buildVariant(
         splitters: count('splitter'),
         mergers: count('merger'),
         junctions: count('junction'),
+        buffers: count('buffer'),
         entries: count('entry'),
         exits: count('exit'),
         lines: segments.length,

@@ -71,6 +71,31 @@
       "description": "Breite der Gleis-Kollisionsbox vor 1.2. Laut Wiki wurde die Hitbox in 1.2 verkleinert; der neue Wert ist nicht dokumentiert.",
       "sourceRef": { "source": "wiki", "detail": "Railway#Building_Limitations, Block_Signal#History (Patch 1.2.0.0)", "confidence": "unverified" }
     },
+    "progress.phase.0.maxTier": {
+      "value": 2, "unit": "Tier",
+      "description": "Vor der ersten Lieferung an den Weltraumlift: Tier 0, nach Abschluss von Tier 0 auch Tier 1 und 2.",
+      "sourceRef": { "source": "wiki", "detail": "Space_Elevator (Delivery unlocks), Milestones", "confidence": "documented" }
+    },
+    "progress.phase.1.maxTier": {
+      "value": 4, "unit": "Tier",
+      "description": "Phase 1 „Distribution Platform“ geliefert: Tier 3 und 4 frei.",
+      "sourceRef": { "source": "wiki", "detail": "Space_Elevator (Delivery unlocks), Milestones", "confidence": "documented" }
+    },
+    "progress.phase.2.maxTier": {
+      "value": 6, "unit": "Tier",
+      "description": "Phase 2 „Construction Dock“ geliefert: Tier 5 und 6 frei.",
+      "sourceRef": { "source": "wiki", "detail": "Space_Elevator (Delivery unlocks), Milestones", "confidence": "documented" }
+    },
+    "progress.phase.3.maxTier": {
+      "value": 8, "unit": "Tier",
+      "description": "Phase 3 „Main Body“ geliefert: Tier 7 und 8 frei.",
+      "sourceRef": { "source": "wiki", "detail": "Space_Elevator (Delivery unlocks), Milestones", "confidence": "documented" }
+    },
+    "progress.phase.4.maxTier": {
+      "value": 9, "unit": "Tier",
+      "description": "Phase 4 „Propulsion“ geliefert: Tier 9 frei.",
+      "sourceRef": { "source": "wiki", "detail": "Space_Elevator (Delivery unlocks), Milestones", "confidence": "documented" }
+    },
     "production.powerShard.maxSlots": {
       "value": 3, "unit": "Splitter",
       "description": "Maximal drei Energiesplitter je Gebäude (bis 250 % Takt).",

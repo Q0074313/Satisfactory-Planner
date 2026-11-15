@@ -9,6 +9,7 @@ import type { Finding } from '../validation/types.ts';
 import { cachedFactoryFlow } from '../factory/flow.ts';
 import { compareBalance } from './balance.ts';
 import { solveProduction } from './solver.ts';
+import { lockedRecipesOf } from '../progress/index.ts';
 
 const SRC = { label: 'Rezepte aus den Satisfactory-Docs (Spieldaten)' };
 
@@ -66,7 +67,7 @@ export function checkPlan(p: Project, gd: GameDataIndex, planId: string, opts: {
   const out: Finding[] = [];
   const ref = { table: 'productionPlans' as const, id: planId };
   const existing = Object.values(p.buildings).filter((b) => b.factoryId === plan.factoryId);
-  const res = solveProduction(gd, plan, { existingMachines: existing });
+  const res = solveProduction(gd, plan, { existingMachines: existing, locked: lockedRecipesOf(p, gd) });
   if (res.status !== 'optimal') {
     out.push(
       makeFinding(PROD_SOLVER, [ref], {

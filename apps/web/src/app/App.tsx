@@ -28,6 +28,7 @@ import { MapProperties } from '../features/map/MapProperties';
 import { SettingsDialog } from '../features/settings/SettingsDialog';
 import { DiagnoseDialog } from '../features/findings/DiagnoseDialog';
 import { AutoLayoutDialog } from '../features/autolayout/AutoLayoutDialog';
+import { AutoConnectDialog } from '../features/factory/AutoConnectDialog';
 import { BlackboxView } from '../features/factory/BlackboxView';
 import { RecipeBook } from '../features/production/RecipeBook';
 import { HelpMenu, TourOverlay, WelcomeCard } from '../features/tutorial/Tour';
@@ -77,6 +78,7 @@ export function App() {
   const settingsOpen = useUiStore((s) => s.settingsOpen);
   const diagnoseOpen = useUiStore((s) => s.diagnoseOpen);
   const autoLayoutOpen = useUiStore((s) => s.autoLayout !== null);
+  const autoConnectOpen = useUiStore((s) => s.autoConnect !== null);
   const recipeBookOpen = useUiStore((s) => s.recipeBook !== null);
   const [booting, setBooting] = useState(true);
   const [showList, setShowList] = useState(false);
@@ -107,6 +109,7 @@ export function App() {
       {settingsOpen && <SettingsDialog />}
       {diagnoseOpen && project && !showList && <DiagnoseDialog />}
       {autoLayoutOpen && project && !showList && <AutoLayoutDialog />}
+      {autoConnectOpen && project && !showList && <AutoConnectDialog />}
       {recipeBookOpen && project && !showList && <RecipeBook />}
       <TourOverlay />
     </div>

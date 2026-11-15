@@ -91,7 +91,8 @@ export function findOverlaps(shapes: Shape[], cell = 16): { a: Shape; b: Shape; 
           for (const pb of b.parts) {
             if (pa.zMax <= pb.zMin + 1e-6 || pb.zMax <= pa.zMin + 1e-6) continue;
             if (!rectsOverlap(pa.rect, pb.rect)) continue;
-            if (!convexOverlap(pa.polygon, pb.polygon, 1e-4)) continue;
+            // 5 mm Toleranz: aneinanderstoßende, gedrehte Gebäude (Lage auf Millimeter gerundet) überschneiden sich nicht
+            if (!convexOverlap(pa.polygon, pb.polygon, 0.005)) continue;
             any = true;
             if (!pa.soft && !pb.soft) hard = true;
           }

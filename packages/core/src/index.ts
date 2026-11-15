@@ -45,3 +45,8 @@ export * from './map/checks.ts';
 export * from './map/suggest.ts';
 export * as mapOps from './project/ops/map.ts';
 export * from './project/ops/stationSync.ts';
+export * from './progress/index.ts';
+export * from './factory/autoConnect.ts';
+export * from './import/saveTypes.ts';
+export * from './import/fromSave.ts';
+export * from './project/ops/reassign.ts';

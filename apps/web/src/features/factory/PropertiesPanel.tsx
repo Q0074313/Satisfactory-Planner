@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
+  reassignToFactory,
   buildingHeight,
   cachedFactoryFlow,
   canBeVertical,
@@ -29,6 +30,7 @@ import { N_, t } from '../../i18n';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
 import { useMapStore } from '../../state/mapStore';
+import { lockedNote, useUnlocks } from '../../state/unlocks';
 import { Badge, ConfidenceBadge, fmtNum, fmtRate, NumberField, Row, Section, Segmented, TextField } from '../../ui/fields';
 import { ROUTING_LABELS, ROUTING_ORDER } from './EditorToolbar';
 
@@ -48,10 +50,53 @@ export function PropertiesPanel() {
   else if (selection.length === 1 && selection[0]!.table === 'areas') body = <AreaProps id={selection[0]!.id} />;
   else if (selection.length === 1 && selection[0]!.table === 'measurements') body = <MeasurementProps id={selection[0]!.id} />;
   else body = <p className="dim pad">{t('{n} Objekte ausgewählt.', { n: selection.length })}</p>;
+  const areaIds = selection.filter((s) => s.table === 'areas').map((s) => s.id);
   return (
     <aside className="panel panel-right" data-tour="properties">
       {body}
+      {(buildings.length > 0 || areaIds.length > 0) && <ReassignSection buildingIds={buildings.map((b) => b.id)} areaIds={areaIds} />}
     </aside>
+  );
+}
+
+/** Auswahl einer anderen (oder neuen) Fabrik zuweisen; die Lage in der Welt bleibt. */
+function ReassignSection({ buildingIds, areaIds }: { buildingIds: string[]; areaIds: string[] }) {
+  const project = useProjectStore((s) => s.project)!;
+  const apply = useProjectStore((s) => s.apply);
+  const current = useUiStore((s) => s.factoryId);
+  const others = Object.values(project.factories).filter((f) => f.id !== current);
+  const [target, setTarget] = useState<string>('new');
+  const [name, setName] = useState(t('Neue Fabrik'));
+  const run = () => {
+    const res = apply(t('Anderer Fabrik zuweisen'), (d, g) => reassignToFactory(d, g, { buildingIds, areaIds }, target === 'new' ? { newName: name } : { factoryId: target }));
+    if (!res) return;
+    const ui = useUiStore.getState();
+    ui.toast(t('{n} Objekte der Fabrik „{name}“ zugewiesen.', { n: res.buildings + res.areas, name: useProjectStore.getState().project!.factories[res.factoryId]?.name ?? '' }));
+    for (const n of res.notes) ui.toast(n);
+    ui.select([]);
+  };
+  return (
+    <Section title={t('Fabrik zuweisen')}>
+      <p className="dim small-text">{t('Auswahl einer anderen Fabrik zuweisen; die Lage in der Welt bleibt. Leitungen über die neue Grenze werden zu Transportaufträgen.')}</p>
+      <Row label={t('Ziel')}>
+        <select value={target} onChange={(e) => setTarget(e.target.value)} data-testid="reassign-target">
+          <option value="new">{t('neue Fabrik …')}</option>
+          {others.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+            </option>
+          ))}
+        </select>
+      </Row>
+      {target === 'new' && (
+        <Row label={t('Name')}>
+          <input value={name} onChange={(e) => setName(e.target.value)} data-testid="reassign-name" />
+        </Row>
+      )}
+      <button className="small" onClick={run} data-testid="reassign-run">
+        {t('Zuweisen')}
+      </button>
+    </Section>
   );
 }
 
@@ -86,6 +131,14 @@ function FactoryProps({ factoryId }: { factoryId: string }) {
         </label>
         <button className="small" data-testid="factory-autolayout" onClick={() => useUiStore.getState().openAutoLayout(factoryId)}>
           {t('Layout automatisch erzeugen …')}
+        </button>
+        <button
+          className="small"
+          data-testid="factory-autoconnect"
+          title={t('Gebäude selbst setzen, Bänder, Rohre, Splitter und Zusammenführungen legt der Planer laut Bedarf der Maschinen an')}
+          onClick={() => useUiStore.getState().openAutoConnect(factoryId)}
+        >
+          {t('Automatisch verbinden …')}
         </button>
         <Row label={t('Kartenstandort')} plain>
           {f.map ? (
@@ -217,6 +270,7 @@ function BuildingProps({ building: b }: { building: Building }) {
   const apply = useProjectStore((s) => s.apply);
   const def = gd.building(b.type);
   const recipes = useMemo(() => recipeOptions(gd, b.type), [gd, b.type]);
+  const unlocks = useUnlocks();
   const resources = useMemo(() => ops.extractableResources(gd, b.type), [gd, b.type]);
   const rates = machineRates(gd, b);
   const factory = project.factories[b.factoryId]!;
@@ -247,8 +301,9 @@ function BuildingProps({ building: b }: { building: Building }) {
             <select value={b.recipeId ?? ''} onChange={(e) => upd(t('Rezept'), { recipeId: e.target.value || null })}>
               <option value="">{t('– kein Rezept –')}</option>
               {recipes.map((r) => (
-                <option key={r.id} value={r.id}>
+                <option key={r.id} value={r.id} className={unlocks.recipeLocked(r.id) ? 'locked' : undefined}>
                   {localName(r.name)}
+                  {unlocks.recipeLocked(r.id) ? ` – ${lockedNote(unlocks, r.id)}` : ''}
                 </option>
               ))}
             </select>

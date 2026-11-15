@@ -221,6 +221,36 @@ export interface GdVehicle {
   sourceRef: SourceRef;
 }
 
+/**
+ * Art eines Schaltplans (Docs `FGSchematic.mType`):
+ * - `start`: Startrezepte (immer frei)
+ * - `hub`: HUB-Upgrades (Tier 0)
+ * - `milestone`: Meilensteine (Tier 1–9)
+ * - `mam`: M.A.M.-Forschung
+ * - `alternate`: Alternativrezept (Festplatte)
+ * - `other`: von einem anderen Schaltplan freigeschaltet (z. B. „Oil Processing 2“)
+ */
+export type SchematicKind = 'start' | 'hub' | 'milestone' | 'mam' | 'alternate' | 'other';
+
+/** Schaltplan mit den Rezepten und Gebäuden, die er freischaltet. */
+export interface GdSchematic {
+  id: string;
+  name: LocalizedName;
+  kind: SchematicKind;
+  /** Docs `mTechTier` (bei M.A.M. und Alternativen ohne Bedeutung). */
+  tier: number;
+  /** Nur M.A.M.: Forschungsbaum (Ordnername im Spiel, z. B. `Caterium`). */
+  tree?: string;
+  /** Freigeschaltete Rezepte des Planers (ohne Gebäuderezepte). */
+  recipes: RecipeId[];
+  /** Freigeschaltete Gebäude (über ihre Baurezepte). */
+  buildings: BuildingId[];
+  /** Dadurch freigeschaltete weitere Schaltpläne. */
+  unlocks: string[];
+  /** Voraussetzungen (gekaufte Schaltpläne). */
+  requires: string[];
+}
+
 /** Kuratierter Einzelwert mit Quelle (z. B. Zuglängen, Kurvenradien). */
 export interface GdFact {
   value: number;
@@ -237,4 +267,6 @@ export interface GameData {
   facts: Record<string, GdFact>;
   /** Straßenfahrzeuge (ab Datensätzen mit Fahrzeugdaten; fehlt in älteren). */
   vehicles?: Record<string, GdVehicle>;
+  /** Schaltpläne (Meilensteine, M.A.M., Alternativen); fehlt in älteren Datensätzen. */
+  schematics?: Record<string, GdSchematic>;
 }

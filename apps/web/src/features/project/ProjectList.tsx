@@ -10,12 +10,14 @@ import { useUiStore } from '../../state/uiStore';
 import { N_, t } from '../../i18n';
 import type { ExampleKind } from '@satis/core';
 import { usePrefs } from '../../state/prefsStore';
+import { SaveImportDialog } from '../import/SaveImportDialog';
 import { versionLabel } from '../../version';
 
 export function ProjectList({ onClose }: { onClose?: () => void }) {
   const server = useServer((s) => s.available) === true;
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [name, setName] = useState(t('Mein Projekt'));
+  const [saveImport, setSaveImport] = useState(false);
   const lang = usePrefs((s) => s.language);
   const refresh = () => listProjects().then(setProjects, (e: Error) => useUiStore.getState().toast(e.message, 'error'));
   useEffect(() => {
@@ -50,8 +52,20 @@ export function ProjectList({ onClose }: { onClose?: () => void }) {
           {t('Neues Projekt')}
         </button>
         <button onClick={async () => done(await importFromFile())}>{t('JSON importieren …')}</button>
+        <button onClick={() => setSaveImport(true)} data-testid="open-save-import" title={t('Fabriken, Produktion und Schienennetz aus einem Satisfactory-Spielstand (.sav) übernehmen')}>
+          {t('Spielstand importieren …')}
+        </button>
         {onClose && <button onClick={onClose}>{t('Abbrechen')}</button>}
       </div>
+      {saveImport && (
+        <SaveImportDialog
+          onClose={() => setSaveImport(false)}
+          onOpened={() => {
+            setSaveImport(false);
+            onClose?.();
+          }}
+        />
+      )}
       <ExamplePicker onOpened={() => onClose?.()} />
       {server ? (
         <>

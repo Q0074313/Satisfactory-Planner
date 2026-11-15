@@ -28,6 +28,8 @@ import { boostFactor, machinePower } from './machine.ts';
 export interface SolveOptions {
   /** Vorhandene Maschinen (für `limitToExistingMachines`). */
   existingMachines?: Building[];
+  /** Gesperrte Rezepte (Freischaltung, siehe `unlockState`); werden nicht verwendet. */
+  locked?: ReadonlySet<string>;
 }
 
 export interface RecipeResult {
@@ -95,11 +97,11 @@ export function resourceWeight(gd: GameDataIndex, itemId: string): number {
 }
 
 /** Rezepte, die im Plan zulässig sind. */
-export function allowedRecipes(gd: GameDataIndex, plan: ProductionPlan): GdRecipe[] {
+export function allowedRecipes(gd: GameDataIndex, plan: ProductionPlan, locked?: ReadonlySet<string>): GdRecipe[] {
   const enabled = new Set(plan.enabledAlternates);
   const disabled = new Set(plan.disabledRecipes);
   // Kraftwerke nur als feste Vorgabe (plan.power.generators), nicht frei wählbar
-  return Object.values(gd.data.recipes).filter((r) => !disabled.has(r.id) && (!r.alternate || enabled.has(r.id)) && !r.generator);
+  return Object.values(gd.data.recipes).filter((r) => !disabled.has(r.id) && (!r.alternate || enabled.has(r.id)) && !r.generator && !locked?.has(r.id));
 }
 
 interface Variant {
@@ -119,10 +121,12 @@ export function solveProduction(gd: GameDataIndex, plan: ProductionPlan, opts: S
     tr('Somersloops nur bei „vorhandene Maschinen“ berücksichtigt.'),
     tr('Wasser gilt als unbegrenzt verfügbar, sofern keine Obergrenze angegeben ist.'),
   ];
-  const generators = plan.power.generators.filter((g) => g.count > 0 && gd.recipe(g.recipeId)?.generator);
+  const lockedGen = plan.power.generators.filter((g) => g.count > 0 && opts.locked?.has(g.recipeId));
+  const generators = plan.power.generators.filter((g) => g.count > 0 && gd.recipe(g.recipeId)?.generator && !opts.locked?.has(g.recipeId));
+  if (lockedGen.length) assumptions.push(tr('Nicht freigeschaltete Kraftwerke bleiben unberücksichtigt: {list}.', { list: lockedGen.map((g) => gd.name(g.recipeId)).join(', ') }));
   if (generators.length) assumptions.push(tr('Kraftwerke mit vorgegebener Anzahl bei 100 % Takt; der Strombedarf der Maschinen wird nicht gegengerechnet.'));
   const maximize = plan.mode === 'maximize';
-  const recipes = allowedRecipes(gd, plan);
+  const recipes = allowedRecipes(gd, plan, opts.locked);
 
   // Rezeptvarianten (bei vorhandenen Maschinen je Somersloop-Stufe)
   const variants: Variant[] = [];

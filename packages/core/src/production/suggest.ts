@@ -64,7 +64,7 @@ export function suggestAlternates(gd: GameDataIndex, plan: ProductionPlan, opts:
   const enabled = new Set(plan.enabledAlternates);
   const disabled = new Set(plan.disabledRecipes);
   const candidatesAll = Object.values(gd.data.recipes)
-    .filter((r) => r.alternate && !enabled.has(r.id) && !disabled.has(r.id))
+    .filter((r) => r.alternate && !enabled.has(r.id) && !disabled.has(r.id) && !opts.locked?.has(r.id))
     .map((r) => r.id);
   const evaluate = (ids: string[]): AlternateSuggestion | null => {
     const r = solveProduction(gd, { ...plan, enabledAlternates: [...plan.enabledAlternates, ...ids] }, opts);

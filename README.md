@@ -139,6 +139,8 @@ Ein Projekt mit einer **neueren** Version als der Server kennt, wird abgelehnt s
 | 0.7 | Automatisches Fabriklayout (Varianten Reihen/kompakt/Etagen, Prüfung im Durchsatzmodell), Blackbox-Fabriken, Rezepte nachschlagen und vergleichen | ✅ |
 | 0.8 | Anschlusslagen aus den Spielpaketen (Lage, Höhe, Richtung), Auto-Layout und Beispiele damit, 3D-Ansicht der Fabrik (nur ansehen; 0.8.1/0.8.2: Namen, Infos beim Überfahren, Flussrichtung animierbar, Fundamentraster, Stockwerk als Schnitt), kürzere Wege und nur nötige Höhen im Auto-Layout, verschiebbare Knoten im Produktionsdiagramm | ✅ |
 
+| 0.9 | Spielstand importieren (Fabriken, Bänder und Rohre, Produktionspläne, Schienennetz mit Zügen, Spielfortschritt; im Browser gelesen), Freischaltung nach Phase/HUB-Tier und M.A.M. (gesperrte Rezepte und Gebäude ausgegraut, in Plänen nicht genutzt), Gebäude selbst setzen und automatisch verbinden, Flüssigkeitspuffer im Auto-Layout, Weltraster um 4 m korrigiert; 0.9.1: Import mit Fundamenten, Signalrichtung geprüft, Gewinnung an ihrer Fabrik, Namen nach Endprodukten; 0.9.2: Rohre in beide Richtungen, Stationen nach Bedarf, Logistikebenen, Gebäude einer anderen Fabrik zuweisen | ✅ |
+
 Details und Abnahmekriterien: [docs/ENTWICKLUNGSPLAN.md](docs/ENTWICKLUNGSPLAN.md).
 
 ## Dokumentation

@@ -68,6 +68,11 @@ export function machinePower(def: GdBuilding, recipe: GdRecipe | undefined, cloc
 }
 
 /** Förderrate eines Gewinnungsgebäudes pro Minute (Feststoffe Stück, Flüssigkeiten m³). */
+/** Benötigte Energiesplitter für einen Takt (je Splitter +50 %, Wiki „Power Shard“). */
+export function shardsForClock(clock: number): number {
+  return Math.max(0, Math.ceil((clock - 1) / 0.5 - 1e-9));
+}
+
 export function extractionRate(gd: GameDataIndex, def: GdBuilding, extraction: Pick<Extraction, 'itemId' | 'purity'>, clock: number): number {
   const ex = def.extractor;
   if (!ex) return 0;

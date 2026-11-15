@@ -12,6 +12,7 @@ import type { Building, Factory, FactoryMapPlacement, Project, TransportOrder } 
 import { extractionRate } from '../production/machine.ts';
 import { solveProduction } from '../production/solver.ts';
 import type { MapNode } from './types.ts';
+import { lockedRecipesOf } from '../progress/index.ts';
 
 export * from './types.ts';
 
@@ -20,11 +21,14 @@ export const NODE_SNAP_M = 8;
 
 /**
  * Weltraster des Spiels (Wiki „World grid“): ein Raster in globalen
- * Koordinaten, 8 m waagrecht, nur in Himmelsrichtungen. Der Planer legt die
- * Fundamentkanten auf Vielfache von 8 m, deckungsgleich mit dem gezeichneten
- * Weltraster (welcher Punkt des Fundaments im Spiel einrastet, ist nicht belegt).
+ * Koordinaten, 8 m waagrecht, nur in Himmelsrichtungen. Im Spiel liegen die
+ * Fundament-Mittelpunkte auf Vielfachen von 8 m (aus Spielständen: Lage der
+ * Fundamente), die Kanten also bei 8k + 4 m. Der Planer legt die
+ * Fundamentkanten dorthin, deckungsgleich mit dem gezeichneten Weltraster.
  */
 export const WORLD_GRID_M = 8;
+/** Versatz der Fundamentkanten gegenüber den Vielfachen von 8 m. */
+export const WORLD_GRID_OFFSET_M = 4;
 
 export function toWorldOf(m: FactoryMapPlacement, local: Vec2): Vec2 {
   return add(rotate(local, m.rotationDeg), { x: m.x, y: m.y });
@@ -87,7 +91,7 @@ export function blackboxSideM(p: Project, gd: GameDataIndex, factoryId: string):
   let area = 0;
   for (const plan of Object.values(p.productionPlans)) {
     if (plan.factoryId !== factoryId) continue;
-    for (const r of solveProduction(gd, plan).recipes) {
+    for (const r of solveProduction(gd, plan, { locked: lockedRecipesOf(p, gd) }).recipes) {
       const b = gd.building(r.building)?.bounds;
       if (b) area += r.machinesCeil * (b.maxX - b.minX + 2) * (b.maxY - b.minY + 2);
     }
@@ -124,7 +128,8 @@ export function gridAnchor(p: Project, factoryId: string): Vec2 {
 export function snapToWorldGrid(p: Project, factoryId: string, m: FactoryMapPlacement): FactoryMapPlacement {
   const anchor = rotate(gridAnchor(p, factoryId), m.rotationDeg);
   const w = add(anchor, { x: m.x, y: m.y });
-  const snapped = { x: snap(w.x, WORLD_GRID_M), y: snap(w.y, WORLD_GRID_M) };
+  const g = (v: number) => snap(v - WORLD_GRID_OFFSET_M, WORLD_GRID_M) + WORLD_GRID_OFFSET_M;
+  const snapped = { x: g(w.x), y: g(w.y) };
   const o = sub(snapped, anchor);
   // Rundungsrauschen (z. B. 0,1 + 0,2) vermeiden
   const r = (v: number) => Math.round(v * 1e6) / 1e6;

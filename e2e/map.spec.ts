@@ -56,8 +56,9 @@ test('Karte: Vorkommen anklicken, filtern, Fabrik platzieren, ziehen, drehen, en
   await page.mouse.move(c.x + 3, c.y + 3);
   await page.mouse.click(c.x + 3, c.y + 3);
   const m = await projectState<{ x: number; y: number; rotationDeg: number }>(page, '(p) => Object.values(p.factories)[0].map');
-  expect(Math.abs(m.x % 8)).toBe(0);
-  expect(Math.abs(m.y % 8)).toBe(0);
+  // Weltraster (0.9): Fundamentkanten bei 8k + 4 m
+  expect((((m.x - 4) % 8) + 8) % 8).toBe(0);
+  expect((((m.y - 4) % 8) + 8) % 8).toBe(0);
   expect(Math.abs(m.x - node.x)).toBeLessThan(40);
   await expect(page.getByTestId('map-factories')).toContainText('auf der Karte');
 

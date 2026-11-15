@@ -235,7 +235,50 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
       outPorts: def && (role === 'machine' || role === 'extractor') ? outputPortAssignment(gd, def, rates.outputs) : new Map(),
     });
   }
+  // Stationen nach Bedarf: entladende Übergaben ohne Transportauftrag liefern den Bedarf der Maschinen dahinter
+  if (p.settings.stationsOnDemand && !ctx.imports) {
+    let onDemand = 0;
+    for (const n of nodes.values()) {
+      if (n.role !== 'platform-unload' || n.rates.outputs.length) continue;
+      const need = new Map<string, number>();
+      const seen = new Set<string>([n.b.id]);
+      const queue = n.outLinks.map((l) => ({ id: l.to.buildingId, kind: l.kind }));
+      while (queue.length) {
+        const { id, kind } = queue.shift()!;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const m = nodes.get(id);
+        if (!m) continue;
+        if (m.role === 'machine')
+          for (const x of m.rates.inputs) {
+            if (((gd.item(x.itemId)?.form ?? 'solid') === 'solid') === (kind === 'belt')) need.set(x.itemId, (need.get(x.itemId) ?? 0) + x.perMin);
+          }
+        else if (m.role === 'pass') for (const l of m.outLinks) queue.push({ id: l.to.buildingId, kind: l.kind });
+      }
+      if (!need.size) continue;
+      n.rates.outputs = [...need].map(([itemId, perMin]) => ({ itemId, perMin }));
+      onDemand++;
+    }
+    if (onDemand) assumptions.push(tr('{n} entladende Stationen ohne Transportauftrag liefern nach Bedarf der Maschinen dahinter (Annahme, Projekteinstellung).', { n: onDemand }));
+  }
   const live = links.filter((l) => nodes.has(l.from.buildingId) && nodes.has(l.to.buildingId));
+  // Rohre zwischen richtungsfreien Anschlüssen (Rohrkreuzungen, Flüssigkeitspuffer) fließen wie im Spiel in
+  // beide Richtungen: zusätzliche Gegenrichtung (`<id>~r`), gemeinsame Kapazität
+  const twinOf = new Map<string, string>();
+  const anyPort = (n: Node, portId: string) => n.ports.find((x) => x.id === portId)?.direction === 'any';
+  for (const l of [...live]) {
+    if (l.kind !== 'pipe') continue;
+    const a = nodes.get(l.from.buildingId)!;
+    const b = nodes.get(l.to.buildingId)!;
+    if (a.role !== 'pass' || b.role !== 'pass' || !anyPort(a, l.from.portId) || !anyPort(b, l.to.portId)) continue;
+    const r: LogisticsLink = { ...l, id: `${l.id}~r`, from: l.to, to: l.from };
+    twinOf.set(r.id, l.id);
+    live.push(r);
+    b.outLinks.push(r);
+    a.inLinks.push(r);
+  }
+  if (twinOf.size) assumptions.push(tr('Rohre zwischen Rohrkreuzungen bzw. Flüssigkeitspuffern fließen in beide Richtungen.'));
+  const capKey = (l: LogisticsLink) => twinOf.get(l.id) ?? l.id;
   const dIn = direct.filter((d) => d.dir === 'in' && nodes.has(d.buildingId));
   const dOut = direct.filter((d) => d.dir === 'out' && nodes.has(d.buildingId));
 
@@ -319,11 +362,11 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
     };
     for (const l of live) {
       const items = candidates.get(l.id)!;
-      if (capped) constraints.set(`cap:${l.id}`, { max: capacityOf(l) });
+      if (capped) constraints.set(`cap:${capKey(l)}`, { max: capacityOf(l) });
       for (const i of items) {
         const v = `f:${l.id}:${i}`;
         addCoef(v, 'obj', -1e-6);
-        if (capped) addCoef(v, `cap:${l.id}`, 1);
+        if (capped) addCoef(v, `cap:${capKey(l)}`, 1);
       }
     }
     // Direkte Leitungen zu anderen Fabriken: Zu- bzw. Abfluss am Anschluss, höchstens Auftragsmenge (bzw. Kapazität)
@@ -402,9 +445,13 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
 
   const linkResults = new Map<string, FlowLinkResult>();
   for (const l of live) {
-    const items = candidates.get(l.id)!;
-    const cap = items.map((i) => ({ itemId: i, perMin: get(capped.val, `f:${l.id}:${i}`) })).filter((x) => x.perMin > EPS);
-    const req = items.map((i) => ({ itemId: i, perMin: get(uncapped.val, `f:${l.id}:${i}`) })).filter((x) => x.perMin > EPS);
+    if (twinOf.has(l.id)) continue;
+    // Beide Richtungen eines richtungsfreien Rohrs zusammen
+    const twin = `${l.id}~r`;
+    const items = [...new Set([...candidates.get(l.id)!, ...(candidates.get(twin) ?? [])])];
+    const both = (val: Map<string, number>, i: string) => get(val, `f:${l.id}:${i}`) + get(val, `f:${twin}:${i}`);
+    const cap = items.map((i) => ({ itemId: i, perMin: both(capped.val, i) })).filter((x) => x.perMin > EPS);
+    const req = items.map((i) => ({ itemId: i, perMin: both(uncapped.val, i) })).filter((x) => x.perMin > EPS);
     linkResults.set(l.id, {
       linkId: l.id,
       kind: l.kind,
@@ -485,6 +532,7 @@ export function factoryFlowDeps(p: Project, factoryId: string): unknown[] {
     ...Object.values(p.buildings).filter((b) => b.factoryId === factoryId),
     ...Object.values(p.links).filter((l) => l.factoryId === factoryId),
     ...Object.values(p.transportOrders).filter((o) => o.toFactoryId === factoryId || o.fromFactoryId === factoryId),
+    p.settings.stationsOnDemand,
   ];
 }
 
