@@ -1531,4 +1531,8 @@ export const UI_EN: Record<string, string> = {
   "Jetzt prüfen": "Check now",
   "Updates": "Updates",
   "Beim Start wird auf GitHub nachgesehen, ob es eine neuere Version gibt.": "On start, the app checks GitHub for a newer version.",
+  "Öffnet auf GitHub einen neuen Fehlerbericht (GitHub-Konto nötig). Version und Browser sind vorausgefüllt.": "Opens a new bug report on GitHub (GitHub account required). Version and browser are filled in.",
+  "Fehler melden": "Report a bug",
+  "Fehler gefunden?": "Found a bug?",
+  "Der Planer ist noch in Entwicklung, Fehler sind möglich. Meldungen gehen als Issue an GitHub.": "The planner is still in development, bugs may occur. Reports go to GitHub as an issue.",
 };

@@ -1,0 +1,59 @@
+name: Fehler melden / Bug report
+description: Etwas funktioniert nicht wie erwartet. / Something does not work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke für die Meldung! Der Planer ist noch in Entwicklung, Fehler sind möglich.
+        Bitte kurz beschreiben, was passiert ist und wie es sich nachstellen lässt. Deutsch oder Englisch.
+
+        Thanks for reporting! The planner is still in development, bugs may occur. German or English is fine.
+  - type: textarea
+    id: what
+    attributes:
+      label: Was ist passiert? / What happened?
+      description: Und was hättest du stattdessen erwartet? / And what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Schritte zum Nachstellen / Steps to reproduce
+      placeholder: |
+        1. Ansicht „Fabrikgrundriss“ öffnen
+        2. …
+        3. Fehler erscheint
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Steht oben neben „Satis Planner“, z. B. v0.10.0. / Shown next to “Satis Planner”.
+      placeholder: v0.10.0
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Betriebsart / Mode
+      options:
+        - App über GitHub (github.io)
+        - Eigener Server / own server
+        - Lokal entwickelt (npm run dev)
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser und Betriebssystem / Browser and OS
+      placeholder: z. B. Chrome 140 unter Windows 11
+  - type: textarea
+    id: project
+    attributes:
+      label: Projekt oder Screenshot / Project or screenshot
+      description: |
+        Am hilfreichsten: das Projekt als JSON exportieren (Strg+E) und hier hineinziehen, dazu ein Screenshot.
+        Most helpful: export the project as JSON (Ctrl+E) and drag it here, plus a screenshot.
+        Achtung: Alles hier ist öffentlich sichtbar. / Note: everything here is public.

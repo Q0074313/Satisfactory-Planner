@@ -8,6 +8,7 @@ Planungswerkzeug für Satisfactory 1.2 (Produktion, Fabrikgrundriss, Schienennet
 - **Daneben:** Betrieb auf dem eigenen Server (siehe Deployment) bleibt bis auf Weiteres bestehen. Neue Funktionen müssen in **beiden** Betriebsarten laufen; nichts darf den Server voraussetzen, nichts darf ohne Internet kaputtgehen.
 - **Eigenständige Ausgabe** (`SATIS_STANDALONE=1`, Unterpfad `SATIS_BASE`): fragt nie `/api` an (`useServer.check()`), Adresszeile über `APP_BASE` statt „/“, Manifest + `sw.js` erzeugt in `apps/web/vite.config.ts` (Seitenaufrufe Netz zuerst, sonst Cache; ein neuer Build übernimmt erst, wenn alle Fenster zu sind). Keine absoluten Pfade wie `/assets/…` im Code verwenden.
 - **Versionsprüfung** (`apps/web/src/state/updates.ts`): beim Start `GET api.github.com/repos/<repo>/releases/latest` (Repo aus `repository` in package.json), Ergebnis 6 h im localStorage, Hinweis `UpdateBadge` in Kopfzeile und Startseite, Stand in ⚙ → Updates. Nicht im Entwicklungsmodus (e2e). Server-CSP erlaubt dafür `connect-src https://api.github.com`.
+- **Fehlerberichte:** GitHub-Issues mit Vorlage `.github/ISSUE_TEMPLATE/bug_report.yml`; „Fehler melden“ in der App (`features/updates/BugReport.tsx`) füllt die Felder `version` und `browser` per URL vor – Feld-IDs der Vorlage nicht umbenennen.
 - Verworfen: einzelne HTML-Datei (`file://`: keine Modul-Skripte/-Worker, kein `pushState`, IndexedDB unsicher), Desktop-Hülle (Tauri) erst, falls die PWA nicht reicht.
 
 ## Architektur

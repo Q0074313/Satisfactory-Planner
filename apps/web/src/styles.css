@@ -1214,6 +1214,11 @@ g.fn-shortfall rect {
   white-space: nowrap;
 }
 
+.bug-report-link {
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
 /* Hinweis auf eine neuere Version (GitHub) */
 .update-badge {
   font-size: 12px;

@@ -13,6 +13,7 @@ import { usePrefs } from '../../state/prefsStore';
 import { SaveImportDialog } from '../import/SaveImportDialog';
 import { versionLabel } from '../../version';
 import { UpdateBadge } from '../updates/UpdateNotice';
+import { BugReportLink } from '../updates/BugReport';
 
 export function ProjectList({ onClose }: { onClose?: () => void }) {
   const server = useServer((s) => s.available) === true;
@@ -44,7 +45,8 @@ export function ProjectList({ onClose }: { onClose?: () => void }) {
           })}
         </p>
         <p>
-          <button onClick={() => useUiStore.getState().setSettingsOpen(true)}>⚙ {t('Einstellungen (Sprache, Darstellung, Tasten)')}</button>
+          <button onClick={() => useUiStore.getState().setSettingsOpen(true)}>⚙ {t('Einstellungen (Sprache, Darstellung, Tasten)')}</button>{' '}
+          <BugReportLink className="bug-report-link" />
         </p>
       </header>
       <div className="project-new">

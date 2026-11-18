@@ -12,8 +12,9 @@ import { defaultCanvasColor } from '../../canvas/draw';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
 import { Badge, Dialog, Row, Section, Segmented } from '../../ui/fields';
-import { APP_BUILT, APP_COMMIT, APP_VERSION } from '../../version';
+import { APP_BUILT, APP_COMMIT, APP_REPO, APP_VERSION } from '../../version';
 import { UpdateStatus } from '../updates/UpdateNotice';
+import { BugReportLink } from '../updates/BugReport';
 import { ProgressSection } from '../project/ProgressSection';
 
 type Tab = 'general' | 'display' | 'keys' | 'data';
@@ -86,6 +87,11 @@ function GeneralTab() {
       <Row label={t('Updates')} hint={t('Beim Start wird auf GitHub nachgesehen, ob es eine neuere Version gibt.')}>
         <UpdateStatus />
       </Row>
+      {APP_REPO && (
+        <Row label={t('Fehler gefunden?')} hint={t('Der Planer ist noch in Entwicklung, Fehler sind möglich. Meldungen gehen als Issue an GitHub.')}>
+          <BugReportLink />
+        </Row>
+      )}
       <AboutNote />
     </Section>
   );
