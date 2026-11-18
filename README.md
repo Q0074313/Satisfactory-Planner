@@ -51,7 +51,7 @@ git tag v0.10.0                 # muss zur Version in package.json passen
 git push github main --tags
 ```
 
-Der Workflow [.github/workflows/release.yml](.github/workflows/release.yml) prüft Typen und Tests, baut die eigenständige App, stellt sie auf GitHub Pages bereit und legt danach das Release an – gegen dieses vergleicht die Versionsprüfung der App. Einmalig im Repository einstellen: Settings → Pages → Source „GitHub Actions“.
+Der Workflow [.github/workflows/release.yml](.github/workflows/release.yml) prüft Typen und Tests, baut die eigenständige App, stellt sie auf GitHub Pages bereit und legt danach das Release an – gegen dieses vergleicht die Versionsprüfung der App. Einmalig im Repository einstellen: Settings → Pages → Source „GitHub Actions“ und unter Settings → Environments → `github-pages` → „Deployment branches and tags“ eine Tag-Regel `v*` (sonst lehnt GitHub die Bereitstellung aus einem Tag ab).
 
 ## Betrieb auf dem Server
 
