@@ -494,3 +494,7 @@ Wunsch: Der Planer soll langfristig als Programm über GitHub genutzt werden –
 - Installieren bieten Chrome und Edge direkt an; Firefox nutzt die Seite ohne eigenes Fenster (offline trotzdem), Safari über „Zum Dock hinzufügen“.
 - Kartenkacheln kommen weiter live von satisfactory-calculator.com und fehlen offline (Vorkommen und Fabriken werden trotzdem gezeichnet).
 - GitHub erlaubt ohne Anmeldung 60 Anfragen je Stunde und IP; durch das Merken für 6 h reicht das.
+
+### Hotfix 0.10.1
+
+- **Fehlerberichte:** GitHub-Issue-Vorlage `.github/ISSUE_TEMPLATE/bug_report.yml` (Deutsch/Englisch: Beschreibung, Schritte, Version, Betriebsart, Browser, exportiertes Projekt; Hinweis „noch in Entwicklung, Fehler sind möglich“). „🐞 Fehler melden“ auf der Startseite und in ⚙ → Allgemein öffnet ein neues Issue mit vorausgefüllter Version und Browser (Kurzangabe, nicht die volle Kennung). *(Browser-Prüfung)*
