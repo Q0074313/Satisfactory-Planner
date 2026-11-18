@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import type { Project } from '@satis/core';
 import { N_, t } from '../i18n';
-import { withAppVersion } from '../version';
+import { APP_STANDALONE, withAppVersion } from '../version';
 
 export class ApiError extends Error {
   constructor(
@@ -77,6 +77,11 @@ interface ServerState {
 export const useServer = create<ServerState>((set) => ({
   available: null,
   async check() {
+    // Eigenständige Ausgabe (GitHub Pages): immer lokal, keine Anfrage an /api
+    if (APP_STANDALONE) {
+      set({ available: false });
+      return false;
+    }
     try {
       await serverApi.health();
       set({ available: true });

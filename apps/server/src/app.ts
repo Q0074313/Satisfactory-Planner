@@ -45,7 +45,8 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   // Kartenkacheln lädt der Browser direkt von satisfactory-calculator.com (ohne Referrer)
   "img-src 'self' data: blob: https://static.satisfactory-calculator.com",
-  "connect-src 'self'",
+  // Versionsprüfung: neueste Version aus den GitHub-Releases
+  "connect-src 'self' https://api.github.com",
   "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'none'",

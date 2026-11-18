@@ -38,6 +38,10 @@ Das Ergebnis ist eine **statische Webanwendung**. Die Spieldaten werden als eige
 
 Inhalt von `apps/web/dist` auf einem beliebigen statischen Webserver ausliefern (nginx, Caddy, GitHub Pages …). Alle Daten bleiben im Browser (IndexedDB). Antwortet kein Server unter `/api/health`, arbeitet die App in diesem Modus.
 
+**Eigenständige Ausgabe (GitHub Pages):** `SATIS_STANDALONE=1 SATIS_BASE=/<Unterpfad>/ npm run build`. Die App fragt dann nie `/api` an, läuft unter dem Unterpfad und ist installierbar: Der Build enthält `manifest.webmanifest`, Symbole und einen Service Worker (`sw.js`), der beim ersten Besuch alle Dateien des Builds speichert. Seitenaufrufe gehen zuerst ans Netz (immer die neueste Version), offline an den Cache. Ein neuer Build übernimmt den Cache erst, wenn alle Fenster der alten Version geschlossen sind. Ohne Quellkarten (Sourcemaps), ca. 3 MB. Veröffentlicht wird per Tag über GitHub Actions, siehe [README](../README.md#veröffentlichen-github).
+
+**Versionsprüfung (alle Ausgaben):** Beim Start fragt die App `https://api.github.com/repos/<repo>/releases/latest` ab (Repository aus `repository.url` in `package.json`), merkt sich das Ergebnis 6 Stunden und zeigt bei einer neueren Version einen Hinweis. Ohne Internet, im Entwicklungsmodus oder ohne Release passiert nichts.
+
 ```nginx
 server {
   listen 80;
@@ -80,7 +84,7 @@ Entwicklung mit Hot-Reload: `npm run dev:server` (Port 8080) und parallel `npm r
 - Projekte werden atomar geschrieben (temporäre Datei, fsync, rename) und serverseitig migriert und gegen das Schema geprüft. Ungültiges JSON wird mit 400 abgewiesen.
 - Größenlimit, Obergrenze für die Gesamtzahl und Rate-Limit pro IP.
 - Schreibende Anfragen verlangen den Kopf `X-Requested-With: satis-planner`.
-- `Referrer-Policy: no-referrer` (der Link ist das Geheimnis), `X-Robots-Tag: noindex` und Content-Security-Policy. Einzige fremde Quelle: Bilder von `https://static.satisfactory-calculator.com` (Kartenkacheln, ohne Referrer geladen); Skripte und Verbindungen nur zur eigenen Adresse.
+- `Referrer-Policy: no-referrer` (der Link ist das Geheimnis), `X-Robots-Tag: noindex` und Content-Security-Policy. Fremde Quellen: Bilder von `https://static.satisfactory-calculator.com` (Kartenkacheln, ohne Referrer geladen) und Verbindungen zu `https://api.github.com` (Versionsprüfung, ohne Referrer); Skripte nur von der eigenen Adresse.
 - Projekt-IDs erscheinen in den Logs nur gekürzt.
 
 **Lizenzhinweis:** Für einen öffentlichen Betrieb ist zu klären, ob die aus den Docs-Dateien des Spiels extrahierten Daten weitergegeben werden dürfen (siehe [SPIELDATEN.md](SPIELDATEN.md)).

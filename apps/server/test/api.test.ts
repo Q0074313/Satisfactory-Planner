@@ -170,7 +170,7 @@ describe('API', () => {
     expect(r.headers['content-security-policy']).toContain("frame-ancestors 'none'");
     // Kartenkacheln: nur Bilder von dieser einen Quelle, keine Skripte oder Verbindungen
     expect(r.headers['content-security-policy']).toMatch(/img-src [^;]*https:\/\/static\.satisfactory-calculator\.com/);
-    expect(r.headers['content-security-policy']).toMatch(/connect-src 'self';/);
+    expect(r.headers['content-security-policy']).toMatch(/connect-src 'self' https:\/\/api\.github\.com;/);
   });
 });
 

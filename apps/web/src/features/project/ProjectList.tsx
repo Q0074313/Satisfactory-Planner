@@ -12,6 +12,7 @@ import type { ExampleKind } from '@satis/core';
 import { usePrefs } from '../../state/prefsStore';
 import { SaveImportDialog } from '../import/SaveImportDialog';
 import { versionLabel } from '../../version';
+import { UpdateBadge } from '../updates/UpdateNotice';
 
 export function ProjectList({ onClose }: { onClose?: () => void }) {
   const server = useServer((s) => s.available) === true;
@@ -30,7 +31,7 @@ export function ProjectList({ onClose }: { onClose?: () => void }) {
     <div className="project-list">
       <header>
         <h1>
-          Satis Planner <span className="dim small-text app-version">{versionLabel()}</span>
+          Satis Planner <span className="dim small-text app-version">{versionLabel()}</span> <UpdateBadge />
         </h1>
         <p className="dim">
           {server

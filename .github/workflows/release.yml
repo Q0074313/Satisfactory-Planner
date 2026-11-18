@@ -1,0 +1,66 @@
+# Veröffentlichung: Ein Tag „v<Version>“ baut die eigenständige Web-App,
+# stellt sie auf GitHub Pages bereit und legt das Release an, gegen das die
+# Versionsprüfung der App vergleicht. Von Hand (workflow_dispatch) nur Pages.
+name: Veröffentlichen
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Tag passt zur Version in package.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          v="v$(node -p "require('./package.json').version")"
+          if [ "$v" != "$GITHUB_REF_NAME" ]; then echo "Tag $GITHUB_REF_NAME passt nicht zu package.json ($v)"; exit 1; fi
+      - run: npm run typecheck
+      - run: npm test
+      - name: Eigenständige Web-App bauen
+        run: GIT_COMMIT="${GITHUB_SHA::7}" npm run build
+        env:
+          SATIS_STANDALONE: '1'
+          SATIS_BASE: /${{ github.event.repository.name }}/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  release:
+    # Erst nach der Bereitstellung, damit „neue Version“ nie auf eine fehlende Seite zeigt
+    needs: deploy
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "Version ${GITHUB_REF_NAME#v}" --generate-notes --verify-tag

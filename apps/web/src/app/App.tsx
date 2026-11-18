@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { UpdateBadge } from '../features/updates/UpdateNotice';
+import { useUpdates } from '../state/updates';
 import { factoryOps as ops } from '@satis/core';
 import { applyCanvasTheme } from '../canvas/draw';
 import { N_, t } from '../i18n';
@@ -89,6 +91,7 @@ export function App() {
   }, [lang]);
   useEffect(() => {
     void boot().finally(() => setBooting(false));
+    void useUpdates.getState().check();
     // Zurück/Vor im Browser zwischen Projekt-Links
     const onPop = () => {
       const id = idFromHistory() ?? idFromLocation();
@@ -224,6 +227,7 @@ function Workspace({ onOpenList }: { onOpenList: () => void }) {
         <span className="dim small-text app-version" title={t('Softwareversion')}>
           {versionLabel()}
         </span>
+        <UpdateBadge />
         <span className="project-name">
           <TextField value={project.name} onCommit={(name) => apply(t('Projekt umbenennen'), (d) => void (d.name = name))} />
         </span>

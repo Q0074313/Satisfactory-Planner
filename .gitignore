@@ -16,3 +16,6 @@ playwright-report/
 # Auslesewerkzeug für Anschlüsse (.NET)
 packages/gamedata-tools/ports/bin/
 packages/gamedata-tools/ports/obj/
+
+# Private Betriebsdaten (Server-Adresse, Zugänge) – nur lokal
+/Server-Zugang

@@ -12,7 +12,7 @@ import { ApiError, idFromLocation, serverApi, useServer } from './server';
 import { deleteProject, lastProjectId, loadProject, rememberLastProject, saveProject } from '../persistence/db';
 import { pickFile } from '../persistence/files';
 import { markUploaded, recentProjects, rememberRecent } from '../persistence/recent';
-import { withAppVersion } from '../version';
+import { APP_BASE, withAppVersion } from '../version';
 import { DEFAULT_DATASET, loadGameData } from './gamedata';
 import { useProjectStore, type RemoteRef } from './projectStore';
 import { useUiStore } from './uiStore';
@@ -63,16 +63,16 @@ export function idFromHistory(): string | null {
 
 function showInAddressBar(id: string, replace = false) {
   rememberTabProject(id);
-  if (idFromHistory() === id && location.pathname === '/') return;
+  if (idFromHistory() === id && location.pathname === APP_BASE) return;
   // Ein frisch geöffneter Link ersetzt seinen eigenen Eintrag statt einen neuen anzulegen
-  if (replace || idFromLocation() !== null) history.replaceState({ projectId: id }, '', '/');
-  else history.pushState({ projectId: id }, '', '/');
+  if (replace || idFromLocation() !== null) history.replaceState({ projectId: id }, '', APP_BASE);
+  else history.pushState({ projectId: id }, '', APP_BASE);
 }
 
 /** Startseite ohne Projekt im Verlauf (Adresse „/“). */
 export function leaveProjectInHistory() {
   rememberTabProject(null);
-  history.pushState(null, '', '/');
+  history.pushState(null, '', APP_BASE);
 }
 
 /** Öffnet ein Projekt vom Server. */
@@ -189,7 +189,7 @@ async function bootOnce(): Promise<boolean> {
     if (!server) ui.toast(t('Kein Server erreichbar – Projekt-Links funktionieren nur mit Server.'), 'error');
     else if (fromUrl === '') ui.toast(t('Ungültiger Projekt-Link.'), 'error');
     else if (await openRemote(fromUrl)) return true;
-    history.replaceState(null, '', '/');
+    history.replaceState(null, '', APP_BASE);
     return false;
   }
   if (server) {
@@ -198,7 +198,7 @@ async function bootOnce(): Promise<boolean> {
     if (!id) return false;
     if (await openRemote(id, { replace: true })) return true;
     rememberTabProject(null);
-    history.replaceState(null, '', '/');
+    history.replaceState(null, '', APP_BASE);
     return false;
   }
   const id = lastProjectId();

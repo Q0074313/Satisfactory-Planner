@@ -13,6 +13,7 @@ import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
 import { Badge, Dialog, Row, Section, Segmented } from '../../ui/fields';
 import { APP_BUILT, APP_COMMIT, APP_VERSION } from '../../version';
+import { UpdateStatus } from '../updates/UpdateNotice';
 import { ProgressSection } from '../project/ProgressSection';
 
 type Tab = 'general' | 'display' | 'keys' | 'data';
@@ -81,6 +82,9 @@ function GeneralTab() {
           {APP_COMMIT && <span className="dim"> · Commit {APP_COMMIT}</span>}
           {APP_BUILT && <span className="dim"> · {t('erstellt am {date}', { date: APP_BUILT })}</span>}
         </span>
+      </Row>
+      <Row label={t('Updates')} hint={t('Beim Start wird auf GitHub nachgesehen, ob es eine neuere Version gibt.')}>
+        <UpdateStatus />
       </Row>
       <AboutNote />
     </Section>

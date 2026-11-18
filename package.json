@@ -1,8 +1,12 @@
 {
   "name": "satis-planner",
   "private": true,
-  "version": "0.9.3",
+  "version": "0.10.0",
   "description": "Planungswerkzeug für Satisfactory: Produktion, Fabrikgrundriss und Schienennetze in einem Projektmodell.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Q0074313/Satisfactory-Planner.git"
+  },
   "type": "module",
   "workspaces": [
     "packages/*",

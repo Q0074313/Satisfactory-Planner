@@ -477,3 +477,20 @@ Rückmeldung zum Import: Manche Förderbänder bzw. Teile einer Fabrik gehörten
 **Ergebnis im Testspielstand:** kein Stockwerksabstand mehr unter 10 m; Meldungen „Gebäude höher als das Stockwerk“ von 175 auf rund 55 (überwiegend Miner, Wasserextraktoren und Ölpumpen im Gelände).
 
 **Grenze:** Der Grundriss kennt Stockwerke als waagrechte Höhenbereiche über die ganze Fabrik. Teile auf anderer Höhe innerhalb eines Stockwerks stehen mit Versatz darin; Bänder dazwischen erscheinen auf dem Stockwerk, in dessen Höhenbereich sie liegen.
+
+## Version 0.10 – Nutzung als App über GitHub ✅
+
+Wunsch: Der Planer soll langfristig als Programm über GitHub genutzt werden – lokal ausführen, beim Öffnen prüfen, ob die neueste Version installiert ist; der eigene Server bleibt vorerst. Entscheidung (Rückfrage): installierbare Web-App über GitHub Pages mit Versionsprüfung statt einzelner HTML-Datei oder Desktop-Programm. Der offene Punkt aus „Updates“ (Auto-Layout ohne Hauptbus) folgt in einer späteren Version.
+
+**Abnahmekriterien**
+- [x] **Eigenständige Ausgabe:** `SATIS_STANDALONE=1` mit Unterpfad `SATIS_BASE` baut eine App, die nie `/api` anfragt und die Adresszeile unter ihrem Unterpfad hält (bisher fest „/“). Mit Server ändert sich nichts. *(Browser-Prüfung des Builds unter `/Satisfactory-Planner/`: keine `/api`-Anfrage, Adresse bleibt)*
+- [x] **Installierbar und offline:** Manifest, Symbole (192/512 px, SVG) und Service Worker aus dem Build; alle Dateien des Builds (ohne Sourcemaps) werden beim ersten Besuch gespeichert. Seitenaufrufe Netz zuerst, sonst Cache; ein neuer Build übernimmt, wenn alle Fenster geschlossen sind, damit eine laufende Sitzung keine Dateien einer anderen Version nachlädt. *(Browser-Prüfung: Projekt anlegen, offline neu laden → Projekt da, keine Seitenfehler)*
+- [x] **Versionsprüfung:** beim Start gegen das neueste GitHub-Release (`releases/latest`, Repository aus `package.json`), 6 h gemerkt; numerischer Vergleich (0.10.0 > 0.9.3). Hinweis neben der Versionsnummer in Kopfzeile und Startseite: eigenständig „Neue Version … – neu laden“, mit Server Link zum Release. ⚙ → Allgemein → Updates zeigt den Stand und „Jetzt prüfen“. Offline, im Entwicklungsmodus und ohne Release kein Hinweis. Server-CSP erlaubt `connect-src https://api.github.com`. *(Unit-Test Vergleich; Browser-Prüfung mit simuliertem Release v0.11.0; API-Test CSP)*
+- [x] **Veröffentlichung:** GitHub-Workflow `release.yml` bei Tag `v*`: Tag = Version in `package.json`, Typprüfung, Tests, eigenständiger Build, Bereitstellung auf GitHub Pages, danach Release mit automatischen Änderungsnotizen (Reihenfolge, damit der Hinweis nie auf eine noch fehlende Seite zeigt). Von Hand auslösbar (nur Pages).
+- [x] **Öffentliches Repository:** README und CLAUDE.md ohne private Betriebsdaten (Platzhalter `<benutzer>@<server>`); diese stehen in einer lokalen, ignorierten Datei.
+
+**Grenzen**
+- Projekte der Pages-App liegen im Browser des jeweiligen Rechners (wie bisher ohne Server); Weitergabe über JSON-Export. Projekte vom eigenen Server lassen sich exportieren und dort importieren.
+- Installieren bieten Chrome und Edge direkt an; Firefox nutzt die Seite ohne eigenes Fenster (offline trotzdem), Safari über „Zum Dock hinzufügen“.
+- Kartenkacheln kommen weiter live von satisfactory-calculator.com und fehlen offline (Vorkommen und Fabriken werden trotzdem gezeichnet).
+- GitHub erlaubt ohne Anmeldung 60 Anfragen je Stunde und IP; durch das Merken für 6 h reicht das.
