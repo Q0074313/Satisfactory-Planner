@@ -100,6 +100,7 @@ export function materializePlan(
         extraction: null,
         transfer: null,
         stationPart: null,
+        sortRules: null,
         notes: '',
       };
       p.buildings[id] = b;

@@ -241,6 +241,10 @@ export function extractSave(save: Obj): SaveExtract {
     const node = val(o, 'mExtractableResource')?.pathName;
     const fuel = val(o, 'mCurrentFuelClass')?.pathName;
     const track = val(o, 'mRailroadTrack')?.pathName;
+    // Smart- und programmierbare Splitter: Filter je Ausgang (Index 0–2)
+    const rules = vals(o, 'mSortRules')
+      .map((r: Obj) => ({ output: Number(r?.properties?.OutputIndex?.value ?? 0), item: classOf(r?.properties?.ItemClass?.value?.pathName ?? '') }))
+      .filter((r: { item: string }) => r.item);
     // Senkrecht eingebaut: lokale x-Achse zeigt nach oben bzw. unten
     const ax = rotateQ(t.rotation, { x: 1, y: 0, z: 0 });
     const b: SaveBuilding = {
@@ -261,6 +265,7 @@ export function extractSave(save: Obj): SaveExtract {
       conns,
       track: track ? nameOf(track) : null,
       platformConns,
+      ...(rules.length ? { sortRules: rules } : {}),
     };
     out.buildings.push(b);
   }

@@ -1,6 +1,6 @@
 # Architektur
 
-Satis Planner ist eine Webanwendung zur Planung von Satisfactory-Fabriken. Sie verbindet drei Sichten auf **ein** gemeinsames Projektmodell:
+Satisfactory Planner ist eine Webanwendung zur Planung von Satisfactory-Fabriken. Sie verbindet drei Sichten auf **ein** gemeinsames Projektmodell:
 
 1. **Produktion** – Mengenbilanz, Rezeptauswahl, Maschinen, Strom.
 2. **Fabrikgrundriss** – maßstabsgetreue Platzierung von Gebäuden, Förderbändern und Rohren auf mehreren Stockwerken.
@@ -74,7 +74,7 @@ satis-planner/
 │  └─ BETRIEB.md             Entwicklung, Build, Migrationen, Deployment
 ├─ data/
 │  └─ gamedata/
-│     └─ 1.2.4.0/
+│     └─ 1.2.5.1/
 │        ├─ gamedata.json    Normalisierter Datensatz (generiert)
 │        └─ EXTRAKTION.md    Bericht mit Abweichungen und Hinweisen
 ├─ packages/
@@ -188,5 +188,5 @@ Der Server ist optional. Er speichert jedes Projekt als eigene JSON-Datei `stora
 ## 5. Erweiterbarkeit und Versionierung
 
 - **Projektformat:** `formatVersion` (ganze Zahl). `core/project/migrations.ts` enthält eine Kette `v1→v2→…`. Sie wird beim Laden aus IndexedDB, beim Import und auf dem Server angewendet.
-- **Spieldaten:** Jedes Projekt speichert `gameData.datasetId` (z. B. `sf-1.2.4.0`). Mehrere Datensätze können nebeneinander existieren. Der Wechsel (`project/gamedataMigration.ts`, Einstellungen → Spieldaten) erstellt erst einen Bericht (fehlende Gebäude, Rezepte, Gegenstände; optionale Umbenennungstabelle) und wendet ihn dann rückgängig machbar an. Gebäude mit unbekanntem Typ bleiben erhalten und erscheinen als Befund FAB-010.
+- **Spieldaten:** Jedes Projekt speichert `gameData.datasetId` (z. B. `sf-1.2.5.1`). Mehrere Datensätze können nebeneinander existieren. Der Wechsel (`project/gamedataMigration.ts`, Einstellungen → Spieldaten) erstellt erst einen Bericht (fehlende Gebäude, Rezepte, Gegenstände; optionale Umbenennungstabelle) und wendet ihn dann rückgängig machbar an. Gebäude mit unbekanntem Typ bleiben erhalten und erscheinen als Befund FAB-010.
 - **3D:** Die Positionen sind dreidimensional (x, y, z), die Kollisionsboxen kommen aus den Spieldaten. Gleisknoten haben eine Höhe.

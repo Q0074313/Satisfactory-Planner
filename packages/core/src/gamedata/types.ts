@@ -48,7 +48,7 @@ export interface GameDataSource {
 
 export interface GameDataMeta {
   schemaVersion: number;
-  /** Stabiler Bezeichner des Datensatzes, z. B. `sf-1.2.4.0`. */
+  /** Stabiler Bezeichner des Datensatzes, z. B. `sf-1.2.5.1`. */
   datasetId: string;
   gameVersion: string;
   gameBuild: { engineChangelist?: string; branch?: string };

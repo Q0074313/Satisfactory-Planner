@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Aktualisiert Satis Planner auf dem Server:
+# Aktualisiert Satisfactory Planner auf dem Server:
 #   1. Sicherung des Projektordners storage/ nach backups/ (tar.gz mit Datum, die letzten BACKUP_KEEP behalten)
 #   2. git pull (nur Fast-Forward)
 #   3. docker compose up -d --build
@@ -76,4 +76,4 @@ until body="$(probe 2>/dev/null)"; do
   sleep 2
 done
 echo "$body"
-printf '\n\033[1;32mFertig: Satis Planner läuft (%s).\033[0m\n' "$after"
+printf '\n\033[1;32mFertig: Satisfactory Planner läuft (%s).\033[0m\n' "$after"

@@ -11,12 +11,15 @@ export function ItemPicker({
   value,
   onChange,
   suggestions = [],
+  empty,
 }: {
   items: GdItem[];
   value: string[];
   onChange: (ids: string[]) => void;
   /** Vorschläge mit Begründung, z. B. „Auftrag“. */
   suggestions?: { id: string; reason: string }[];
+  /** Hinweis, solange nichts gewählt ist. */
+  empty?: string;
 }) {
   const [query, setQuery] = useState('');
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
@@ -36,7 +39,7 @@ export function ItemPicker({
   return (
     <div className="item-picker">
       <div className="chips">
-        {value.length === 0 && <span className="dim small-text">{t('Noch kein Gegenstand gewählt – an diesem Halt wird dann nichts umgeschlagen.')}</span>}
+        {value.length === 0 && <span className="dim small-text">{empty ?? t('Noch kein Gegenstand gewählt – an diesem Halt wird dann nichts umgeschlagen.')}</span>}
         {value.map((id) => (
           <span key={id} className="chip">
             {byId.get(id) ? localName(byId.get(id)!.name) : id}

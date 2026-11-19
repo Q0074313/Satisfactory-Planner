@@ -36,7 +36,7 @@ function arg(name: string): string | undefined {
 
 async function fetchWikitext(page: string): Promise<{ title: string; text: string } | null> {
   const url = `${API}?action=parse&page=${encodeURIComponent(page)}&prop=wikitext&format=json&formatversion=2&redirects=1`;
-  const res = await fetch(url, { headers: { 'User-Agent': 'SatisPlanner-gamedata-tools/0.1 (Planungswerkzeug)' } });
+  const res = await fetch(url, { headers: { 'User-Agent': 'SatisfactoryPlanner-gamedata-tools/0.1 (Planungswerkzeug)' } });
   if (!res.ok) return null;
   const json = (await res.json()) as { parse?: { title: string; wikitext: string } };
   return json.parse ? { title: json.parse.title, text: json.parse.wikitext } : null;
@@ -58,7 +58,7 @@ function infoboxes(text: string): Record<string, string>[] {
 }
 
 async function main() {
-  const dataPath = resolve(arg('data') ?? join(repoRoot, 'data/gamedata/1.2.4.0/gamedata.json'));
+  const dataPath = resolve(arg('data') ?? join(repoRoot, 'data/gamedata/1.2.5.1/gamedata.json'));
   const data = JSON.parse(readFileSync(dataPath, 'utf8')) as GameData;
   const entries: Record<string, unknown> = {};
   const missing: string[] = [];

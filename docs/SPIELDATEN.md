@@ -4,9 +4,9 @@
 
 | Datensatz | Spielversion | Engine | Quelle |
 |---|---|---|---|
-| `sf-1.2.4.0` | **1.2.4.0** (Branch `rel-main-anniversary-2026`, Changelist 502094); Docs von 1.2.4.1 und 1.2.5.0 inhaltlich identisch | UE 5.6.1 | Lokale Steam-Installation, `CommunityResources/Docs` |
+| `sf-1.2.5.1` | **1.2.5.1** (Branch `rel-main-1.2.6`, Changelist 520140) | UE 5.6.1 | Lokale Steam-Installation, `CommunityResources/Docs` |
 
-Entscheidung: Unterstützt wird die **aktuell installierte stabile Version 1.2.4.0**. Ältere Datensätze (1.0, 1.1) werden nicht mitgeliefert. Der Aufbau unterstützt aber mehrere Datensätze nebeneinander (`data/gamedata/<version>/`), und jedes Projekt merkt sich seinen Datensatz.
+Entscheidung: Unterstützt wird die **aktuell installierte stabile Version 1.2.5.1** (seit 0.10.4). Der frühere Datensatz `sf-1.2.4.0` (Changelist 502094) ist entfallen: Die Docs von 1.2.5.1 haben zwar eine andere Prüfsumme, die extrahierten Gegenstände, Rezepte, Gebäude, Schaltpläne und Fakten, die Anschlusslagen aus den Spielpaketen und die Kartendaten sind aber inhaltlich identisch (geprüft). Bestehende Projekte werden beim Laden auf `sf-1.2.5.1` umgestellt (Migration Format 4 → 5). Ältere Datensätze (1.0, 1.1) werden nicht mitgeliefert. Der Aufbau unterstützt aber mehrere Datensätze nebeneinander (`data/gamedata/<version>/`), und jedes Projekt merkt sich seinen Datensatz.
 
 ## Quellen
 
@@ -27,7 +27,7 @@ Entscheidung: Unterstützt wird die **aktuell installierte stabile Version 1.2.4
    - Werkzeug: kleines .NET-Programm mit [CUE4Parse](https://github.com/FabianFG/CUE4Parse) (Lizenz Apache 2.0), liest `FactoryGame-Windows.utoc/.ucas` mit der mitgelieferten `CommunityResources/FactoryGame.usmap`. Diese speichert `OptionalProperty` ohne inneren Typ; das Werkzeug ergänzt ihn vor dem Laden (betrifft keine Gebäude). Oodle für die Entpackung lädt CUE4Parse beim ersten Lauf herunter.
    - Übernommen werden nur Lage und Richtung der Anschlüsse (cm → m), keine Modelle, Texturen oder sonstigen Inhalte. Lizenz wie die Docs: Bestandteil der Spielinstallation, alle Rechte bei Coffee Stain Studios.
    - Zuordnung zu den Anschluss-IDs des Planers: je Art und Richtung nach Komponentennamen sortiert (`Input0`, `Input1` …). Richtungsfreie Rohranschlüsse von Flüssigkeitspuffern füllen deren Ein- und Ausgang. Weicht die Anzahl von der Anschlusszahl ab, bleibt das Gebäude schematisch (Eintrag im Extraktionsbericht). Derzeit haben alle 43 Gebäude mit Anschlüssen Lagen.
-   - Stand: ausgelesen aus Spielversion 1.2.4.1 (Changelist 513885). Die Docs dieser Version sind mit 1.2.4.0 identisch (gleiche Prüfsumme), der Datensatz heißt weiter `sf-1.2.4.0`.
+   - Stand: ausgelesen aus Spielversion 1.2.5.1 (Changelist 520140), identisch mit 1.2.4.1.
 6. **Manuelle Ergänzung** (`curated/ports-overrides.json`): nur dort, wo keine Quelle verfügbar war. Immer als `unverified` gekennzeichnet. Der dort ergänzte Rohreingang am Treibstoffgenerator ist inzwischen durch die Spielpakete bestätigt.
 
 6. **Schaltpläne** (seit 0.9, `schematics` im Datensatz): aus den Docs (`FGSchematic`: `mType`, `mTechTier`, `mUnlocks` mit `BP_UnlockRecipe_C` bzw. `BP_UnlockSchematic_C`, `mSchematicDependencies`). Gebäude über ihre Baurezepte (Produkt `Desc_X` → Gebäude `Build_X`). M.A.M.-Bäume aus dem Ordnernamen (`Research/<Baum>_RS/`); die saisonale FICSMAS-Forschung entfällt. Phase des Weltraumlifts → höchstes Tier aus dem Wiki („Space Elevator“, „Milestones“) als kuratierte Fakten `progress.phase.<n>.maxTier`.

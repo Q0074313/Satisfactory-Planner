@@ -204,7 +204,7 @@ describe('Vorkommen belegen und Bedarf', () => {
 describe('Beispielprojekte', () => {
   it('Gebäude zeigen in Flussrichtung, alle Bänder verlaufen rechtwinklig', () => {
     for (const kind of ['simple', 'complex'] as const) {
-      const p = buildExampleProject(gd, kind, { datasetId: 'sf-1.2.4.0', gameVersion: '1.2.4.0' });
+      const p = buildExampleProject(gd, kind, { datasetId: 'sf-1.2.5.1', gameVersion: '1.2.5.1' });
       for (const l of Object.values(p.links)) {
         const pts = linkPath(p, gd, l)!;
         for (let i = 1; i < pts.length; i++) {

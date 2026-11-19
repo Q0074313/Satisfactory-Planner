@@ -186,7 +186,11 @@ function diagnoseBuilding(p: Project, gd: GameDataIndex, g: Graph, id: string, d
             'warning',
             ds.consumers.length === 0
               ? tr('Ausgang {item}: kein Abnehmer. Der Ausgang staut sich, die Maschine hält an.', { item: gd.name(o.itemId) })
-              : tr('Ausgang {item}: Die Abnehmer brauchen zusammen nur {need}, erzeugt würden {have}. Der Ausgang staut sich (im Spiel normal, wenn bewusst überdimensioniert).', {
+              : fullyFed && need >= o.nominal - 1e-4
+                ? tr('Ausgang {item}: Die Abnehmer werden schon von anderen Quellen voll versorgt (z. B. zurückgeführtes Nebenprodukt wie Wasser). Diese Menge wird nicht gebraucht und staut sich – unabhängig von Strom oder Takt.', {
+                    item: gd.name(o.itemId),
+                  })
+                : tr('Ausgang {item}: Die Abnehmer brauchen zusammen nur {need}, erzeugt würden {have}. Der Ausgang staut sich (im Spiel normal, wenn bewusst überdimensioniert).', {
                   item: gd.name(o.itemId),
                   need: rateText(gd, o.itemId, need),
                   have: rateText(gd, o.itemId, o.nominal),
@@ -370,8 +374,7 @@ export function diagnoseItem(p: Project, gd: GameDataIndex, factoryId: string, i
 export function uncheckedCauses(): string[] {
   return [
     tr('Im Spiel kann ein Band am falschen Anschluss oder falsch herum angeschlossen sein.'),
-    tr('Splitter verteilen im Spiel gleichmäßig (mit Überlauf), der Planer rechnet mit der bestmöglichen Verteilung.'),
-    tr('Filter intelligenter und programmierbarer Splitter werden nicht berücksichtigt.'),
+    tr('Splitter verteilen im Spiel streng abwechselnd; reicht die Menge nicht für alle Ausgänge, bevorzugt der Planer die Maschinen.'),
     tr('Strom: Sicherung im Stromnetz ausgelöst, Netz überlastet oder Gebäude ohne Stromanschluss.'),
     tr('Rohre: Förderhöhe, fehlende Pumpe, Rückfluss oder Luft im Rohr nach Umbauten (im Spiel ggf. Leitung leeren).'),
     tr('Maschinen sind im Spiel ggf. pausiert, haben einen anderen Takt oder ein volles Ausgangslager.'),

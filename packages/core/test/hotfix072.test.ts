@@ -49,7 +49,7 @@ describe('Hotfix 0.7.2: feste Höhenebenen', () => {
   }
 
   it('Großes Beispiel: waagrechte Leitungen nur auf 1, 5 oder 9 m über dem Etagenboden', () => {
-    const p = buildExampleProject(gd, 'large', { datasetId: 'sf-1.2.4.0', gameVersion: '1.2.4.0' });
+    const p = buildExampleProject(gd, 'large', { datasetId: 'sf-1.2.5.1', gameVersion: '1.2.5.1' });
     const levels = new Set<number>();
     for (const l of Object.values(p.links)) {
       const path = linkPath(p, gd, l);

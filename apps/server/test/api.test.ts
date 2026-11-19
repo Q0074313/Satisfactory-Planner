@@ -10,7 +10,7 @@ import { RateLimiter } from '../src/rateLimit.ts';
 import { isProjectId, newProjectId, ProjectStore } from '../src/storage.ts';
 
 const H = { 'x-requested-with': 'satis-planner', 'content-type': 'application/json' };
-const newProj = (name: string) => createProject({ name, datasetId: 'sf-1.2.4.0', gameVersion: '1.2.4.0' });
+const newProj = (name: string) => createProject({ name, datasetId: 'sf-1.2.5.1', gameVersion: '1.2.5.1' });
 const fixture = (name: string) => readFile(join(import.meta.dirname, 'fixtures', name), 'utf8');
 
 let dir: string;
@@ -236,6 +236,22 @@ describe('Datenformat-Migration', () => {
     expect(project.factories.fac_v3platten01.blackbox).toBe(false);
     expect(project.factories.fac_v3platten01.map).toEqual({ x: -120000, y: 80000, rotationDeg: 0 });
     expect(project.productionPlans.pln_v3platten01.targets).toEqual([{ itemId: 'Desc_IronPlate_C', ratePerMin: 40 }]);
+  });
+
+  it('ein Projekt im Format 4 mit Spieldaten 1.2.4.0 bekommt den inhaltsgleichen Datensatz 1.2.5.1 (Hotfix 0.10.3)', async () => {
+    const id = newProjectId();
+    const v4 = await fixture('project-v4.json');
+    expect(JSON.parse(v4).formatVersion).toBe(4);
+    expect(JSON.parse(v4).gameData.datasetId).toBe('sf-1.2.4.0');
+    await writeFile(join(dir, 'projects', `${id}.json`), v4);
+
+    const got = await app.inject({ method: 'GET', url: `/api/factory/${id}` });
+    expect(got.statusCode).toBe(200);
+    const { project, migrations } = got.json();
+    expect(project.formatVersion).toBe(PROJECT_FORMAT_VERSION);
+    expect(migrations[0]).toMatch(/^4 → 5/);
+    expect(project.gameData).toEqual({ datasetId: 'sf-1.2.5.1', gameVersion: '1.2.5.1' });
+    expect(project.factories.fac_v3platten01.blackbox).toBe(false);
   });
 
   it('neuere Formate als unterstützt werden abgelehnt', async () => {

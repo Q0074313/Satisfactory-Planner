@@ -177,7 +177,7 @@ export const FAB_FLOW_ASSUMPTIONS = defineRule({
   certainty: 'static',
   severity: 'info',
   description:
-    'Das Durchsatzmodell rechnet mit bestmöglicher Verteilung an Splittern, ohne Filter intelligenter Splitter, mit Rohrfluss in Zeichenrichtung und ohne Förderhöhe. Kraftwerke ohne Brennstoffwahl nehmen Brennstoff ohne modellierten Verbrauch ab. Pufferfüllstände und Anlaufzeiten werden nicht simuliert.',
+    'Das Durchsatzmodell verteilt an Splittern gleichmäßig (Maschinen haben Vorrang), mit Filtern und Überlauf wie im Spiel, Rohrfluss in Zeichenrichtung und ohne Förderhöhe. Kraftwerke ohne Brennstoffwahl nehmen Brennstoff ohne modellierten Verbrauch ab. Pufferfüllstände und Anlaufzeiten werden nicht simuliert.',
   sources: [FLOW],
 });
 

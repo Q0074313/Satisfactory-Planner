@@ -3,12 +3,12 @@
  "meta": {
   "source": "Satisfactory Calculator – Interactive Map (satisfactory-calculator.com)",
   "url": "https://satisfactory-calculator.com/en/interactive-map",
-  "retrievedAt": "2026-10-13T20:49:11.315Z",
-  "sourceVersion": "1787922668",
+  "retrievedAt": "2026-11-19T19:09:42.022Z",
+  "sourceVersion": "1795072536",
   "sourceBuild": "492064",
   "license": "Kein ausdrücklicher Lizenztext. Übernommen werden nur Lage, Rohstoff und Reinheit der Vorkommen (Fakten über die Spielwelt), keine Bilder oder Texte.",
   "notes": [
-   "SHA-256 der Rohdaten: 0ee6304df986d4502094ac6a414475ffa06edc41a04a251ac40cfb11c4756c3c",
+   "SHA-256 der Rohdaten: fc5894bb227579797fb708fc932d357c23a1d964018ab36ef36c47ad86facf22",
    "Koordinaten in Metern (Spiel: Zentimeter), auf 1 cm gerundet; x nach Osten, y nach Süden, z nach oben.",
    "Quellenmitten (well-core) sind aus den Satelliten gemittelt, die Quelle nennt ihre Lage nicht.",
    "Anzahl je Art: geyser:geyser:impure=9, geyser:geyser:normal=13, geyser:geyser:pure=9, node:Desc_Coal_C:impure=15, node:Desc_Coal_C:normal=31, node:Desc_Coal_C:pure=16, node:Desc_LiquidOil_C:impure=10, node:Desc_LiquidOil_C:normal=12, node:Desc_LiquidOil_C:pure=8, node:Desc_OreBauxite_C:impure=5, node:Desc_OreBauxite_C:normal=6, node:Desc_OreBauxite_C:pure=6, node:Desc_OreCopper_C:impure=13, node:Desc_OreCopper_C:normal=29, node:Desc_OreCopper_C:pure=13, node:Desc_OreGold_C:normal=9, node:Desc_OreGold_C:pure=8, node:Desc_OreIron_C:impure=39, node:Desc_OreIron_C:normal=42, node:Desc_OreIron_C:pure=46, node:Desc_OreUranium_C:impure=3, node:Desc_OreUranium_C:normal=2, node:Desc_RawQuartz_C:impure=3, node:Desc_RawQuartz_C:normal=7, node:Desc_RawQuartz_C:pure=7, node:Desc_SAM_C:impure=10, node:Desc_SAM_C:normal=6, node:Desc_SAM_C:pure=3, node:Desc_Stone_C:impure=15, node:Desc_Stone_C:normal=50, node:Desc_Stone_C:pure=29, node:Desc_Sulfur_C:impure=6, node:Desc_Sulfur_C:normal=5, node:Desc_Sulfur_C:pure=5, well:Desc_LiquidOil_C:impure=8, well:Desc_LiquidOil_C:normal=6, well:Desc_LiquidOil_C:pure=4, well:Desc_NitrogenGas_C:impure=2, well:Desc_NitrogenGas_C:normal=7, well:Desc_NitrogenGas_C:pure=36, well:Desc_Water_C:impure=7, well:Desc_Water_C:normal=12, well:Desc_Water_C:pure=36, Quellenmitten=17"

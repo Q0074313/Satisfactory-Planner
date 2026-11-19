@@ -231,17 +231,34 @@ code {
   padding: 4px 10px 0;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
-  /* Viele Fabriken: Reiter waagrecht scrollbar statt zusammengedrückt */
+}
+/* Viele Fabriken: Reiter waagrecht scrollbar statt zusammengedrückt; „+ Fabrik“ und „Fabrik löschen“ bleiben rechts sichtbar */
+.factory-tab-list {
+  display: flex;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: thin;
 }
-.factory-tabs > button {
+.factory-tab-actions {
+  display: flex;
+  gap: 4px;
+  flex: none;
+  align-items: flex-start;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+}
+.factory-tabs button {
   flex: none;
   white-space: nowrap;
 }
-.factory-tabs > button:not(.small) {
+.factory-tab-list > button {
   border-radius: 4px 4px 0 0;
   border-bottom-width: 3px;
+}
+.factory-tab-list > button.drop-before {
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 .main {
   flex: 1;
@@ -1598,6 +1615,10 @@ option.locked {
   grid-column: 3;
   grid-row: 1;
   max-width: 130px;
+}
+.save-groups > li > button {
+  grid-column: 2 / 4;
+  justify-self: start;
 }
 .save-group-name {
   min-width: 0;

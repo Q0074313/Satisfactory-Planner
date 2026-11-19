@@ -128,7 +128,7 @@ describe('Hotfix 0.7.1: Hauptbus, Kreuzungen, Raster, Beispiele', () => {
 
   for (const kind of ['medium', 'large'] as const) {
     it(`Beispielprojekt ${kind}: gültig, ohne Fehler und Warnungen, Maschinen laufen voll`, () => {
-      const p = buildExampleProject(gd, kind, { datasetId: 'sf-1.2.4.0', gameVersion: '1.2.4.0' });
+      const p = buildExampleProject(gd, kind, { datasetId: 'sf-1.2.5.1', gameVersion: '1.2.5.1' });
       expect(() => ProjectSchema.parse(p)).not.toThrow();
       const findings = createValidator()(p, gd).findings.filter((f) => f.severity !== 'info');
       expect(findings.map((f) => `${f.ruleId} ${f.message}`)).toEqual([]);

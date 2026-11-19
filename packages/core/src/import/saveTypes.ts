@@ -44,6 +44,12 @@ export interface SaveBuilding {
   track: string | null;
   /** Bahnsteig-Anschlüsse (PlatformConnection0/1) → verbundener Bahnsteig bzw. Bahnhof. */
   platformConns: Record<string, SaveRef | null>;
+  /**
+   * Smart- und programmierbare Splitter: Filterregeln (`mSortRules`). `output` = Index des Ausgangs
+   * (0–2 = Output1–3; am Förderlift 0 = weiterführender Lift, 1 = Output1, 2 = Output2), `item` =
+   * Klasse, z. B. `Desc_Wildcard_C` (alles), `Desc_None_C`, `Desc_Overflow_C`, `Desc_AnyUndefined_C` oder ein Gegenstand.
+   */
+  sortRules?: { output: number; item: string }[];
 }
 
 /** Förderband, Förderlift oder Rohr (ein Abschnitt). */

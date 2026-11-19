@@ -33,6 +33,7 @@ import { useMapStore } from '../../state/mapStore';
 import { lockedNote, useUnlocks } from '../../state/unlocks';
 import { Badge, ConfidenceBadge, fmtNum, fmtRate, NumberField, Row, Section, Segmented, TextField } from '../../ui/fields';
 import { ROUTING_LABELS, ROUTING_ORDER } from './EditorToolbar';
+import { ItemPicker } from '../../ui/ItemPicker';
 
 const PURITY_LABEL: Record<Purity, string> = { impure: N_('unrein'), normal: N_('normal'), pure: N_('rein') };
 
@@ -487,6 +488,7 @@ function BuildingProps({ building: b }: { building: Building }) {
       )}
       {b.groupInstance && <GroupInstanceSection building={b} />}
       <PortsSection building={b} />
+      <SortRulesSection building={b} />
 
       <div className="button-row pad">
         <button
@@ -643,6 +645,66 @@ function PortsSection({ building: b }: { building: Building }) {
           </Row>
         );
       })}
+    </Section>
+  );
+}
+
+/** Filter eines Smart- bzw. programmierbaren Splitters je Ausgang (wie im Spiel, Hotfix 0.10.3). */
+const SORT_MODES = [
+  { id: 'any', label: N_('Alles') },
+  { id: 'none', label: N_('Nichts') },
+  { id: 'overflow', label: N_('Überlauf') },
+  { id: 'any-undefined', label: N_('Alles Übrige') },
+  { id: 'items', label: N_('Gegenstände …') },
+] as const;
+
+function SortRulesSection({ building: b }: { building: Building }) {
+  const gd = useProjectStore((s) => s.gd)!;
+  const apply = useProjectStore((s) => s.apply);
+  const items = useMemo(() => Object.values(gd.data.items).filter((i) => i.form === 'solid'), [gd]);
+  const def = gd.building(b.type);
+  if (!def || !ops.SORTING_SPLITTERS.has(b.type)) return null;
+  const outs = placedPortDefs(def, b.placement).filter((p) => p.kind === 'belt' && p.direction === 'out');
+  const set = (rules: Record<string, string[]> | null) => apply(t('Splitterfilter'), (d, g) => ops.updateBuildings(d, g, [b.id], { sortRules: rules }));
+  const rules = b.sortRules;
+  return (
+    <Section title={t('Filter')}>
+      <p className="dim small-text">
+        {rules
+          ? t('Wie im Spiel: Gegenstände gehen an Ausgänge, deren Filter passt; „Überlauf“ bekommt nur, was dort nicht mehr hinpasst.')
+          : t('Kein Filter: verteilt wie ein normaler Splitter.')}
+      </p>
+      {rules ? (
+        <>
+          {outs.map((p, i) => {
+            const r = rules[p.id] ?? ['none'];
+            const special = r.length === 1 && SORT_MODES.some((m) => m.id === r[0]) ? r[0]! : 'items';
+            return (
+              <Row key={p.id} label={`${t('Ausgang')} ${i + 1}`}>
+                <select
+                  value={special}
+                  onChange={(e) => set({ ...rules, [p.id]: e.target.value === 'items' ? [] : [e.target.value] })}
+                  data-testid={`sort-rule-${p.id}`}
+                >
+                  {SORT_MODES.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {t(m.label)}
+                    </option>
+                  ))}
+                </select>
+                {special === 'items' && <ItemPicker items={items} value={r.filter((x) => gd.item(x))} onChange={(ids) => set({ ...rules, [p.id]: ids })} empty={t('Noch kein Gegenstand gewählt – über diesen Ausgang geht dann nichts.')} />}
+              </Row>
+            );
+          })}
+          <button className="small" onClick={() => set(null)}>
+            {t('Filter entfernen')}
+          </button>
+        </>
+      ) : (
+        <button className="small" onClick={() => set(Object.fromEntries(outs.map((p, i) => [p.id, [i === 0 ? 'any' : 'none']])))} data-testid="sort-rules-add">
+          {t('Filter setzen')}
+        </button>
+      )}
     </Section>
   );
 }

@@ -85,6 +85,11 @@ export function App() {
   const [booting, setBooting] = useState(true);
   const [showList, setShowList] = useState(false);
   useTheme();
+  // Ein neu geöffnetes Projekt immer zeigen (auch wenn die Liste ohne offenes Projekt stand, z. B. nach „Zurück“)
+  const projectId = project?.id;
+  useEffect(() => {
+    if (projectId) setShowList(false);
+  }, [projectId]);
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -118,6 +123,9 @@ export function App() {
     </div>
   );
 }
+
+/** Datentyp beim Ziehen eines Fabrik-Reiters. */
+const DRAG_FACTORY = 'application/x-satis-factory';
 
 function Workspace({ onOpenList }: { onOpenList: () => void }) {
   const project = useProjectStore((s) => s.project)!;
@@ -217,12 +225,13 @@ function Workspace({ onOpenList }: { onOpenList: () => void }) {
   }, [undo, redo, saveNow]);
 
   const factories = Object.values(project.factories);
+  const [dragOver, setDragOver] = useState<string | null>(null);
 
   return (
     <div className="workspace">
       <header className="topbar">
         <button className="brand" onClick={onOpenList} title={t('Projektliste')}>
-          Satis Planner
+          Satisfactory Planner
         </button>
         <span className="dim small-text app-version" title={t('Softwareversion')}>
           {versionLabel()}
@@ -276,34 +285,68 @@ function Workspace({ onOpenList }: { onOpenList: () => void }) {
 
       {mode === 'factory' && (
         <div className="factory-tabs">
-          {factories.map((f) => (
-            <button key={f.id} className={f.id === factoryId ? 'active' : ''} style={{ borderBottomColor: f.color }} onClick={() => setFactory(f.id, f.floorIds[0] ?? null)}>
-              {f.name}
-            </button>
-          ))}
-          <button
-            className="small"
-            onClick={() => {
-              const id = apply(t('Fabrik hinzufügen'), (d) => ops.addFactory(d, t('Fabrik {n}', { n: factories.length + 1 })));
-              if (id) {
-                const f = useProjectStore.getState().project!.factories[id]!;
-                setFactory(id, f.floorIds[0]!);
-              }
-            }}
-          >
-            {t('+ Fabrik')}
-          </button>
-          {factoryId && factories.length > 0 && (
+          <div className="factory-tab-list" data-testid="factory-tab-list">
+            {factories.map((f) => (
+              <button
+                key={f.id}
+                className={`${f.id === factoryId ? 'active' : ''}${dragOver === f.id ? ' drop-before' : ''}`}
+                style={{ borderBottomColor: f.color }}
+                onClick={() => setFactory(f.id, f.floorIds[0] ?? null)}
+                title={t('Ziehen, um die Reihenfolge zu ändern')}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(DRAG_FACTORY, f.id);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragOver={(e) => {
+                  if (!e.dataTransfer.types.includes(DRAG_FACTORY)) return;
+                  e.preventDefault();
+                  setDragOver(f.id);
+                }}
+                onDragLeave={() => setDragOver((x) => (x === f.id ? null : x))}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(null);
+                  const id = e.dataTransfer.getData(DRAG_FACTORY);
+                  if (!id || id === f.id) return;
+                  // Rechte Hälfte des Reiters: dahinter einfügen
+                  const box = e.currentTarget.getBoundingClientRect();
+                  const ids = factories.map((x) => x.id).filter((x) => x !== id);
+                  const before = e.clientX > box.left + box.width / 2 ? (ids[ids.indexOf(f.id) + 1] ?? null) : f.id;
+                  apply(t('Fabriken umsortieren'), (d) => ops.moveFactory(d, id, before));
+                }}
+                data-testid="factory-tab"
+              >
+                {f.name}
+              </button>
+            ))}
+          </div>
+          {/* Bleiben rechts sichtbar, auch wenn die Reiter scrollen */}
+          <div className="factory-tab-actions">
             <button
-              className="small danger"
+              className="small"
               onClick={() => {
-                const f = project.factories[factoryId];
-                if (f && window.confirm(t('Fabrik „{name}“ mit allen Gebäuden löschen? (Rückgängig möglich)', { name: f.name }))) apply(t('Fabrik löschen'), (d) => ops.removeFactory(d, factoryId));
+                const id = apply(t('Fabrik hinzufügen'), (d) => ops.addFactory(d, t('Fabrik {n}', { n: factories.length + 1 })));
+                if (id) {
+                  const f = useProjectStore.getState().project!.factories[id]!;
+                  setFactory(id, f.floorIds[0]!);
+                }
               }}
             >
-              {t('Fabrik löschen')}
+              {t('+ Fabrik')}
             </button>
-          )}
+            {factoryId && factories.length > 0 && (
+              <button
+                className="small danger"
+                onClick={() => {
+                  const f = project.factories[factoryId];
+                  if (f && window.confirm(t('Fabrik „{name}“ mit allen Gebäuden löschen? (Rückgängig möglich)', { name: f.name }))) apply(t('Fabrik löschen'), (d) => ops.removeFactory(d, factoryId));
+                }}
+              >
+                {t('Fabrik löschen')}
+              </button>
+            )}
+          </div>
         </div>
       )}
 

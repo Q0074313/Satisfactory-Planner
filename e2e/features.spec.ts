@@ -205,7 +205,7 @@ test('Tutorial: Begrüßung, Einführung, interaktiver Schritt geht automatisch 
   await page.getByRole('button', { name: 'Neues Projekt' }).click();
   await expect(page.getByTestId('welcome')).toBeVisible();
   await page.getByRole('button', { name: 'Einführung starten' }).click();
-  await expect(page.getByTestId('tour')).toContainText('Willkommen beim Satis Planner');
+  await expect(page.getByTestId('tour')).toContainText('Willkommen beim Satisfactory Planner');
   await page.getByTestId('tour-next').click();
   await expect(page.getByTestId('tour')).toContainText('Vier Ansichten');
   await page.getByRole('button', { name: 'Beenden' }).click();

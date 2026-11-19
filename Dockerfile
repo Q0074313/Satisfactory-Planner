@@ -1,4 +1,4 @@
-# Satis Planner – ein Image für Web-App und Server.
+# Satisfactory Planner – ein Image für Web-App und Server.
 # Projekte liegen außerhalb des Images im Volume /app/storage (siehe docker-compose.yml).
 
 FROM node:24-bookworm-slim AS build

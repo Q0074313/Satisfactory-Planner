@@ -20,8 +20,9 @@
  *   müssten, und Lücken in der Verschaltung;
  * - „eingezeichnet“ mit den Kapazitäten der gezeichneten Stufen.
  *
- * Annahmen (werden angezeigt): beste Verteilung an Splittern (im Spiel
- * gleichmäßig mit Überlauf), Filter intelligenter Splitter nicht modelliert,
+ * Annahmen (werden angezeigt): Splitter verteilen gleichmäßig, soweit Maschinen
+ * dadurch nicht weniger bekommen, Filter und Überlauf wie im Spiel (seit 0.10.3),
+ * Lager ohne Abgang gelten als voll,
  * Rohre fließen in Zeichenrichtung, Förderhöhe und Pumpen nicht berücksichtigt,
  * Kraftwerke mit Brennstoffwahl verbrauchen wie Maschinen; ohne Wahl nehmen sie
  * Brennstoff ohne modellierten Verbrauch ab.
@@ -97,6 +98,18 @@ export interface FactoryFlow {
 }
 
 const EPS = 1e-6;
+/** Nutzen der Gewinnung bzw. Ausfuhr je Gegenstand pro Minute (deutlich unter dem einer Maschine, über der Flussstrafe). */
+const EXTRACT_GAIN = 1e-3;
+/** Nutzen des kleinsten Anteils (0 … 1) der Quellen eines Netzes. */
+const SPREAD_GAIN = 1e-3;
+/** Abzug je Gegenstand pro Minute über einen Überlauf-Ausgang (unter dem Nutzen der Gewinnung). */
+const OVERFLOW_PENALTY = 1e-4;
+/** Abzug je Gegenstand pro Minute in ein Lager ohne Abgang (über dem Überlauf, unter dem Nutzen der Gewinnung). */
+const STORAGE_END_PENALTY = 2e-4;
+/** Nutzen je Gegenstand pro Minute des kleinsten Ausgangsflusses eines Splitters (weit unter dem einer Maschine). */
+const FAIR_GAIN = 5e-5;
+/** Sonderregeln der Splitterfilter (siehe `Building.sortRules`). */
+const SORT_SPECIAL = new Set(['any', 'none', 'overflow', 'any-undefined']);
 
 export function flowRole(b: Building, def: GdBuilding | undefined, gd: GameDataIndex, hasOutLinks: boolean): FlowRole {
   if (!def) return 'none';
@@ -165,11 +178,19 @@ export interface FlowContext {
  * passenden Ladeguts. Die Menge verteilt sich gleichmäßig.
  */
 export function platformImports(p: Project, factoryId: string, gd?: GameDataIndex): Map<string, ItemRate[]> {
-  const unloading = Object.values(p.buildings).filter((b) => b.factoryId === factoryId && b.placement && b.transfer?.mode === 'unload');
+  return platformTransfers(p, factoryId, gd, 'unload');
+}
+
+/**
+ * Ein- bzw. Ausfuhr je Übergabe (Frachtplattform, Lkw-Station) aus den Transportaufträgen der Fabrik:
+ * `unload` = Aufträge an die Fabrik, `load` = Aufträge von ihr (beim Beladen: Obergrenze der Abnahme, Hotfix 0.10.3).
+ */
+function platformTransfers(p: Project, factoryId: string, gd: GameDataIndex | undefined, mode: 'load' | 'unload'): Map<string, ItemRate[]> {
+  const unloading = Object.values(p.buildings).filter((b) => b.factoryId === factoryId && b.placement && b.transfer?.mode === mode);
   const iface = (b: Building) => (gd ? transferInterface(gd.building(b.type)) : 'train');
   const acc = new Map<string, Map<string, number>>();
   for (const o of Object.values(p.transportOrders)) {
-    if (o.toFactoryId !== factoryId || o.ratePerMin <= 0) continue;
+    if ((mode === 'unload' ? o.toFactoryId : o.fromFactoryId) !== factoryId || o.ratePerMin <= 0) continue;
     if (o.mode === 'belt' || o.mode === 'pipe') continue;
     let platforms = unloading.filter((b) => iface(b) === o.mode);
     if (o.mode === 'vehicle' && gd) {
@@ -177,7 +198,8 @@ export function platformImports(p: Project, factoryId: string, gd?: GameDataInde
       platforms = platforms.filter((b) => (transferCargo(gd.building(b.type)!) === 'solid') === solid);
     }
     if (platforms.length === 0) continue;
-    let targets = o.mode === 'train' && o.toStationId ? platforms.filter((b) => b.transfer?.stationId === o.toStationId) : [];
+    const stationId = mode === 'unload' ? o.toStationId : o.fromStationId;
+    let targets = o.mode === 'train' && stationId ? platforms.filter((b) => b.transfer?.stationId === stationId) : [];
     if (targets.length === 0) targets = platforms.filter((b) => !b.transfer?.stationId);
     if (targets.length === 0) targets = platforms;
     for (const b of targets) {
@@ -202,14 +224,15 @@ interface Node {
 
 export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: string, ctx: FlowContext = {}): FactoryFlow {
   const assumptions = [
-    tr('Splitter und Zusammenführungen verteilen bestmöglich (im Spiel: gleichmäßig, Überlauf auf freie Ausgänge).'),
-    tr('Filter intelligenter und programmierbarer Splitter werden nicht berücksichtigt.'),
+    tr('Splitter verteilen gleichmäßig auf ihre Ausgänge, soweit Maschinen dadurch nicht weniger bekommen; Überlauf-Ausgänge nur, wenn die übrigen nichts mehr abnehmen.'),
+    tr('Filter intelligenter und programmierbarer Splitter wie im Spiel (aus dem Spielstand bzw. eingestellt). Lager ohne Abgang gelten als voll; beladende Stationen ohne Transportauftrag nehmen alles ab.'),
     tr('Rohre fließen in Zeichenrichtung; Förderhöhe, Pumpen und Druck werden nicht berechnet.'),
     tr('Kraftwerke mit gewähltem Brennstoff verbrauchen wie Maschinen; ohne Brennstoffwahl nehmen sie Brennstoff ohne modellierten Verbrauch ab.'),
     tr('Produkte werden den Ausgängen in Rezeptreihenfolge zugeordnet.'),
   ];
   const nodes = new Map<string, Node>();
   const imports = ctx.imports ?? platformImports(p, factoryId, gd);
+  const exportsOf = platformTransfers(p, factoryId, gd, 'load');
   const links = Object.values(p.links).filter((l) => l.factoryId === factoryId);
   const direct = directFlows(p, gd, factoryId);
   for (const b of Object.values(p.buildings)) {
@@ -243,6 +266,17 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
       const need = new Map<string, number>();
       const seen = new Set<string>([n.b.id]);
       const queue = n.outLinks.map((l) => ({ id: l.to.buildingId, kind: l.kind }));
+      // Direkte Bänder bzw. Rohre zu anderen Fabriken, die hier bzw. hinter Splittern abgehen (Hotfix 0.10.3)
+      const orders = new Set<string>();
+      const directNeed = (id: string, kind: 'belt' | 'pipe') => {
+        for (const d of direct)
+          if (d.dir === 'out' && d.buildingId === id && !orders.has(d.orderId) && ((gd.item(d.itemId)?.form ?? 'solid') === 'solid') === (kind === 'belt')) {
+            orders.add(d.orderId);
+            need.set(d.itemId, (need.get(d.itemId) ?? 0) + d.max);
+          }
+      };
+      directNeed(n.b.id, 'belt');
+      directNeed(n.b.id, 'pipe');
       while (queue.length) {
         const { id, kind } = queue.shift()!;
         if (seen.has(id)) continue;
@@ -253,7 +287,10 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
           for (const x of m.rates.inputs) {
             if (((gd.item(x.itemId)?.form ?? 'solid') === 'solid') === (kind === 'belt')) need.set(x.itemId, (need.get(x.itemId) ?? 0) + x.perMin);
           }
-        else if (m.role === 'pass') for (const l of m.outLinks) queue.push({ id: l.to.buildingId, kind: l.kind });
+        else if (m.role === 'pass') {
+          directNeed(id, kind);
+          for (const l of m.outLinks) queue.push({ id: l.to.buildingId, kind: l.kind });
+        }
       }
       if (!need.size) continue;
       n.rates.outputs = [...need].map(([itemId, perMin]) => ({ itemId, perMin }));
@@ -282,6 +319,28 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
   const dIn = direct.filter((d) => d.dir === 'in' && nodes.has(d.buildingId));
   const dOut = direct.filter((d) => d.dir === 'out' && nodes.has(d.buildingId));
 
+  // --- Splitter (ein Bandeingang, mehrere Bandausgänge), Hotfix 0.10.3: Filter der Smart- und programmierbaren
+  //     Splitter wie im Spiel, Überlauf erst, wenn die übrigen Ausgänge voll sind ---
+  const isSplitter = (n: Node) => n.role === 'pass' && !!n.def?.ports && n.def.ports.beltIn === 1 && n.def.ports.beltOut >= 2;
+  const named = new Map<string, Set<string>>();
+  const namedItems = (n: Node) => {
+    let s = named.get(n.b.id);
+    if (!s) {
+      s = new Set(Object.values(n.b.sortRules ?? {}).flat().filter((x) => !SORT_SPECIAL.has(x)));
+      named.set(n.b.id, s);
+    }
+    return s;
+  };
+  const ruleOf = (n: Node, portId: string) => n.b.sortRules?.[portId] ?? ['none'];
+  /** Darf `item` über den Ausgang: `yes` (Filter passt), `overflow` (nur als Überlauf), `no`. */
+  const match = (n: Node, portId: string, item: string): 'yes' | 'overflow' | 'no' => {
+    if (!n.b.sortRules || !isSplitter(n)) return 'yes';
+    const r = ruleOf(n, portId);
+    if (r.includes('any') || r.includes(item) || (r.includes('any-undefined') && !namedItems(n).has(item))) return 'yes';
+    return r.includes('overflow') ? 'overflow' : 'no';
+  };
+  const acceptsAll = (n: Node, portId: string) => !n.b.sortRules || !isSplitter(n) || ruleOf(n, portId).some((x) => x === 'any' || x === 'overflow' || x === 'any-undefined');
+
   // --- Mögliche Gegenstände je Verbindung: vorwärts (Quelle) ∩ rückwärts (Abnahme) ---
   const fwd = new Map<string, Set<string>>(live.map((l) => [l.id, new Set<string>()]));
   const emit = (n: Node, l: LogisticsLink): string[] => {
@@ -289,8 +348,11 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
       const it = n.outPorts.get(l.from.portId);
       return it ? [it.itemId] : [];
     }
-    if (n.role === 'platform-unload') return n.rates.outputs.map((x) => x.itemId);
-    if (n.role === 'pass') return [...n.inLinks.flatMap((x) => [...(fwd.get(x.id) ?? [])]), ...dIn.filter((d) => d.buildingId === n.b.id).map((d) => d.itemId)];
+    // Stationen haben ein Inventar (Hotfix 0.10.3): Zulauf kann wie bei einem Lager wieder hinaus
+    if (n.role === 'platform-unload') return [...n.rates.outputs.map((x) => x.itemId), ...n.inLinks.flatMap((x) => [...(fwd.get(x.id) ?? [])]), ...dIn.filter((d) => d.buildingId === n.b.id).map((d) => d.itemId)];
+    if (n.role === 'platform-load') return n.inLinks.flatMap((x) => [...(fwd.get(x.id) ?? [])]);
+    if (n.role === 'pass')
+      return [...n.inLinks.flatMap((x) => [...(fwd.get(x.id) ?? [])]), ...dIn.filter((d) => d.buildingId === n.b.id).map((d) => d.itemId)].filter((it) => match(n, l.from.portId, it) !== 'no');
     return [];
   };
   for (let changed = true, guard = 0; changed && guard < 200; guard++) {
@@ -310,12 +372,14 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
     if (n.role === 'machine') return new Set(n.rates.inputs.map((x) => x.itemId));
     if (n.role === 'sink') return new Set(Object.values(gd.data.items).filter((i) => i.form === 'solid').map((i) => i.id));
     if (n.role === 'storage-end' || n.role === 'platform-load' || n.role === 'consumer-unmodeled') return 'all';
-    if (n.role === 'pass') {
+    if (n.role === 'pass' || n.role === 'platform-unload') {
       const s = new Set<string>(dOut.filter((d) => d.buildingId === n.b.id).map((d) => d.itemId));
       for (const o of n.outLinks) {
         const a = bwd.get(o.id);
-        if (a === 'all') return 'all';
-        for (const x of a ?? []) s.add(x);
+        if (a === 'all') {
+          if (acceptsAll(n, o.from.portId)) return 'all';
+          for (const x of ruleOf(n, o.from.portId)) if (!SORT_SPECIAL.has(x)) s.add(x);
+        } else for (const x of a ?? []) if (match(n, o.from.portId, x) !== 'no') s.add(x);
       }
       return s;
     }
@@ -344,6 +408,53 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
     rejected.set(l.id, target.role === 'machine' || target.role === 'sink' ? f.filter((i) => a !== 'all' && !a.has(i)) : []);
   }
 
+  // Gewinnung je zusammenhängendem Leitungsnetz und Gegenstand
+  const parent = new Map<string, string>();
+  const find = (x: string): string => {
+    const q = parent.get(x) ?? x;
+    if (q === x) return x;
+    const r = find(q);
+    parent.set(x, r);
+    return r;
+  };
+  for (const l of live) {
+    const a = find(l.from.buildingId);
+    const b = find(l.to.buildingId);
+    if (a !== b) parent.set(a, b);
+  }
+  // Quellen je Netz und Gegenstand: Gewinnung (Auslastung) und entladende Stationen (Anteil der Einfuhr)
+  const sourceGroups = new Map<string, { v: string; scale: number }[]>();
+  const addSource = (n: Node, item: string, v: string, scale: number) => {
+    const key = `${find(n.b.id)}:${item}`;
+    sourceGroups.set(key, [...(sourceGroups.get(key) ?? []), { v, scale }]);
+  };
+  for (const n of nodes.values()) {
+    if (!n.outLinks.length) continue;
+    if (n.role === 'extractor' && n.rates.outputs[0]) addSource(n, n.rates.outputs[0].itemId, `u:${n.b.id}`, 1);
+    if (n.role === 'platform-unload') for (const x of n.rates.outputs) if (x.perMin > EPS) addSource(n, x.itemId, `imp:${n.b.id}:${x.itemId}`, 1 / x.perMin);
+  }
+
+  // Gleichmäßig verteilende Splitter: nicht in einem Kreislauf (sonst lohnte kreisender Fluss), mindestens zwei Ausgänge mit Abnahme
+  const reaches = (from: string, target: string) => {
+    const seen = new Set<string>();
+    const stack = [from];
+    while (stack.length) {
+      const id = stack.pop()!;
+      if (id === target) return true;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      for (const l of nodes.get(id)?.outLinks ?? []) stack.push(l.to.buildingId);
+    }
+    return false;
+  };
+  const fair = [...nodes.values()].flatMap((n) => {
+    if (!isSplitter(n) || n.outLinks.some((l) => reaches(l.to.buildingId, n.b.id))) return [];
+    const outs = n.outLinks
+      .map((l) => ({ l, items: (candidates.get(l.id) ?? []).filter((i) => match(n, l.from.portId, i) === 'yes') }))
+      .filter((x) => x.items.length);
+    return outs.length >= 2 ? [{ id: n.b.id, outs }] : [];
+  });
+
   const capacityOf = (l: LogisticsLink) => {
     const t = gd.building(l.tier);
     return l.kind === 'belt' ? (t?.conveyor?.itemsPerMin ?? 0) : (t?.pipe?.m3PerMin ?? 0);
@@ -363,9 +474,13 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
     for (const l of live) {
       const items = candidates.get(l.id)!;
       if (capped) constraints.set(`cap:${capKey(l)}`, { max: capacityOf(l) });
+      const from = nodes.get(l.from.buildingId)!;
+      // Lager ohne Abgang sind im Dauerbetrieb voll: sie nehmen nur auf, was sonst nirgends hin kann (z. B. vor der Senke)
+      const intoFull = nodes.get(l.to.buildingId)!.role === 'storage-end' ? STORAGE_END_PENALTY : 0;
       for (const i of items) {
         const v = `f:${l.id}:${i}`;
-        addCoef(v, 'obj', -1e-6);
+        // Überlauf nur, wenn die übrigen Ausgänge nichts mehr abnehmen
+        addCoef(v, 'obj', -1e-6 - intoFull - (match(from, l.from.portId, i) === 'overflow' ? OVERFLOW_PENALTY : 0));
         if (capped) addCoef(v, `cap:${capKey(l)}`, 1);
       }
     }
@@ -374,14 +489,16 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
       const v = `d:${d.dir}:${d.orderId}`;
       constraints.set(`dmax:${d.dir}:${d.orderId}`, { max: capped ? d.maxCapped : d.max });
       addCoef(v, `dmax:${d.dir}:${d.orderId}`, 1);
-      addCoef(v, 'obj', -1e-6);
+      // Ausfuhr hat einen kleinen Nutzen (Hotfix 0.10.3): sonst fließt z. B. Ware aus Stationen nie zur Abnehmerfabrik
+      addCoef(v, 'obj', d.dir === 'out' ? EXTRACT_GAIN : -1e-6);
     }
     const dVar = (d: DirectFlow) => `d:${d.dir}:${d.orderId}`;
     for (const n of nodes.values()) {
       const id = n.b.id;
       if (n.role === 'machine' || n.role === 'extractor') {
         const u = `u:${id}`;
-        addCoef(u, 'obj', 1);
+        // Gewinnung zählt nach Menge (Hotfix 0.10.3): bei Überschuss ist die Verteilung gleichwertig, siehe unten
+        addCoef(u, 'obj', n.role === 'extractor' ? EXTRACT_GAIN * n.rates.outputs.reduce((s, x) => s + x.perMin, 0) : 1);
         constraints.set(`umax:${id}`, { max: 1 });
         addCoef(u, `umax:${id}`, 1);
         for (const inp of n.rates.inputs) {
@@ -411,15 +528,67 @@ export function computeFactoryFlow(p: Project, gd: GameDataIndex, factoryId: str
           for (const d of dOut) if (d.buildingId === id && d.itemId === i) addCoef(dVar(d), c, -1);
         }
       } else if (n.role === 'platform-unload') {
-        for (const out of n.rates.outputs) {
-          const c = `imp:${id}:${out.itemId}`;
-          constraints.set(c, { max: out.perMin });
-          for (const l of n.outLinks) if (candidates.get(l.id)?.includes(out.itemId)) {
-            addCoef(`f:${l.id}:${out.itemId}`, c, 1);
-            // Einfuhr soll abfließen, wo sie gebraucht wird – kein eigener Nutzen, nur ermöglicht.
+        // Abfluss = Zulauf + Einfuhr (höchstens die Auftrags- bzw. Bedarfsmenge); Einfuhr soll abfließen, wo sie gebraucht wird
+        const items = new Set<string>(n.rates.outputs.map((x) => x.itemId));
+        for (const l of [...n.inLinks, ...n.outLinks]) for (const i of candidates.get(l.id) ?? []) items.add(i);
+        for (const d of [...dIn, ...dOut]) if (d.buildingId === id) items.add(d.itemId);
+        for (const i of items) {
+          const c = `bal:${id}:${i}`;
+          constraints.set(c, { equal: 0 });
+          const rate = n.rates.outputs.find((x) => x.itemId === i)?.perMin ?? 0;
+          if (rate > 0) {
+            const v = `imp:${id}:${i}`;
+            constraints.set(`impmax:${id}:${i}`, { max: rate });
+            addCoef(v, `impmax:${id}:${i}`, 1);
+            addCoef(v, c, 1);
           }
-          for (const d of dOut) if (d.buildingId === id && d.itemId === out.itemId) addCoef(dVar(d), c, 1);
+          for (const l of n.inLinks) if (candidates.get(l.id)?.includes(i)) addCoef(`f:${l.id}:${i}`, c, 1);
+          for (const l of n.outLinks) if (candidates.get(l.id)?.includes(i)) addCoef(`f:${l.id}:${i}`, c, -1);
+          for (const d of dIn) if (d.buildingId === id && d.itemId === i) addCoef(dVar(d), c, 1);
+          for (const d of dOut) if (d.buildingId === id && d.itemId === i) addCoef(dVar(d), c, -1);
         }
+      } else if (n.role === 'platform-load' && exportsOf.has(id)) {
+        // Mit Transportaufträgen: nimmt höchstens deren Menge ab, der Rest staut sich (bzw. geht über den Überlauf)
+        const c = `exp:${id}`;
+        constraints.set(c, { max: exportsOf.get(id)!.reduce((sum, x) => sum + x.perMin, 0) });
+        for (const l of n.inLinks) for (const i of candidates.get(l.id) ?? []) addCoef(`f:${l.id}:${i}`, c, 1);
+        for (const l of n.outLinks) for (const i of candidates.get(l.id) ?? []) addCoef(`f:${l.id}:${i}`, c, -1);
+      }
+      if (n.role === 'platform-load' && n.outLinks.length) {
+        // Beladen mit Ausgangsbändern: hinaus geht höchstens, was hereinkommt; der Rest geht in die Fracht
+        const items = new Set<string>();
+        for (const l of n.outLinks) for (const i of candidates.get(l.id) ?? []) items.add(i);
+        for (const i of items) {
+          const c = `ld:${id}:${i}`;
+          constraints.set(c, { max: 0 });
+          for (const l of n.inLinks) if (candidates.get(l.id)?.includes(i)) addCoef(`f:${l.id}:${i}`, c, -1);
+          for (const l of n.outLinks) if (candidates.get(l.id)?.includes(i)) addCoef(`f:${l.id}:${i}`, c, 1);
+        }
+      }
+    }
+    // Überschuss gleichmäßig auf die Quellen eines Netzes verteilen (wie im Spiel: alle laufen gedrosselt), statt einzelne
+    // Extraktoren, Miner bzw. entladende Stationen ganz stehen zu lassen: kleinsten Anteil je Netz und Gegenstand anheben
+    for (const [key, list] of sourceGroups) {
+      if (list.length < 2) continue;
+      const z = `z:${key}`;
+      addCoef(z, 'obj', SPREAD_GAIN);
+      for (const src of list) {
+        const c = `spread:${key}:${src.v}`;
+        constraints.set(c, { max: 0 });
+        addCoef(z, c, 1);
+        addCoef(src.v, c, -src.scale);
+      }
+    }
+    // Splitter verteilen gleichmäßig auf ihre Ausgänge (wie im Spiel), statt den kürzesten Weg zu nehmen:
+    // kleinster Ausgangsfluss je Splitter wird angehoben (Maschinen haben Vorrang)
+    for (const s of fair) {
+      const t = `t:${s.id}`;
+      addCoef(t, 'obj', FAIR_GAIN);
+      for (const o of s.outs) {
+        const c = `fair:${s.id}:${o.l.id}`;
+        constraints.set(c, { max: 0 });
+        addCoef(t, c, 1);
+        for (const i of o.items) addCoef(`f:${o.l.id}:${i}`, c, -1);
       }
     }
     const sol = solve({ direction: 'maximize', objective: 'obj', constraints, variables }, { maxPivots: 50000 });

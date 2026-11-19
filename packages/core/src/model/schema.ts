@@ -8,7 +8,7 @@
  */
 import { z } from 'zod';
 
-export const PROJECT_FORMAT_VERSION = 4;
+export const PROJECT_FORMAT_VERSION = 5;
 
 const id = z.string().min(1);
 const finite = z.number().finite();
@@ -165,6 +165,12 @@ export const BuildingSchema = z.object({
    * `platformId = null` = Bahnhofsgebäude, sonst der Bahnsteig.
    */
   stationPart: z.object({ stationId: id, platformId: id.nullable() }).nullable().default(null),
+  /**
+   * Nur Smart- und programmierbare Splitter: Filter je Ausgang (Anschluss-ID → Regeln). Regeln sind
+   * Gegenstands-IDs oder `any` (alles), `none` (nichts), `overflow` (Überlauf), `any-undefined`
+   * (alles, was keine Regel eines Ausgangs nennt). `null` = verteilt wie ein normaler Splitter.
+   */
+  sortRules: z.record(z.string(), z.array(z.string())).nullable().default(null),
   notes: z.string().default(''),
 });
 export type Building = z.infer<typeof BuildingSchema>;

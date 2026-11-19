@@ -64,7 +64,7 @@ export const TOURS: Tour[] = [
     title: N_('Einführung'),
     steps: [
       {
-        title: N_('Willkommen beim Satis Planner'),
+        title: N_('Willkommen beim Satisfactory Planner'),
         body: N_(
           'Der Planer verbindet Produktionsberechnung, maßstabsgetreue Fabrikgrundrisse und Schienennetze in einem Projekt. Alle Maße, Rezepte und Mengen stammen aus den Spieldaten von Satisfactory. Diese Einführung zeigt in wenigen Schritten, wo was zu finden ist.',
         ),

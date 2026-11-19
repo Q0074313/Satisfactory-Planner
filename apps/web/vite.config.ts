@@ -43,8 +43,8 @@ function installableApp(): Plugin {
     generateBundle(_opts, bundle) {
       for (const name of ICONS) this.emitFile({ type: 'asset', fileName: name, source: readFileSync(new URL(`./pwa/${name}`, import.meta.url)) });
       const manifest = {
-        name: 'Satis Planner',
-        short_name: 'Satis Planner',
+        name: 'Satisfactory Planner',
+        short_name: 'Satisfactory Planner',
         description: 'Planungswerkzeug für Satisfactory: Produktion, Fabrikgrundriss, Schienennetz',
         start_url: base,
         scope: base,

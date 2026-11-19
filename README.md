@@ -1,4 +1,4 @@
-# Satis Planner
+# Satisfactory Planner
 
 Planungswerkzeug für **Satisfactory 1.2**. Es verbindet Produktionsberechnung, maßstabsgetreue Fabrikplanung und Schienennetze in **einem** Projektmodell. Inoffizielles Fan-Projekt, nicht mit Coffee Stain Studios verbunden.
 
@@ -124,7 +124,7 @@ Nützlich: `docker compose logs -f app`, `docker compose ps`, `curl -s localhost
 
 ## Datenformat und Migrationen
 
-Jedes gespeicherte Projekt trägt auf oberster Ebene das Feld **`formatVersion`** (derzeit **4**; definiert als `PROJECT_FORMAT_VERSION` in [packages/core/src/model/schema.ts](packages/core/src/model/schema.ts)). Beim Laden – vom Server, aus IndexedDB oder per JSON-Import – führt die zentrale Funktion `migrateProject()` in [packages/core/src/project/migrations.ts](packages/core/src/project/migrations.ts) ältere Stände Schritt für Schritt ins aktuelle Format über (1→2→3→4 …) und prüft danach das Schema. Gespeichert wird immer im aktuellen Format; auf der Platte bleibt eine alte Datei bis zum nächsten Speichern unverändert.
+Jedes gespeicherte Projekt trägt auf oberster Ebene das Feld **`formatVersion`** (derzeit **5**; definiert als `PROJECT_FORMAT_VERSION` in [packages/core/src/model/schema.ts](packages/core/src/model/schema.ts)). Beim Laden – vom Server, aus IndexedDB oder per JSON-Import – führt die zentrale Funktion `migrateProject()` in [packages/core/src/project/migrations.ts](packages/core/src/project/migrations.ts) ältere Stände Schritt für Schritt ins aktuelle Format über (1→2→3→4→5 …) und prüft danach das Schema. Gespeichert wird immer im aktuellen Format; auf der Platte bleibt eine alte Datei bis zum nächsten Speichern unverändert.
 
 **Neue Migration hinzufügen** (bei jeder Formatänderung, die alte Daten unlesbar oder falsch machen würde – neue Pflichtfelder, Umbenennungen, geänderte Bedeutung):
 
@@ -164,7 +164,7 @@ Ein Projekt mit einer **neueren** Version als der Server kennt, wird abgelehnt s
 | 0.7 | Automatisches Fabriklayout (Varianten Reihen/kompakt/Etagen, Prüfung im Durchsatzmodell), Blackbox-Fabriken, Rezepte nachschlagen und vergleichen | ✅ |
 | 0.8 | Anschlusslagen aus den Spielpaketen (Lage, Höhe, Richtung), Auto-Layout und Beispiele damit, 3D-Ansicht der Fabrik (nur ansehen; 0.8.1/0.8.2: Namen, Infos beim Überfahren, Flussrichtung animierbar, Fundamentraster, Stockwerk als Schnitt), kürzere Wege und nur nötige Höhen im Auto-Layout, verschiebbare Knoten im Produktionsdiagramm | ✅ |
 | 0.9 | Spielstand importieren (Fabriken, Bänder und Rohre, Produktionspläne, Schienennetz mit Zügen, Spielfortschritt; im Browser gelesen), Freischaltung nach Phase/HUB-Tier und M.A.M. (gesperrte Rezepte und Gebäude ausgegraut, in Plänen nicht genutzt), Gebäude selbst setzen und automatisch verbinden, Flüssigkeitspuffer im Auto-Layout, Weltraster um 4 m korrigiert; 0.9.1: Import mit Fundamenten, Signalrichtung geprüft, Gewinnung an ihrer Fabrik, Namen nach Endprodukten; 0.9.2: Rohre in beide Richtungen, Stationen nach Bedarf, Logistikebenen, Gebäude einer anderen Fabrik zuweisen | ✅ |
-| 0.10 | Nutzung als App über GitHub: GitHub Pages, installierbar und offline nutzbar, Versionsprüfung gegen die GitHub-Releases (auch mit Server), Veröffentlichung per Tag; 0.10.1: Fehler melden (Issue-Vorlage, Link in der App) | ✅ |
+| 0.10 | Nutzung als App über GitHub: GitHub Pages, installierbar und offline nutzbar, Versionsprüfung gegen die GitHub-Releases (auch mit Server), Veröffentlichung per Tag; 0.10.1: Fehler melden (Issue-Vorlage, Link in der App); ab 0.10.2 Spielstand-Import: Fabriken über Lager und Bahnhöfe hinweg getrennt, Wege über Splitter insgesamt gemessen, Fundamentflächen, Teilungsvorschlag nach Produktionsketten, senkrechte Pumpen in richtiger Höhe; 0.10.3: Logistikebenen mit Lagern, Transportaufträge über Fabrikgrenzen und Stationen hinweg, gleichmäßig verteilte Gewinnung, Fabrik-Reiter umsortierbar; 0.10.4: Splitter mit Filtern, Überlauf und gleichmäßiger Verteilung wie im Spiel, Spieldaten 1.2.5.1, Spielstand-Auswahl mit gemerktem Ordner | ✅ |
 
 Details und Abnahmekriterien: [docs/ENTWICKLUNGSPLAN.md](docs/ENTWICKLUNGSPLAN.md).
 

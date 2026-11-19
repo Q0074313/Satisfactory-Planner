@@ -74,9 +74,11 @@ export const CORE_EN: Record<string, string> = {
   'Förderhöhe im Spiel prüfen und bei Bedarf eine Pipeline-Pumpe einplanen.': 'Check the head lift in the game and add a pipeline pump if needed.',
 
   // --- Fabrik: Durchsatzmodell ---
-  'Splitter und Zusammenführungen verteilen bestmöglich (im Spiel: gleichmäßig, Überlauf auf freie Ausgänge).':
-    'Splitters and mergers distribute optimally (in the game: evenly, overflow to free outputs).',
-  'Filter intelligenter und programmierbarer Splitter werden nicht berücksichtigt.': 'Filters of smart and programmable splitters are not considered.',
+  'Splitter verteilen gleichmäßig auf ihre Ausgänge, soweit Maschinen dadurch nicht weniger bekommen; Überlauf-Ausgänge nur, wenn die übrigen nichts mehr abnehmen.':
+    'Splitters distribute evenly across their outputs as long as machines do not get less as a result; overflow outputs only when the others take nothing more.',
+  'Filter intelligenter und programmierbarer Splitter wie im Spiel (aus dem Spielstand bzw. eingestellt). Lager ohne Abgang gelten als voll; beladende Stationen ohne Transportauftrag nehmen alles ab.':
+    'Filters of smart and programmable splitters as in the game (from the save or as set). Storage without an outlet counts as full; loading stations without a transport order take everything.',
+  'Splitter verteilen im Spiel streng abwechselnd; reicht die Menge nicht für alle Ausgänge, bevorzugt der Planer die Maschinen.': 'In the game, splitters alternate strictly; if the amount is not enough for all outputs, the planner favours the machines.',
   'Rohre fließen in Zeichenrichtung; Förderhöhe, Pumpen und Druck werden nicht berechnet.':
     'Pipes flow in drawing direction; head lift, pumps and pressure are not calculated.',
   'Kraftwerke mit gewähltem Brennstoff verbrauchen wie Maschinen; ohne Brennstoffwahl nehmen sie Brennstoff ohne modellierten Verbrauch ab.':
@@ -435,8 +437,8 @@ export const CORE_EN: Record<string, string> = {
   'Über die Verbindung kann ein Gegenstand ankommen, den das Zielgebäude nicht annimmt (kein Rezeptbestandteil bzw. Flüssigkeit am AWESOME-Schredder). Im Spiel staut sich das Band bzw. Rohr.':
     'An item can arrive via the connection that the target building does not accept (not an ingredient, or a fluid at the AWESOME Sink). In the game the belt or pipe backs up.',
   'Durchsatzmodell vereinfacht': 'Simplified throughput model',
-  'Das Durchsatzmodell rechnet mit bestmöglicher Verteilung an Splittern, ohne Filter intelligenter Splitter, mit Rohrfluss in Zeichenrichtung und ohne Förderhöhe. Kraftwerke ohne Brennstoffwahl nehmen Brennstoff ohne modellierten Verbrauch ab. Pufferfüllstände und Anlaufzeiten werden nicht simuliert.':
-    'The throughput model assumes optimal distribution at splitters, no smart splitter filters, pipe flow in drawing direction and no head lift. Power plants without a chosen fuel accept fuel without modelled consumption. Buffer levels and start-up times are not simulated.',
+  'Das Durchsatzmodell verteilt an Splittern gleichmäßig (Maschinen haben Vorrang), mit Filtern und Überlauf wie im Spiel, Rohrfluss in Zeichenrichtung und ohne Förderhöhe. Kraftwerke ohne Brennstoffwahl nehmen Brennstoff ohne modellierten Verbrauch ab. Pufferfüllstände und Anlaufzeiten werden nicht simuliert.':
+    'The throughput model distributes evenly at splitters (machines take precedence), with filters and overflow as in the game, pipe flow in drawing direction and no head lift. Power plants without a chosen fuel accept fuel without modelled consumption. Buffer levels and start-up times are not simulated.',
   'Förderhöhe von Rohren nicht geprüft': 'Pipe head lift not checked',
   'Satisfactory Docs: mDesignPressure der Pipeline-Pumpen': 'Satisfactory Docs: mDesignPressure of pipeline pumps',
   'Senkrechte Leitung durchquert ein Stockwerk': 'Vertical line passes through a floor',
@@ -649,7 +651,6 @@ export const CORE_EN: Record<string, string> = {
   "Keine aufgestellte Maschine verbraucht {item}. Erzeuger:": "No placed machine consumes {item}. Producers:",
   "Alle {n} Abnehmer von {item} erhalten laut Planer ihre volle Menge.": "According to the planner, all {n} consumers of {item} receive their full amount.",
   "{name} erhält {got} von {need} {item}.": "{name} receives {got} of {need} {item}.",
-  "Splitter verteilen im Spiel gleichmäßig (mit Überlauf), der Planer rechnet mit der bestmöglichen Verteilung.": "In the game splitters distribute evenly (with overflow); the planner assumes the best possible distribution.",
   "Strom: Sicherung im Stromnetz ausgelöst, Netz überlastet oder Gebäude ohne Stromanschluss.": "Power: fuse in the power grid tripped, grid overloaded or building without a power connection.",
   "Rohre: Förderhöhe, fehlende Pumpe, Rückfluss oder Luft im Rohr nach Umbauten (im Spiel ggf. Leitung leeren).": "Pipes: head lift, missing pump, backflow or air in the pipe after rebuilding (flush the pipe in the game if necessary).",
   "Maschinen sind im Spiel ggf. pausiert, haben einen anderen Takt oder ein volles Ausgangslager.": "In the game, machines may be paused, have a different clock speed or a full output inventory.",
@@ -839,6 +840,9 @@ export const CORE_EN: Record<string, string> = {
   "{n} Leitungen ohne Fluss über die neue Fabrikgrenze entfernt.": "{n} lines without flow across the new factory boundary removed.",
   "{n} Leitungen über die neue Fabrikgrenze als Transportaufträge angelegt.": "{n} lines across the new factory boundary created as transport orders.",
   "Rohre zwischen Rohrkreuzungen bzw. Flüssigkeitspuffern fließen in beide Richtungen.": "Pipes between pipeline junctions or fluid buffers flow in both directions.",
+  "Gegenstand {id} ist nicht vorhanden.": "Item {id} does not exist.",
+  "Spieldaten von 1.2.4.0 auf 1.2.5.1 umgestellt (inhaltlich identisch)": "Game data switched from 1.2.4.0 to 1.2.5.1 (identical content)",
+  "Ausgang {item}: Die Abnehmer werden schon von anderen Quellen voll versorgt (z. B. zurückgeführtes Nebenprodukt wie Wasser). Diese Menge wird nicht gebraucht und staut sich – unabhängig von Strom oder Takt.": "Output {item}: the consumers are already fully supplied from other sources (e.g. a recycled by-product such as water). This amount is not needed and backs up – regardless of power or clock speed.",
 };
 
 registerTranslations('en', CORE_EN);

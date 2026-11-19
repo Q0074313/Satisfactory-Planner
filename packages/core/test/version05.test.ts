@@ -280,7 +280,7 @@ describe('Drohnen als Transportmittel', () => {
 describe('Beispielprojekte', () => {
   for (const kind of ['simple', 'complex'] as const) {
     it(`${kind}: gültig, ohne Fehler und Warnungen, alle Maschinen voll ausgelastet, Pläne erreichbar`, () => {
-      const p = buildExampleProject(gd, kind, { datasetId: 'sf-1.2.4.0', gameVersion: '1.2.4.0' });
+      const p = buildExampleProject(gd, kind, { datasetId: 'sf-1.2.5.1', gameVersion: '1.2.5.1' });
       expect(() => ProjectSchema.parse(p)).not.toThrow();
       const findings = createValidator()(p, gd).findings.filter((f) => f.severity !== 'info');
       expect(findings.map((f) => `${f.ruleId} ${f.message}`)).toEqual([]);

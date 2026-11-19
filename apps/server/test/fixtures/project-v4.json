@@ -1,0 +1,133 @@
+{
+  "formatVersion": 4,
+  "id": "prj_v4fixture00",
+  "name": "Format 4 (Spieldaten 1.2.4.0)",
+  "description": "",
+  "createdAt": "2026-10-01T12:00:00.000Z",
+  "updatedAt": "2026-10-01T12:00:00.000Z",
+  "gameData": {
+    "datasetId": "sf-1.2.4.0",
+    "gameVersion": "1.2.4.0"
+  },
+  "settings": {
+    "gridM": 8,
+    "snapM": 1,
+    "snapAngleDeg": 90,
+    "simulation": {
+      "trainAverageSpeedKmh": 80,
+      "dockingS": 27.08,
+      "timeStepS": 0.5,
+      "durationS": 3600
+    }
+  },
+  "factories": {
+    "fac_v3platten01": {
+      "id": "fac_v3platten01",
+      "name": "Plattenwerk",
+      "color": "#e8a33d",
+      "floorIds": [
+        "flr_v3platten01"
+      ],
+      "notes": "",
+      "map": {
+        "x": -120000,
+        "y": 80000,
+        "rotationDeg": 0
+      },
+      "blackbox": false
+    }
+  },
+  "floors": {
+    "flr_v3platten01": {
+      "id": "flr_v3platten01",
+      "factoryId": "fac_v3platten01",
+      "name": "Erdgeschoss",
+      "kind": "production",
+      "elevationM": 0,
+      "heightM": 18
+    }
+  },
+  "areas": {},
+  "buildings": {
+    "bld_v3miner0001": {
+      "id": "bld_v3miner0001",
+      "factoryId": "fac_v3platten01",
+      "type": "Build_MinerMk2_C",
+      "label": "",
+      "recipeId": null,
+      "clock": 1,
+      "somersloops": 0,
+      "placement": {
+        "floorId": "flr_v3platten01",
+        "x": 0,
+        "y": 0,
+        "zOffsetM": 0,
+        "rotationDeg": 0
+      },
+      "groupInstance": null,
+      "extraction": {
+        "itemId": "Desc_OreIron_C",
+        "purity": "pure",
+        "nodeId": null
+      },
+      "transfer": null,
+      "notes": ""
+    },
+    "bld_v3smelter01": {
+      "id": "bld_v3smelter01",
+      "factoryId": "fac_v3platten01",
+      "type": "Build_SmelterMk1_C",
+      "label": "",
+      "recipeId": "Recipe_IngotIron_C",
+      "clock": 1,
+      "somersloops": 0,
+      "placement": {
+        "floorId": "flr_v3platten01",
+        "x": 24,
+        "y": 0,
+        "zOffsetM": 0,
+        "rotationDeg": 0
+      },
+      "groupInstance": null,
+      "extraction": null,
+      "transfer": null,
+      "notes": ""
+    }
+  },
+  "links": {},
+  "groups": {},
+  "productionPlans": {
+    "pln_v3platten01": {
+      "id": "pln_v3platten01",
+      "factoryId": "fac_v3platten01",
+      "name": "Eisenplatten",
+      "mode": "target",
+      "targets": [
+        {
+          "itemId": "Desc_IronPlate_C",
+          "ratePerMin": 40
+        }
+      ],
+      "supplies": [],
+      "enabledAlternates": [],
+      "disabledRecipes": [],
+      "machineLimits": [],
+      "limitToExistingMachines": false,
+      "optimize": "resources",
+      "power": {
+        "generators": []
+      },
+      "suggestAlternates": false
+    }
+  },
+  "railNetworks": {},
+  "railNodes": {},
+  "railSegments": {},
+  "railSignals": {},
+  "stations": {},
+  "trains": {},
+  "timetables": {},
+  "transportOrders": {},
+  "measurements": {},
+  "findingStates": {}
+}

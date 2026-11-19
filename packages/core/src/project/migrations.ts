@@ -75,6 +75,19 @@ export const MIGRATIONS: MigrationStep[] = [
       return p;
     },
   },
+  {
+    from: 4,
+    // Hotfix 0.10.3: Spiel 1.2.5.1 – Docs, Anschlusslagen und Karte inhaltlich identisch mit 1.2.4.0 (geprüft), der alte Datensatz entfällt
+    description: 'Spieldaten von 1.2.4.0 auf 1.2.5.1 umgestellt (inhaltlich identisch)',
+    migrate(p) {
+      const g = p.gameData as Raw | undefined;
+      if (g && g.datasetId === 'sf-1.2.4.0') {
+        g.datasetId = 'sf-1.2.5.1';
+        g.gameVersion = '1.2.5.1';
+      }
+      return p;
+    },
+  },
 ];
 
 export function migrateProject(raw: unknown, steps: MigrationStep[] = MIGRATIONS, target = PROJECT_FORMAT_VERSION) {

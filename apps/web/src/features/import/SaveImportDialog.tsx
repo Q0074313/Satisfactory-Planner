@@ -16,6 +16,42 @@ import { useUiStore } from '../../state/uiStore';
 import { Dialog, fmtNum, Row, Section } from '../../ui/fields';
 import { readSave } from './readSave';
 
+/** Dateiauswahl mit gemerktem Ordner (File System Access API, Chrome/Edge; in Brave und Firefox nicht verfügbar). */
+type OpenPicker = (o: { id?: string; startIn?: string; types?: { description: string; accept: Record<string, string[]> }[] }) => Promise<{ getFile(): Promise<File> }[]>;
+const canPickFile = () => typeof (window as unknown as { showOpenFilePicker?: OpenPicker }).showOpenFilePicker === 'function';
+
+async function pickWithDialog(): Promise<File | undefined> {
+  try {
+    const open = (window as unknown as { showOpenFilePicker: OpenPicker }).showOpenFilePicker;
+    // Gleiche ID: der Browser öffnet wieder den Ordner der letzten Auswahl
+    const [h] = await open({ id: 'satisfactory-save', startIn: 'documents', types: [{ description: t('Satisfactory-Spielstand'), accept: { 'application/octet-stream': ['.sav'] } }] });
+    return h ? await h.getFile() : undefined;
+  } catch {
+    return undefined; // abgebrochen
+  }
+}
+
+function CopyPath({ path }: { path: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      className="small"
+      onClick={() =>
+        void navigator.clipboard?.writeText(path).then(
+          () => {
+            setDone(true);
+            setTimeout(() => setDone(false), 1500);
+          },
+          () => undefined,
+        )
+      }
+      title={t('Pfad kopieren')}
+    >
+      {done ? t('kopiert') : t('Pfad kopieren')}
+    </button>
+  );
+}
+
 interface EditGroup extends SaveGroup {
   include: boolean;
 }
@@ -81,26 +117,36 @@ export function SaveImportDialog({ onClose, onOpened }: { onClose: () => void; o
         );
     });
 
+  /** Teilungsvorschlag annehmen: die Fabrik wird durch ihre Teile ersetzt. */
+  const split = (key: string) => setGroups((gs) => gs.flatMap((g) => (g.key === key && g.split ? g.split.map((p) => ({ ...p, include: g.include })) : [g])));
+  const splittable = groups.filter((g) => g.split);
+
   const create = async () => {
     if (!extract || !gd || !DEFAULT_DATASET) return;
     setState('creating');
     // Rechnen erst nach dem Neuzeichnen (Hinweis „Lege an …“ sichtbar)
     await new Promise((r) => setTimeout(r, 30));
-    const { project, report } = projectFromSave(extract, gd, {
-      name: name.trim() || t('Spielstand'),
-      datasetId: DEFAULT_DATASET.datasetId,
-      gameVersion: DEFAULT_DATASET.gameVersion,
-      groups: groups.filter((g) => g.include).map((g) => ({ name: g.name.trim() || t('Fabrik'), buildingIds: g.buildingIds })),
-      rail,
-      plans,
-    });
-    const ok = await storeNewProject(project);
-    if (!ok) {
+    try {
+      const { project, report } = projectFromSave(extract, gd, {
+        name: name.trim() || t('Spielstand'),
+        datasetId: DEFAULT_DATASET.datasetId,
+        gameVersion: DEFAULT_DATASET.gameVersion,
+        groups: groups.filter((g) => g.include).map((g) => ({ name: g.name.trim() || t('Fabrik'), buildingIds: g.buildingIds })),
+        rail,
+        plans,
+      });
+      const ok = await storeNewProject(project);
+      if (!ok) {
+        setState('edit');
+        return;
+      }
+      toastReport(report);
+      onOpened();
+    } catch (e) {
+      // Fehler zeigen statt im Zustand „Lege an …“ hängen zu bleiben
+      useUiStore.getState().toast(t('Projekt konnte nicht angelegt werden: {msg}', { msg: e instanceof Error ? e.message : String(e) }), 'error');
       setState('edit');
-      return;
     }
-    toastReport(report);
-    onOpened();
   };
 
   const tier = extract && gd ? Math.max(0, ...extract.schematics.map((id) => gd.data.schematics?.[id]).filter((s) => s?.kind === 'milestone').map((s) => s!.tier)) : 0;
@@ -117,10 +163,23 @@ export function SaveImportDialog({ onClose, onOpened }: { onClose: () => void; o
               )}
             </p>
             <ul className="dim small-text save-paths">
-              <li>{t('Windows: %LOCALAPPDATA%\\FactoryGame\\Saved\\SaveGames\\<ID>\\')}</li>
-              <li>{t('Linux (Steam/Proton): ~/.steam/steam/steamapps/compatdata/526870/pfx/drive_c/users/steamuser/AppData/Local/FactoryGame/Saved/SaveGames/<ID>/')}</li>
+              <li>
+                {t('Windows: %LOCALAPPDATA%\\FactoryGame\\Saved\\SaveGames\\<ID>\\')} <CopyPath path={'%LOCALAPPDATA%\\FactoryGame\\Saved\\SaveGames\\'} />
+              </li>
+              <li>
+                {t('Linux (Steam/Proton): ~/.steam/steam/steamapps/compatdata/526870/pfx/drive_c/users/steamuser/AppData/Local/FactoryGame/Saved/SaveGames/<ID>/')}{' '}
+                <CopyPath path="~/.steam/steam/steamapps/compatdata/526870/pfx/drive_c/users/steamuser/AppData/Local/FactoryGame/Saved/SaveGames/" />
+              </li>
               <li>{t('Mac (CrossOver, Whisky o. Ä.): im Windows-Laufwerk der Flasche unter …/drive_c/users/<Name>/AppData/Local/FactoryGame/Saved/SaveGames/<ID>/')}</li>
             </ul>
+            <p className="dim small-text">
+              {t('Tipp: Pfad kopieren und im Dateidialog einfügen (Linux: Strg+L, Windows: in die Adressleiste). Chrome und Edge öffnen beim nächsten Mal wieder den zuletzt gewählten Ordner.')}
+            </p>
+            {canPickFile() && (
+              <button className="primary" disabled={state === 'reading' || !gd} onClick={() => void pickWithDialog().then(pick)} data-testid="save-pick">
+                {t('Spielstand wählen …')}
+              </button>
+            )}{' '}
             <input ref={fileRef} type="file" accept=".sav" disabled={state === 'reading' || !gd} onChange={(e) => void pick(e.target.files?.[0])} data-testid="save-file" />
             {state === 'reading' && <p data-testid="save-reading">{t('Lese Spielstand …')}</p>}
             {error && <p className="warn-text">{error}</p>}
@@ -145,7 +204,10 @@ export function SaveImportDialog({ onClose, onOpened }: { onClose: () => void; o
                     <Row label={t('Projektname')}>
                       <input value={name} onChange={(e) => setName(e.target.value)} />
                     </Row>
-                    <Row label={t('Abstand')} hint={t('Gebäude mit höchstens diesem Abstand bilden eine Fabrik; über Bänder bzw. Rohre verbundene immer (bis 150 m).')}>
+                    <Row
+                      label={t('Abstand')}
+                      hint={t('Maschinen mit höchstens diesem Abstand bilden eine Fabrik (nicht über getrennte Fundamentflächen hinweg), über Bänder bzw. Rohre verbundene bei bis zu 150 m Weg. Lager, Bahnhöfe und Lkw-Stationen verbinden keine Fabriken; sie gehören zur nächsten.')}
+                    >
                       <input type="range" min={4} max={80} step={4} value={gapM} onChange={(e) => setGapM(Number(e.target.value))} data-testid="save-gap" /> {gapM} m
                     </Row>
                     <label className="check-row">
@@ -165,6 +227,11 @@ export function SaveImportDialog({ onClose, onOpened }: { onClose: () => void; o
                       <button className="small" onClick={() => setGroups((gs) => gs.map((g) => ({ ...g, include: g.counts.machines + g.counts.generators > 0 })))}>
                         {t('nur mit Maschinen')}
                       </button>
+                      {splittable.length > 0 && (
+                        <button className="small" onClick={() => splittable.forEach((g) => split(g.key))} data-testid="save-split-all" title={t('Große Fabriken nach Produktionsketten teilen (Vorschlag)')}>
+                          {t('alle Vorschläge teilen ({n})', { n: splittable.length })}
+                        </button>
+                      )}
                     </div>
                     <ul className="save-groups" data-testid="save-groups">
                       {groups.map((g) => (
@@ -175,6 +242,16 @@ export function SaveImportDialog({ onClose, onOpened }: { onClose: () => void; o
                             {t('{b} Gebäude, {m} Maschinen', { b: g.counts.buildings, m: g.counts.machines + g.counts.generators })}
                             {g.products.length > 0 && <> · {g.products.map((id) => gd.name(id)).join(', ')}</>}
                           </span>
+                          {g.split && (
+                            <button
+                              className="small"
+                              onClick={() => split(g.key)}
+                              title={t('Nach Produktionsketten teilen: {parts}', { parts: g.split.map((p) => p.name).join(', ') })}
+                              data-testid="save-split"
+                            >
+                              {t('teilen ({n})', { n: g.split.length })}
+                            </button>
+                          )}
                           <select
                             className="small"
                             value=""
@@ -195,7 +272,7 @@ export function SaveImportDialog({ onClose, onOpened }: { onClose: () => void; o
                     </ul>
                     {(grouping.ungrouped > 0 || grouping.longLinks > 0) && (
                       <p className="dim small-text">
-                        {t('{u} einzelne Gebäude ohne Maschine ausgelassen; {l} Verbindungen über 150 m werden zu Transportaufträgen zwischen Fabriken.', { u: grouping.ungrouped, l: grouping.longLinks })}
+                        {t('{u} einzelne Gebäude ohne Maschine ausgelassen; {l} Band- bzw. Rohrverbindungen zwischen Fabriken werden zu Transportaufträgen.', { u: grouping.ungrouped, l: grouping.longLinks })}
                       </p>
                     )}
                   </Section>

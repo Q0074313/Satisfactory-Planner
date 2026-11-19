@@ -57,6 +57,21 @@ export function updateFactory(p: Project, id: string, patch: { name?: string; co
   Object.assign(f, patch);
 }
 
+/**
+ * Fabrik in der Reihenfolge (Reiter) vor `beforeId` setzen (`null` = ans Ende).
+ * Die Reihenfolge ist die der Einträge in `p.factories` (bleibt beim Speichern erhalten).
+ */
+export function moveFactory(p: Project, id: string, beforeId: string | null): void {
+  must(p.factories[id], tr('Fabrik'));
+  if (id === beforeId) return;
+  const ids = Object.keys(p.factories).filter((x) => x !== id);
+  const at = beforeId === null ? ids.length : ids.indexOf(beforeId);
+  ids.splice(at < 0 ? ids.length : at, 0, id);
+  const next: Project['factories'] = {};
+  for (const x of ids) next[x] = p.factories[x]!;
+  p.factories = next;
+}
+
 /** Entfernt eine Fabrik samt Stockwerken, Gebäuden, Verbindungen, Plänen und Transportaufträgen. */
 export function removeFactory(p: Project, id: string): void {
   must(p.factories[id], tr('Fabrik'));
@@ -195,6 +210,8 @@ export interface NewBuilding {
   label?: string;
   extraction?: ExtractionInput | null;
   transfer?: Transfer | null;
+  /** Filter eines Smart- bzw. programmierbaren Splitters (siehe `Building.sortRules`). */
+  sortRules?: Record<string, string[]> | null;
 }
 
 function checkBuildingInput(p: Project, gd: GameDataIndex, nb: NewBuilding): void {
@@ -270,6 +287,7 @@ export function addBuilding(p: Project, gd: GameDataIndex, nb: NewBuilding): str
     extraction: nb.extraction ? { nodeId: null, ...nb.extraction } : defaultExtraction(gd, nb.type),
     transfer: nb.transfer ?? (transferInterface(def) ? { mode: 'unload', stationId: null } : null),
     stationPart: null,
+    sortRules: nb.sortRules ?? null,
     notes: '',
   };
   p.buildings[b.id] = b;
@@ -291,7 +309,13 @@ export interface BuildingPatch {
   type?: string;
   extraction?: ExtractionInput | null;
   transfer?: Transfer | null;
+  /** Filter eines Smart- bzw. programmierbaren Splitters (`null` = wie ein normaler Splitter). */
+  sortRules?: Record<string, string[]> | null;
 }
+
+/** Smart- und programmierbare Splitter haben Filter je Ausgang. */
+export const SORTING_SPLITTERS = new Set(['Build_ConveyorAttachmentSplitterSmart_C', 'Build_ConveyorAttachmentSplitterProgrammable_C']);
+const SORT_RULES = new Set(['any', 'none', 'overflow', 'any-undefined']);
 
 export function updateBuildings(p: Project, gd: GameDataIndex, ids: string[], patch: BuildingPatch): void {
   for (const id of ids) {
@@ -311,6 +335,8 @@ export function updateBuildings(p: Project, gd: GameDataIndex, ids: string[], pa
     if (patch.somersloops !== undefined) checkSomersloops(gd, type, patch.somersloops);
     if (patch.extraction) checkExtraction(gd, type, patch.extraction);
     if (patch.transfer) checkTransfer(p, gd, type, patch.transfer);
+    for (const r of Object.values(patch.sortRules ?? {}).flat())
+      if (!SORT_RULES.has(r) && !gd.item(r)) throw new OpError(tr('Gegenstand {id} ist nicht vorhanden.', { id: r }));
     // Rohstoff oder Reinheit von Hand geändert: Verknüpfung mit dem Vorkommen löst sich, außer sie wird mitgegeben
     const extraction = patch.extraction ? { nodeId: null, ...patch.extraction } : patch.extraction;
     Object.assign(b, patch, { recipeId }, patch.extraction !== undefined ? { extraction } : {});
@@ -319,6 +345,7 @@ export function updateBuildings(p: Project, gd: GameDataIndex, ids: string[], pa
     if ((def?.somersloopSlots ?? 0) < b.somersloops) b.somersloops = 0;
     if (!def?.extractor) b.extraction = null;
     if (!transferInterface(def)) b.transfer = null;
+    if (!SORTING_SPLITTERS.has(type)) b.sortRules = null;
   }
 }
 
@@ -745,6 +772,7 @@ export function instantiateGroup(
       extraction: m.extraction ? { ...m.extraction, nodeId: null } : null,
       transfer: transferInterface(def) ? { mode: 'unload', stationId: null } : null,
       stationPart: null,
+      sortRules: null,
       notes: '',
     };
     ids.set(m.key, id);

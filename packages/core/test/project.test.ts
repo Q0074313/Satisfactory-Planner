@@ -12,7 +12,7 @@ describe('Projekt anlegen', () => {
     expect(ProjectSchema.safeParse(p).success).toBe(true);
     const { factory } = firstFactory(p);
     expect(factory.floorIds).toHaveLength(1);
-    expect(p.gameData.datasetId).toBe('sf-1.2.4.0');
+    expect(p.gameData.datasetId).toBe('sf-1.2.5.1');
   });
 });
 

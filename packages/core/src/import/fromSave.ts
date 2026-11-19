@@ -54,6 +54,8 @@ export interface SaveGroup {
   products: string[];
   /** Umrisse der Gebäude (für die Kartenansicht). */
   shapes: Rect[];
+  /** Vorschlag: Aufteilung nach Produktionsketten (mindestens zwei Teile). */
+  split?: SaveGroup[];
 }
 
 export interface SaveGrouping {
@@ -115,7 +117,18 @@ function usable(gd: GameDataIndex, b: SaveBuilding): GdBuilding | null {
 }
 
 function worldRect(def: GdBuilding, b: SaveBuilding): Rect {
-  return rectOf(buildingOutline(def, { x: b.x, y: b.y, rotationDeg: b.yawDeg }));
+  return rectOf(buildingOutline(def, { x: b.x, y: b.y, rotationDeg: b.yawDeg, ...(b.vertical && canBeVertical(def) ? { vertical: b.vertical } : {}) }));
+}
+
+/**
+ * Unterkante eines Gebäudes im Spiel: Senkrechte Pumpen stehen im Spiel mit
+ * ihrem Ursprung auf der Längsachse (lokal x von `minX` bis `maxX`), im Planer
+ * mit der Unterkante auf der Höhe.
+ */
+function baseZ(def: GdBuilding, b: SaveBuilding): number {
+  const bounds = def.bounds;
+  if (!b.vertical || !canBeVertical(def) || !bounds) return b.z;
+  return b.vertical === 'up' ? b.z + bounds.minX : b.z - bounds.maxX;
 }
 
 /** Bandkette von einem Gebäudeanschluss bis zum nächsten Gebäude. */
@@ -175,7 +188,190 @@ function traceChains(ex: SaveExtract, isBuilding: (id: string) => boolean): Chai
   return chains;
 }
 
+/** Gruppen mit mindestens einem dieser Gebäude bleiben erhalten. */
 const ANCHOR = new Set(['production', 'extraction', 'power', 'storage']);
+/** Kern einer Fabrik: Maschinen, Gewinnung, Kraftwerke. */
+const CORE = new Set(['production', 'extraction', 'power']);
+
+/**
+ * Rolle beim Gruppieren: Maschinen (`core`) bilden Fabriken; Splitter,
+ * Zusammenführungen, Rohrkreuzungen, Pumpen und Ventile (`logistics`) leiten
+ * nur weiter; Lager, Bahnhöfe, Lkw-Stationen, Senke u. Ä. (`attach`) sind
+ * Schnittstellen und verbinden keine Fabriken, sie gehören zur nächsten.
+ */
+function roleOf(def: GdBuilding): 'core' | 'logistics' | 'attach' {
+  if (CORE.has(def.category)) return 'core';
+  return def.category === 'logistics' ? 'logistics' : 'attach';
+}
+
+/** Höhe eines Fundaments laut Spieldaten (sonst aus dem Klassennamen, z. B. 8x2 → 2 m). */
+const foundationHeight = (gd: GameDataIndex, type: string) => gd.building(type)?.foundation?.heightM ?? Number(/8x(\d)/.exec(type)?.[1] ?? 1);
+
+/**
+ * Zusammenhängende Fundamentflächen: Fundamente mit höchstens 8,6 m Abstand
+ * der Mitten (Nachbarn im 8-m-Raster, auch gedreht) und gleicher Oberkante
+ * (±1 m). Liefert zu einem Gebäude die Fläche, auf der es steht (`null` = Gelände).
+ */
+function foundationIslands(gd: GameDataIndex, list: SaveExtract['foundations']): (b: { x: number; y: number; z: number }) => number | null {
+  const fds = (list ?? []).map((f) => ({ x: f.x, y: f.y, top: f.z + foundationHeight(gd, f.type) / 2 }));
+  if (!fds.length) return () => null;
+  const parent = fds.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
+  const cell = 8;
+  const grid = new Map<string, number[]>();
+  fds.forEach((f, i) => {
+    const k = `${Math.floor(f.x / cell)},${Math.floor(f.y / cell)}`;
+    grid.set(k, [...(grid.get(k) ?? []), i]);
+  });
+  const near = (x: number, y: number, r: number, fn: (j: number) => void) => {
+    for (let gx = Math.floor((x - r) / cell); gx <= Math.floor((x + r) / cell); gx++)
+      for (let gy = Math.floor((y - r) / cell); gy <= Math.floor((y + r) / cell); gy++) for (const j of grid.get(`${gx},${gy}`) ?? []) fn(j);
+  };
+  fds.forEach((f, i) =>
+    near(f.x, f.y, 8.6, (j) => {
+      const g = fds[j]!;
+      if (j !== i && Math.hypot(g.x - f.x, g.y - f.y) <= 8.6 && Math.abs(g.top - f.top) <= 1) {
+        const a = find(i);
+        const b = find(j);
+        if (a !== b) parent[a] = b;
+      }
+    }),
+  );
+  return (b) => {
+    let best: { d: number; i: number } | null = null;
+    near(b.x, b.y, 5.7, (j) => {
+      const f = fds[j]!;
+      const d = Math.hypot(f.x - b.x, f.y - b.y);
+      if (d <= 5.7 && b.z - f.top > -1 && b.z - f.top < 1.5 && (!best || d < best.d)) best = { d, i: j };
+    });
+    return best ? find((best as { i: number }).i) : null;
+  };
+}
+
+/** Kleinster Abstand zweier Rechtecke (0 bei Überlappung). */
+function rectGap(a: Rect, b: Rect): number {
+  const gx = Math.max(0, Math.max(a.minX, b.minX) - Math.min(a.maxX, b.maxX));
+  const gy = Math.max(0, Math.max(a.minY, b.minY) - Math.min(a.maxY, b.maxY));
+  return Math.hypot(gx, gy);
+}
+
+/** Kürzeste Wege (Dijkstra) ab mehreren Startpunkten bis `radius`; `pass` entscheidet, über welche Knoten es weitergeht. */
+function shortestPaths(
+  adj: { to: number; len: number }[][],
+  starts: { node: number; label: number }[],
+  radius: number,
+  pass: (node: number) => boolean,
+): Map<number, { dist: number; label: number }> {
+  const best = new Map<number, { dist: number; label: number }>();
+  const heap: [number, number, number][] = [];
+  const push = (e: [number, number, number]) => {
+    heap.push(e);
+    for (let i = heap.length - 1; i > 0; ) {
+      const p = (i - 1) >> 1;
+      if (heap[p]![0] <= heap[i]![0]) break;
+      [heap[p], heap[i]] = [heap[i]!, heap[p]!];
+      i = p;
+    }
+  };
+  const pop = (): [number, number, number] => {
+    const top = heap[0]!;
+    const last = heap.pop()!;
+    if (heap.length) {
+      heap[0] = last;
+      for (let i = 0; ; ) {
+        const l = 2 * i + 1;
+        const r = l + 1;
+        let m = i;
+        if (l < heap.length && heap[l]![0] < heap[m]![0]) m = l;
+        if (r < heap.length && heap[r]![0] < heap[m]![0]) m = r;
+        if (m === i) break;
+        [heap[m], heap[i]] = [heap[i]!, heap[m]!];
+        i = m;
+      }
+    }
+    return top;
+  };
+  for (const s of starts) push([0, s.node, s.label]);
+  const startSet = new Set(starts.map((s) => s.node));
+  while (heap.length) {
+    const [d, n, label] = pop();
+    if (best.has(n)) continue;
+    best.set(n, { dist: d, label });
+    if (!startSet.has(n) && !pass(n)) continue;
+    for (const e of adj[n]!) if (!best.has(e.to) && d + e.len <= radius) push([d + e.len, e.to, label]);
+  }
+  return best;
+}
+
+/**
+ * Gemeinschaften eines gewichteten Graphen (Louvain: Knoten wandern zur
+ * Nachbargruppe mit dem größten Modularitätsgewinn, dann werden Gruppen zu
+ * Knoten zusammengefasst). Liefert je Knoten die Nummer seiner Gemeinschaft.
+ */
+export function louvain(n: number, edges: [number, number, number][]): number[] {
+  let comm = Array.from({ length: n }, (_, i) => i);
+  let size = n;
+  let list = edges;
+  for (let level = 0; level < 12; level++) {
+    const adj = Array.from({ length: size }, () => new Map<number, number>());
+    const k = new Array<number>(size).fill(0);
+    let m2 = 0;
+    for (const [a, b, w] of list) {
+      if (a !== b) {
+        adj[a]!.set(b, (adj[a]!.get(b) ?? 0) + w);
+        adj[b]!.set(a, (adj[b]!.get(a) ?? 0) + w);
+      }
+      k[a]! += w;
+      k[b]! += w;
+      m2 += 2 * w;
+    }
+    if (m2 === 0) break;
+    const c = Array.from({ length: size }, (_, i) => i);
+    const tot = [...k];
+    let any = false;
+    for (let pass = 0, moved = true; moved && pass < 50; pass++) {
+      moved = false;
+      for (let i = 0; i < size; i++) {
+        const ci = c[i]!;
+        const links = new Map<number, number>();
+        for (const [j, w] of adj[i]!) links.set(c[j]!, (links.get(c[j]!) ?? 0) + w);
+        tot[ci]! -= k[i]!;
+        let target = ci;
+        let gain = (links.get(ci) ?? 0) - (tot[ci]! * k[i]!) / m2;
+        for (const [cj, w] of links) {
+          const g = w - (tot[cj]! * k[i]!) / m2;
+          if (g > gain + 1e-9) {
+            gain = g;
+            target = cj;
+          }
+        }
+        tot[target]! += k[i]!;
+        if (target !== ci) {
+          c[i] = target;
+          moved = true;
+          any = true;
+        }
+      }
+    }
+    if (!any) break;
+    const ids = new Map<number, number>();
+    for (const x of c) if (!ids.has(x)) ids.set(x, ids.size);
+    comm = comm.map((x) => ids.get(c[x]!)!);
+    const agg = new Map<string, number>();
+    for (const [a, b, w] of list) {
+      const ca = ids.get(c[a]!)!;
+      const cb = ids.get(c[b]!)!;
+      const key = ca < cb ? `${ca},${cb}` : `${cb},${ca}`;
+      agg.set(key, (agg.get(key) ?? 0) + w);
+    }
+    list = [...agg].map(([key, w]) => {
+      const [a, b] = key.split(',').map(Number) as [number, number];
+      return [a, b, w];
+    });
+    size = ids.size;
+  }
+  return comm;
+}
 
 export function groupSave(raw: SaveExtract, gd: GameDataIndex, opts: Partial<SaveGroupOptions> = {}): SaveGrouping {
   const o = { ...SAVE_GROUP_DEFAULTS, ...opts };
@@ -187,6 +383,25 @@ export function groupSave(raw: SaveExtract, gd: GameDataIndex, opts: Partial<Sav
   }
   const list = ex.buildings.filter((b) => defs.has(b.id));
   const index = new Map(list.map((b, i) => [b.id, i]));
+  const role = list.map((b) => roleOf(defs.get(b.id)!));
+  const rects = list.map((b) => worldRect(defs.get(b.id)!, b));
+
+  // Graph: Band- bzw. Rohrketten (Länge) und Bahnsteige (Länge 0)
+  const adj: { to: number; len: number }[][] = list.map(() => []);
+  const chains = traceChains(ex, (id) => index.has(id));
+  for (const c of chains) {
+    const a = index.get(c.from.id)!;
+    const b = index.get(c.to.id)!;
+    adj[a]!.push({ to: b, len: c.lengthM });
+    adj[b]!.push({ to: a, len: c.lengthM });
+  }
+  for (const b of list)
+    for (const r of Object.values(b.platformConns))
+      if (r && index.has(r.id)) {
+        adj[index.get(b.id)!]!.push({ to: index.get(r.id)!, len: 0 });
+        adj[index.get(r.id)!]!.push({ to: index.get(b.id)!, len: 0 });
+      }
+
   const parent = list.map((_, i) => i);
   const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
   const union = (a: number, b: number) => {
@@ -194,98 +409,135 @@ export function groupSave(raw: SaveExtract, gd: GameDataIndex, opts: Partial<Sav
     const rb = find(b);
     if (ra !== rb) parent[ra] = rb;
   };
-  // Verbindungen
-  let longLinks = 0;
-  const long: [number, number][] = [];
-  for (const c of traceChains(ex, (id) => index.has(id))) {
-    if (c.lengthM > o.maxLinkM) {
-      long.push([index.get(c.from.id)!, index.get(c.to.id)!]);
-      continue;
-    }
-    union(index.get(c.from.id)!, index.get(c.to.id)!);
-  }
-  // Bahnsteige gehören zu ihrem Bahnhof
-  for (const b of list)
-    for (const r of Object.values(b.platformConns)) if (r && index.has(r.id)) union(index.get(b.id)!, index.get(r.id)!);
+  const cores = list.map((_, i) => i).filter((i) => role[i] === 'core');
+
+  // 1. Maschinen über Wege durch Splitter, Zusammenführungen, Rohrkreuzungen (insgesamt bis maxLinkM); längere Wege sind Verbindungen zwischen Fabriken
+  for (const i of cores)
+    for (const [j] of shortestPaths(adj, [{ node: i, label: i }], o.maxLinkM, (n) => role[n] === 'logistics')) if (j !== i && role[j] === 'core') union(i, j);
+
   // Nähe (Raster für die Suche)
-  const rects = list.map((b) => worldRect(defs.get(b.id)!, b));
   const cell = 64;
-  const grid = new Map<string, number[]>();
-  rects.forEach((r, i) => {
-    for (let gx = Math.floor((r.minX - o.gapM) / cell); gx <= Math.floor((r.maxX + o.gapM) / cell); gx++)
-      for (let gy = Math.floor((r.minY - o.gapM) / cell); gy <= Math.floor((r.maxY + o.gapM) / cell); gy++) {
-        const k = `${gx},${gy}`;
-        const cellList = grid.get(k) ?? [];
-        for (const j of cellList) {
-          const a = rects[j]!;
-          const gapX = Math.max(0, Math.max(a.minX, r.minX) - Math.min(a.maxX, r.maxX));
-          const gapY = Math.max(0, Math.max(a.minY, r.minY) - Math.min(a.maxY, r.maxY));
-          if (Math.hypot(gapX, gapY) <= o.gapM && Math.abs(list[i]!.z - list[j]!.z) < o.maxDzM) union(i, j);
+  const nearby = (idx: number[], fn: (i: number, j: number) => void) => {
+    const grid = new Map<string, number[]>();
+    for (const i of idx) {
+      const r = rects[i]!;
+      for (let gx = Math.floor((r.minX - o.gapM) / cell); gx <= Math.floor((r.maxX + o.gapM) / cell); gx++)
+        for (let gy = Math.floor((r.minY - o.gapM) / cell); gy <= Math.floor((r.maxY + o.gapM) / cell); gy++) {
+          const k = `${gx},${gy}`;
+          const cellList = grid.get(k) ?? [];
+          for (const j of cellList) if (rectGap(rects[j]!, r) <= o.gapM && Math.abs(list[i]!.z - list[j]!.z) < o.maxDzM) fn(i, j);
+          cellList.push(i);
+          grid.set(k, cellList);
         }
-        cellList.push(i);
-        grid.set(k, cellList);
-      }
+    }
+  };
+  // 2. Maschinen nah beieinander, außer sie stehen auf getrennten Fundamentflächen
+  const island = foundationIslands(gd, ex.foundations);
+  const islandOf = list.map((b, i) => (role[i] === 'core' ? island(b) : null));
+  nearby(cores, (i, j) => {
+    const a = islandOf[i];
+    const b = islandOf[j];
+    if (a === null || a === undefined || b === null || b === undefined || a === b) union(i, j);
   });
 
-  // Gewinnungsposten (ohne Maschinen) gehören zu der Fabrik, die sie beliefern – auch über lange Bänder
-  const producing = () => {
-    const has = new Set<number>();
-    list.forEach((b, i) => {
-      if (defs.get(b.id)!.category === 'production' || defs.get(b.id)!.category === 'power') has.add(find(i));
-    });
-    return has;
-  };
+  // 3. Übrige Gebäude zur Fabrik mit dem kürzesten Weg (Lager und Bahnhöfe werden durchlaufen, verbinden aber keine Fabriken)
+  const label = list.map((_, i) => (role[i] === 'core' ? find(i) : -1));
+  for (const [n, r] of shortestPaths(
+    adj,
+    cores.map((i) => ({ node: i, label: find(i) })),
+    o.maxLinkM,
+    (n) => role[n] !== 'core',
+  ))
+    if (role[n] !== 'core') label[n] = r.label;
+  // ohne Weg: nah an einem zugeordneten Gebäude
+  const labeled = list.map((_, i) => i).filter((i) => label[i]! >= 0);
+  const open = list.map((_, i) => i).filter((i) => label[i]! < 0);
+  const nearest = new Map<number, { gap: number; label: number }>();
+  nearby([...labeled, ...open], (i, j) => {
+    const [u, l] = label[i]! < 0 && label[j]! >= 0 ? [i, j] : label[j]! < 0 && label[i]! >= 0 ? [j, i] : [-1, -1];
+    if (u < 0) return;
+    const gap = rectGap(rects[u]!, rects[l]!);
+    if (!nearest.has(u) || gap < nearest.get(u)!.gap) nearest.set(u, { gap, label: label[l]! });
+  });
+  for (const [u, x] of nearest) label[u] = x.label;
+  // Rest (z. B. ein Bahnhof mit Lager ohne Maschinen): eigene Gruppen über Verbindungen und Nähe
+  const rest = list.map((_, i) => i).filter((i) => label[i]! < 0);
+  const restSet = new Set(rest);
+  for (const i of rest) for (const e of adj[i]!) if (restSet.has(e.to) && e.len <= o.maxLinkM) union(i, e.to);
+  nearby(rest, union);
+  for (const i of rest) label[i] = find(i);
+  // Reste ohne Maschine und Lager (z. B. Bahnhof eines Gewinnungspostens über ein langes Band) entfielen sonst:
+  // sie gehören zu der Fabrik, mit der sie über den kürzesten Weg verbunden sind (Hotfix 0.10.3)
+  const restGroups = new Map<number, number[]>();
+  for (const i of rest) restGroups.set(label[i]!, [...(restGroups.get(label[i]!) ?? []), i]);
+  for (const idx of restGroups.values()) {
+    if (idx.some((i) => ANCHOR.has(defs.get(list[i]!.id)!.category))) continue;
+    const reach = shortestPaths(
+      adj,
+      idx.map((i) => ({ node: i, label: 0 })),
+      Infinity,
+      (n) => restSet.has(n),
+    );
+    let best: { dist: number; label: number } | null = null;
+    for (const [n, r] of reach) if (!restSet.has(n) && label[n]! >= 0 && (!best || r.dist < best.dist)) best = { dist: r.dist, label: label[n]! };
+    if (best) for (const i of idx) label[i] = best.label;
+  }
+
+  // 4. Gewinnungsposten (ohne Maschinen) gehören zu der Fabrik, die sie beliefern – auch über lange Bänder (Hotfix 0.9.1);
+  //    lange Wege zwischen zwei Fabriken mit Maschinen bleiben Verbindungen zwischen Fabriken
   for (let round = 0, changed = true; changed && round < 4; round++) {
     changed = false;
-    const has = producing();
-    for (const [a, b] of long) {
-      const ra = find(a);
-      const rb = find(b);
-      if (ra === rb) continue;
-      if (!has.has(ra) || !has.has(rb)) {
-        union(a, b);
-        changed = true;
-      }
+    const producing = new Set<number>();
+    list.forEach((b, i) => {
+      const c = defs.get(b.id)!.category;
+      if (c === 'production' || c === 'power') producing.add(label[i]!);
+    });
+    for (const c of chains) {
+      const la = label[index.get(c.from.id)!]!;
+      const lb = label[index.get(c.to.id)!]!;
+      if (la === lb || producing.has(la) === producing.has(lb)) continue;
+      const [from, into] = producing.has(la) ? [lb, la] : [la, lb];
+      for (let i = 0; i < label.length; i++) if (label[i] === from) label[i] = into;
+      changed = true;
     }
   }
-  for (const [a, b] of long) if (find(a) !== find(b)) longLinks++;
 
   const members = new Map<number, number[]>();
-  list.forEach((_, i) => members.set(find(i), [...(members.get(find(i)) ?? []), i]));
+  list.forEach((_, i) => members.set(label[i]!, [...(members.get(label[i]!) ?? []), i]));
+  const groupOf = new Map<number, string>();
   const groups: SaveGroup[] = [];
   let ungrouped = 0;
   const names = new Map<string, number>();
+  const kept: number[][] = [];
+  /** Name ohne laufende Nummer (z. B. „Kraftwerk 3“ → „Kraftwerk“). */
+  const baseName = (name: string) => name.replace(/ \d+$/, '');
   for (const idx of members.values()) {
-    const bs = idx.map((i) => list[i]!);
-    if (!bs.some((b) => ANCHOR.has(defs.get(b.id)!.category))) {
-      ungrouped += bs.length;
+    if (!idx.some((i) => ANCHOR.has(defs.get(list[i]!.id)!.category))) {
+      ungrouped += idx.length;
       continue;
     }
+    kept.push(idx);
+  }
+
+  /** Fabrikvorschlag aus Gebäuden (Name, Zählung, Endprodukte). */
+  const describe = (idx: number[], names: Map<string, number>): SaveGroup => {
+    const bs = idx.map((i) => list[i]!);
     const rect = idx.map((i) => rects[i]!).reduce((a, r) => ({ minX: Math.min(a.minX, r.minX), minY: Math.min(a.minY, r.minY), maxX: Math.max(a.maxX, r.maxX), maxY: Math.max(a.maxY, r.maxY) }));
-    // Bilanz der Maschinen: Endprodukte = Überschuss, nach Wert (AWESOME-Punkte) geordnet
-    const net = new Map<string, number>();
-    const resources = new Map<string, number>();
     const counts = { buildings: bs.length, machines: 0, extractors: 0, generators: 0, storage: 0 };
+    const resources = new Map<string, number>();
     for (const b of bs) {
       const def = defs.get(b.id)!;
       if (def.category === 'extraction') counts.extractors++;
       else if (def.category === 'power') counts.generators++;
       else if (def.category === 'storage') counts.storage++;
       else if (def.category === 'production') counts.machines++;
-      const node = b.node ? gd.mapNode(b.node) : undefined;
       if (def.extractor) {
+        const node = b.node ? gd.mapNode(b.node) : undefined;
         const item = node?.itemId ?? (def.nativeClass === 'FGBuildableWaterPump' ? 'Desc_Water_C' : null);
         if (item) resources.set(item, (resources.get(item) ?? 0) + 1);
-        continue;
       }
-      if (def.category !== 'production' || !b.recipe || !gd.recipe(b.recipe)) continue;
-      const rates = machineRates(gd, { type: b.type, recipeId: b.recipe, clock: b.clock, somersloops: b.somersloops });
-      for (const x of rates.outputs) net.set(x.item, (net.get(x.item) ?? 0) + x.perMin);
-      for (const x of rates.inputs) net.set(x.item, (net.get(x.item) ?? 0) - x.perMin);
     }
-    const value = (id: string) => gd.item(id)?.sinkPoints ?? 0;
-    const finals = [...net].filter(([, v]) => v > 0.5).sort((a, b) => value(b[0]) - value(a[0]) || b[1] - a[1]).map(([id]) => id);
-    const top = finals.length ? finals : [...net].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+    const top = productsOf(bs);
     const res = [...resources].sort((a, b) => b[1] - a[1]).map(([id]) => id);
     let base = top[0]
       ? tr('Fabrik: {item}', { item: gd.name(top[0]) })
@@ -297,7 +549,7 @@ export function groupSave(raw: SaveExtract, gd: GameDataIndex, opts: Partial<Sav
     const n = (names.get(base) ?? 0) + 1;
     names.set(base, n);
     if (n > 1) base = `${base} ${n}`;
-    groups.push({
+    return {
       key: bs[0]!.id,
       name: base,
       buildingIds: bs.map((b) => b.id),
@@ -306,11 +558,174 @@ export function groupSave(raw: SaveExtract, gd: GameDataIndex, opts: Partial<Sav
       counts,
       products: top.slice(0, 3),
       shapes: idx.map((i) => rects[i]!),
-    });
+    };
+  };
+  /** Endprodukte der Maschinen (Überschuss), wertvollste zuerst; ohne Überschuss die größten Mengen. */
+  /** Bilanz der Maschinen: Überschuss (`net`) und Herstellung (`made`) je Gegenstand. */
+  const balanceOf = (bs: SaveBuilding[]) => {
+    const net = new Map<string, number>();
+    const made = new Map<string, number>();
+    for (const b of bs) {
+      const def = defs.get(b.id)!;
+      if (def.category !== 'production' || !b.recipe || !gd.recipe(b.recipe)) continue;
+      const rates = machineRates(gd, { type: b.type, recipeId: b.recipe, clock: b.clock, somersloops: b.somersloops });
+      for (const x of rates.outputs) {
+        net.set(x.item, (net.get(x.item) ?? 0) + x.perMin);
+        made.set(x.item, (made.get(x.item) ?? 0) + x.perMin);
+      }
+      for (const x of rates.inputs) net.set(x.item, (net.get(x.item) ?? 0) - x.perMin);
+    }
+    return { net, made };
+  };
+  const productsOf = (bs: SaveBuilding[]): string[] => {
+    const { net } = balanceOf(bs);
+    const value = (id: string) => gd.item(id)?.sinkPoints ?? 0;
+    const finals = [...net].filter(([, v]) => v > 0.5).sort((a, b) => value(b[0]) - value(a[0]) || b[1] - a[1]).map(([id]) => id);
+    return finals.length ? finals : [...net].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+  };
+
+  for (const idx of kept) {
+    const g = describe(idx, names);
+    for (const i of idx) groupOf.set(i, g.key);
+    groups.push(g);
+  }
+  // 4. Vorschlag: große Fabriken nach Produktionsketten teilen
+  for (const [k, idx] of kept.entries()) {
+    const parts = splitByChains(idx);
+    if (!parts) continue;
+    // Namen der Teile: nummeriert gegen die übrigen Fabriken (die geteilte entfällt)
+    const others = new Map<string, number>();
+    for (const g of groups) if (g !== groups[k]) others.set(baseName(g.name), Math.max(others.get(baseName(g.name)) ?? 0, Number(/ (\d+)$/.exec(g.name)?.[1] ?? 1)));
+    groups[k]!.split = parts.map((p) => describe(p, others));
   }
   groups.sort((a, b) => b.counts.buildings - a.counts.buildings);
+  // Verbindungen zwischen Fabriken (werden Transportaufträge)
+  let longLinks = 0;
+  for (const c of chains) {
+    const a = groupOf.get(index.get(c.from.id)!);
+    const b = groupOf.get(index.get(c.to.id)!);
+    if (a && b && a !== b) longLinks++;
+  }
   return { groups, ungrouped, longLinks };
+
+  /**
+   * Teilungsvorschlag nach Produktionsketten: Gemeinschaften im Leitungsgraphen
+   * der Fabrik (Louvain); zu kleine Teile und Teile ohne Maschinen gehen in den
+   * am stärksten verbundenen Nachbarn, ebenso Teile, deren Hauptprodukt
+   * überwiegend in der Fabrik verbraucht wird; Teile mit demselben
+   * Hauptprodukt (z. B. Hälften eines Kraftwerks) werden wieder vereint.
+   */
+  function splitByChains(idx: number[]): number[][] | null {
+    const isMachine = (i: number) => {
+      const c = defs.get(list[i]!.id)!.category;
+      return c === 'production' || c === 'power';
+    };
+    const machines = idx.filter(isMachine).length;
+    if (machines < SPLIT_MIN_MACHINES) return null;
+    const local = new Map(idx.map((i, k) => [i, k]));
+    const edges: [number, number, number][] = [];
+    for (const i of idx) for (const e of adj[i]!) if (local.has(e.to) && i < e.to) edges.push([local.get(i)!, local.get(e.to)!, 1]);
+    const comm = louvain(idx.length, edges);
+    const parts = new Map<number, number[]>();
+    idx.forEach((i, k) => parts.set(comm[k]!, [...(parts.get(comm[k]!) ?? []), i]));
+    let cur = [...parts.values()];
+    const minSize = Math.max(SPLIT_MIN_PART, Math.min(8, Math.ceil(machines * 0.25)));
+    const whole = balanceOf(idx.map((i) => list[i]!));
+    for (let round = 0; round < 100 && cur.length > 1; round++) {
+      const partOf = new Map<number, number>();
+      cur.forEach((p, k) => p.forEach((i) => partOf.set(i, k)));
+      const weight = (a: number, b: number) => {
+        let w = 0;
+        for (const i of cur[a]!) for (const e of adj[i]!) if (partOf.get(e.to) === b) w++;
+        return w;
+      };
+      const neighbours = (a: number) => {
+        const s = new Set<number>();
+        for (const i of cur[a]!) for (const e of adj[i]!) if (partOf.has(e.to) && partOf.get(e.to) !== a) s.add(partOf.get(e.to)!);
+        return [...s];
+      };
+      const size = (p: number[]) => p.filter(isMachine).length;
+      // Kennung je Teil: Hauptprodukt, bei reinen Kraftwerken die Generatorarten
+      const top = cur.map((p) => {
+        const bs = p.map((i) => list[i]!);
+        const item = productsOf(bs)[0];
+        if (item) return item;
+        const gens = [...new Set(bs.filter((b) => defs.get(b.id)!.category === 'power').map((b) => b.type))].sort();
+        return gens.length ? `power:${gens.join(',')}` : null;
+      });
+      // Zwischenprodukt: das Hauptprodukt bleibt überwiegend in der Fabrik → gehört zur Kette, die es verbraucht
+      const intermediate = (k: number) => {
+        const item = top[k];
+        if (!item || item.startsWith('power:')) return false;
+        const made = balanceOf(cur[k]!.map((i) => list[i]!)).made.get(item) ?? 0;
+        return made > 0 && (whole.net.get(item) ?? 0) < made * 0.5;
+      };
+      const strongest = (from: number) => {
+        const ns = neighbours(from);
+        return ns.length ? ns.reduce((a, b) => (weight(from, b) > weight(from, a) ? b : a)) : cur.reduce((a, p, k) => (k !== from && (a < 0 || size(p) > size(cur[a]!)) ? k : a), -1);
+      };
+      let from = -1;
+      let into = -1;
+      // 1. gleiches Hauptprodukt (auch ohne Verbindung, z. B. zwei gleiche Kraftwerksblöcke)
+      for (let a = 0; a < cur.length && from < 0; a++)
+        for (let b = a + 1; b < cur.length; b++)
+          if (top[a] && top[a] === top[b]) {
+            from = a;
+            into = b;
+            break;
+          }
+      // 2. Maschinen zum Teil ihres Produkts (Louvain schneidet Ketten auch mitten durch)
+      if (from < 0 && moveToProduct(cur, partOf, top)) continue;
+      // 3. Teile mit Zwischenprodukten, dann zu kleine Teile (kleinster zuerst) zum stärksten Nachbarn
+      if (from < 0) {
+        const pick = (ok: (k: number) => boolean) =>
+          cur
+            .map((p, k) => ({ k, n: size(p) }))
+            .filter((x) => ok(x.k))
+            .sort((a, b) => a.n - b.n)[0];
+        const x = pick(intermediate) ?? pick((k) => size(cur[k]!) < minSize);
+        if (x) {
+          from = x.k;
+          into = strongest(from);
+        }
+      }
+      if (from < 0 || into < 0) break;
+      cur[into] = [...cur[into]!, ...cur[from]!];
+      cur = cur.filter((_, k) => k !== from);
+    }
+    return cur.length > 1 ? cur : null;
+  }
+
+  /**
+   * Maschinen, deren Produkt das Hauptprodukt eines angrenzenden anderen Teils
+   * ist (und nicht das des eigenen), wechseln dorthin. Liefert, ob sich etwas
+   * geändert hat (Teile werden an Ort und Stelle angepasst).
+   */
+  function moveToProduct(cur: number[][], partOf: Map<number, number>, top: (string | null)[]): boolean {
+    let changed = false;
+    for (let pass = 0, again = true; again && pass < 50; pass++) {
+      again = false;
+      for (const [i, k] of partOf) {
+        const b = list[i]!;
+        if (defs.get(b.id)!.category !== 'production' || !b.recipe) continue;
+        const item = gd.recipe(b.recipe)?.outputs[0]?.item;
+        if (!item || item === top[k]) continue;
+        const target = adj[i]!.map((e) => partOf.get(e.to)).find((q) => q !== undefined && q !== k && top[q] === item);
+        if (target === undefined || cur[k]!.length <= 1) continue;
+        cur[k] = cur[k]!.filter((x) => x !== i);
+        cur[target]!.push(i);
+        partOf.set(i, target);
+        again = changed = true;
+      }
+    }
+    return changed;
+  }
 }
+
+/** Teilungsvorschlag erst ab so vielen Maschinen bzw. Kraftwerken. */
+const SPLIT_MIN_MACHINES = 20;
+/** Kleinster Teil eines Teilungsvorschlags (Maschinen). */
+const SPLIT_MIN_PART = 4;
 
 // ---------------------------------------------------------------------------
 // Projekt
@@ -349,6 +764,26 @@ export interface SaveImportReport {
 
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
 const snapGrid = (v: number) => Math.round((v - WORLD_GRID_OFFSET_M) / WORLD_GRID_M) * WORLD_GRID_M + WORLD_GRID_OFFSET_M;
+
+/** Sonderklassen der Splitterfilter → Regel im Planer. */
+const SORT_SPECIAL: Record<string, string> = { Desc_Wildcard_C: 'any', Desc_None_C: 'none', Desc_Overflow_C: 'overflow', Desc_AnyUndefined_C: 'any-undefined' };
+
+/**
+ * Filter eines Smart- bzw. programmierbaren Splitters je Planer-Anschluss (Hotfix 0.10.3). Index 0–2 =
+ * Output1–3; am Förderlift-Splitter (nach `normalizeExtract`) 0 = weiterführender Lift (Output2), 1 = Output1, 2 = Output3.
+ */
+function sortRulesOf(gd: GameDataIndex, def: GdBuilding, b: SaveBuilding, lift: boolean): Record<string, string[]> | null {
+  if (!b.sortRules?.length) return null;
+  const out: Record<string, string[]> = {};
+  for (const r of b.sortRules) {
+    const comp = lift ? (['Output2', 'Output1', 'Output3'][r.output] ?? null) : `Output${r.output + 1}`;
+    const port = comp ? portOfComp(def, comp) : null;
+    const rule = SORT_SPECIAL[r.item] ?? (gd.item(r.item) ? r.item : null);
+    if (!port || !rule) continue;
+    out[port] = [...(out[port] ?? []), rule];
+  }
+  return Object.keys(out).length ? out : null;
+}
 
 /** Planer-Anschluss-ID zu einem Komponentennamen des Spiels. */
 function portOfComp(def: GdBuilding, comp: string): string | null {
@@ -406,6 +841,8 @@ function floorLevels(items: { z: number; h: number }[]): { z: number; height: nu
 
 /** Abstand zweier Stockwerke von Boden zu Boden (m), bis zu dem es dasselbe Stockwerk ist. */
 const SAME_FLOOR_GAP_M = 10;
+/** Dasselbe bei einer Logistikebene darüber bzw. darunter (m). */
+const LOGISTICS_GAP_M = 4;
 
 /**
  * Höhenstufen zu Stockwerken zusammenfassen. Eine Stufe wird nur dann ein
@@ -451,7 +888,9 @@ function mergeLevels<L extends { z: number; height: number; kind: 'production' |
         else through++;
       }
     const ownTop = Math.max(lv.z, ...own.values());
-    const separate = !cur || (lv.z - cur.level.z > SAME_FLOOR_GAP_M && (lv.water || cur.level.water || (above > 0 && above >= through)));
+    // Logistikebenen sind niedriger: eigenes Stockwerk schon ab 4 m Abstand
+    const minGap = lv.kind === 'logistics' || cur?.level.kind === 'logistics' ? LOGISTICS_GAP_M : SAME_FLOOR_GAP_M;
+    const separate = !cur || (lv.z - cur.level.z > minGap && (lv.water || cur.level.water || (above > 0 && above >= through)));
     if (!separate) {
       for (const [k, v] of own) cur!.cells.set(k, Math.max(cur!.cells.get(k) ?? -Infinity, v));
       cur!.top = Math.max(cur!.top, ownTop);
@@ -502,28 +941,57 @@ export function projectFromSave(raw: SaveExtract, gd: GameDataIndex, o: SaveImpo
     // Wasserextraktoren stehen im Wasser: eigene Ebene, auch wenn sie in die Fundamente darüber ragen
     const isWater = (b: SaveBuilding) => gd.building(b.type)!.nativeClass === 'FGBuildableWaterPump';
     const cat = (b: SaveBuilding) => gd.building(b.type)!.category;
+    // Fundamente im Bereich der Fabrik (8 m Rand)
+    const box = { minX: rect.minX - 8, minY: rect.minY - 8, maxX: rect.maxX + 8, maxY: rect.maxY + 8 };
+    const mine = (raw.foundations ?? []).filter((fd, i) => !usedFoundations.has(i) && fd.x >= box.minX && fd.x <= box.maxX && fd.y >= box.minY && fd.y <= box.maxY && (usedFoundations.add(i), true));
     // Ebenen bilden Maschinen, Kraftwerke und Lager; Miner stehen auf Gelände (Versatz zur Ebene darunter)
-    const anchors = bs.filter((b) => cat(b) === 'production' || cat(b) === 'power' || cat(b) === 'storage');
+    const machine = (b: SaveBuilding) => cat(b) === 'production' || cat(b) === 'power';
     const item = (b: SaveBuilding) => ({ z: b.z, h: buildingHeight(gd.building(b.type)!) });
+    const machineLevels = floorLevels(bs.filter(machine).map(item));
+    // Logistikebenen (Hotfix 0.10.3): mindestens 10 Splitter, Zusammenführungen, Rohrkreuzungen, Lager, Senken u. ä.
+    // auf eigener Höhe (überwiegend Logistik), nicht auf der Höhe einer Maschinenebene. Lager darauf bilden keine eigene Ebene.
+    const support = bs.filter((b) => !machine(b) && cat(b) !== 'extraction' && cat(b) !== 'rail').sort((a, b) => a.z - b.z);
+    const clusters: { z: number; top: number; members: SaveBuilding[] }[] = [];
+    for (const b of support) {
+      const c = clusters.at(-1);
+      if (c && b.z - c.top <= 3) {
+        c.top = b.z;
+        c.members.push(b);
+      } else clusters.push({ z: b.z, top: b.z, members: [b] });
+    }
+    const onMachineLevel = (z: number) => machineLevels.some((l) => z >= l.z - 1 && z <= l.z + 4);
+    // … auf Fundamenten (Splitter, Rohrkreuzungen u. Ä. bis 6 m darüber), deren Oberkante nicht die einer
+    // Maschinenebene ist (sonst z. B. eine Splitterreihe über den Maschinen)
+    const floorUnder = (b: SaveBuilding): number | null => {
+      let best: number | null = null;
+      for (const fd of mine) {
+        if (Math.abs(fd.x - b.x) > 5 || Math.abs(fd.y - b.y) > 5) continue;
+        const top = fd.z + foundationHeight(gd, fd.type) / 2;
+        if (b.z - top > -1 && b.z - top <= 6 && (best === null || top > best)) best = top;
+      }
+      return best;
+    };
+    const logClusters = clusters.flatMap((c) => {
+      const n = c.members.length;
+      const nLog = c.members.filter((b) => cat(b) === 'logistics').length;
+      const floors = c.members.map(floorUnder).filter((z): z is number => z !== null).sort((a, b) => a - b);
+      if (n < 10 || nLog * 2 < n) return [];
+      // Mehr als 10 m von jeder Maschinenebene entfernt: auch ohne Fundamente (wie bisher)
+      if (!onMachineLevel(c.z) && machineLevels.every((l) => Math.abs(c.z - l.z) > SAME_FLOOR_GAP_M)) return [c];
+      if (floors.length * 2 < n) return [];
+      const z = floors[Math.floor(floors.length / 2)]!;
+      return onMachineLevel(z) ? [] : [{ ...c, z: Math.min(z, c.z) }];
+    });
+    const inLogistics = (b: SaveBuilding) => logClusters.some((c) => b.z >= c.z - 0.5 && b.z <= c.top + 0.5);
+    const anchors = bs.filter((b) => machine(b) || (cat(b) === 'storage' && !inLogistics(b)));
     const main = floorLevels((anchors.length ? anchors : bs.filter((b) => !isWater(b))).map(item)).map((l) => ({ ...l, kind: 'production' as const }));
     const water = floorLevels(bs.filter(isWater).map((b) => ({ z: b.z, h: 0 })))
       .filter((w) => !main.some((m) => Math.abs(m.z - w.z) < 1))
       .map((l) => ({ ...l, kind: 'production' as const, water: true }));
-    // Logistikebenen: mindestens 10 Splitter, Zusammenführungen, Rohrkreuzungen u. ä. auf eigener Höhe
-    const logZ = bs.filter((b) => cat(b) === 'logistics').map((b) => b.z).sort((a, b) => a - b);
-    const clusters: { z: number; n: number }[] = [];
-    for (const z of logZ) {
-      const c = clusters.at(-1);
-      if (c && z - c.z <= 3) c.n++;
-      else clusters.push({ z, n: 1 });
-    }
     const known = [...main, ...water];
-    const logistics = clusters
-      .filter((c) => c.n >= 10 && !known.some((l) => c.z >= l.z - 1 && c.z <= l.z + 4))
+    const logistics = logClusters
+      .filter((c) => !known.some((l) => c.z >= l.z - 1 && c.z <= l.z + 4))
       .map((c) => ({ z: Math.floor(c.z * 1000) / 1000, height: DEFAULT_FLOOR_HEIGHT_M.logistics, kind: 'logistics' as const }));
-    // Fundamente im Bereich der Fabrik (8 m Rand)
-    const box = { minX: rect.minX - 8, minY: rect.minY - 8, maxX: rect.maxX + 8, maxY: rect.maxY + 8 };
-    const mine = (raw.foundations ?? []).filter((fd, i) => !usedFoundations.has(i) && fd.x >= box.minX && fd.x <= box.maxX && fd.y >= box.minY && fd.y <= box.maxY && (usedFoundations.add(i), true));
     const levels = mergeLevels(
       [...known, ...logistics].sort((a, b) => a.z - b.z),
       [
@@ -556,7 +1024,8 @@ export function projectFromSave(raw: SaveExtract, gd: GameDataIndex, o: SaveImpo
       if (isStationPart(b.type)) continue; // entstehen über den Bahnhofsabgleich
       if (raw.buildings.find((x) => x.id === b.id)?.type === SMART_LIFT) notes.add(tr('Smart-Splitter am Förderlift als Smart-Splitter übernommen.'));
       const def = gd.building(b.type)!;
-      const fl = floorFor(b.z);
+      const z = baseZ(def, b);
+      const fl = floorFor(z);
       const recipe = b.recipe && gd.recipe(b.recipe)?.producedIn.includes(b.type) ? b.recipe : null;
       if (b.recipe && !recipe) notes.add(tr('Rezept {r} ist im Planer nicht für {b} bekannt – ohne Rezept übernommen.', { r: b.recipe, b: gd.name(b.type) }));
       const gen = def.category === 'power' && b.fuel ? `Power_${b.type}_${b.fuel}` : null;
@@ -580,13 +1049,14 @@ export function projectFromSave(raw: SaveExtract, gd: GameDataIndex, o: SaveImpo
             floorId: fl.floorId,
             x: r3(b.x - origin.x),
             y: r3(b.y - origin.y),
-            zOffsetM: r3(b.z - fl.elevation),
+            zOffsetM: r3(z - fl.elevation),
             rotationDeg: r3(normalizeDeg(b.yawDeg)),
             ...(b.vertical && canBeVertical(def) ? { vertical: b.vertical } : {}),
           },
           extraction,
           // Lkw- und Tanklaster-Stationen: Be- bzw. Entladen wie im Spiel
           transfer: transferInterface(def) === 'vehicle' && b.loadMode !== null ? { mode: b.loadMode ? 'load' : 'unload', stationId: null } : null,
+          sortRules: sortRulesOf(gd, def, b, raw.buildings.find((x) => x.id === b.id)?.type === SMART_LIFT),
         });
         idOf.set(b.id, id);
         report.buildings++;
@@ -635,7 +1105,8 @@ export function projectFromSave(raw: SaveExtract, gd: GameDataIndex, o: SaveImpo
       report.linksFailed++;
     }
   }
-  // Leitungen zwischen Fabriken: direkte Transportaufträge (Band bzw. Rohr)
+  // Leitungen zwischen Fabriken: direkte Transportaufträge (Band bzw. Rohr), einer je Gegenstand
+  const graph = chainGraph(chains);
   for (const c of between) {
     const fa = idOf.get(c.from.id)!;
     const fb = idOf.get(c.to.id)!;
@@ -644,28 +1115,30 @@ export function projectFromSave(raw: SaveExtract, gd: GameDataIndex, o: SaveImpo
     const pa = portOfComp(gd.building(a.type)!, c.from.comp);
     const pb = portOfComp(gd.building(b.type)!, c.to.comp);
     const tier = c.types.map((t) => tierOf(gd, t)).find((t): t is string => !!t);
-    const what = pa && pb && tier ? deliveredItem(p, gd, fa, pa, fb, c.kind) : null;
-    if (!what || !tier) {
+    const what = pa && pb && tier ? deliveredItems(p, gd, idOf, graph, c) : [];
+    if (!what.length || !tier) {
       report.linksSkipped++;
       continue;
     }
-    try {
-      addOrder(p, gd, {
-        name: tr('{kind}: {item}', { kind: c.kind === 'belt' ? tr('Band') : tr('Rohr'), item: gd.name(what.itemId) }),
-        itemId: what.itemId,
-        ratePerMin: Math.round(what.perMin * 1000) / 1000,
-        fromFactoryId: a.factoryId,
-        toFactoryId: b.factoryId,
-        mode: c.kind,
-        fromStationId: null,
-        toStationId: null,
-        trainIds: [],
-        roundTripEstimateS: null,
-        direct: { tier, lines: 1, lengthM: Math.round(c.lengthM), from: { buildingId: fa, portId: pa! }, to: { buildingId: fb, portId: pb! } },
-      });
-      report.orders++;
-    } catch {
-      report.linksSkipped++;
+    for (const x of what) {
+      try {
+        addOrder(p, gd, {
+          name: tr('{kind}: {item}', { kind: c.kind === 'belt' ? tr('Band') : tr('Rohr'), item: gd.name(x.itemId) }),
+          itemId: x.itemId,
+          ratePerMin: Math.round(x.perMin * 1000) / 1000,
+          fromFactoryId: a.factoryId,
+          toFactoryId: b.factoryId,
+          mode: c.kind,
+          fromStationId: null,
+          toStationId: null,
+          trainIds: [],
+          roundTripEstimateS: null,
+          direct: { tier, lines: 1, lengthM: Math.round(c.lengthM), from: { buildingId: fa, portId: pa! }, to: { buildingId: fb, portId: pb! } },
+        });
+        report.orders++;
+      } catch {
+        report.linksSkipped++;
+      }
     }
   }
   if (report.orders) notes.add(tr('{n} Band- bzw. Rohrverbindungen zwischen Fabriken als Transportaufträge übernommen.', { n: report.orders }));
@@ -718,8 +1191,9 @@ function snapToStubs(p: Project, gd: GameDataIndex, pts: Vec3[], from: PortRef, 
 }
 
 /**
- * Rohre haben im Spiel keine Richtung; der Planer rechnet in Zeichenrichtung.
- * Rohre mit Ein- bzw. Ausgang an einem Ende werden danach ausgerichtet, Rohre
+ * Ketten vom Ausgang zum Eingang ausrichten (die Suche findet sie von
+ * beiden Enden). Rohre haben im Spiel keine Richtung; der Planer rechnet in
+ * Zeichenrichtung. Rohre mit Ein- bzw. Ausgang an einem Ende werden danach ausgerichtet, Rohre
  * zwischen richtungsfreien Anschlüssen (Rohrkreuzungen) von den Quellen weg
  * (Breitensuche über das Rohrnetz, Abstand in Rohren).
  */
@@ -732,8 +1206,8 @@ function orientPipes(gd: GameDataIndex, save: Map<string, SaveBuilding>, chains:
     return (def && pid && portDefs(def).find((q) => q.id === pid)?.direction) ?? 'any';
   };
   const flip = (c: Chain): Chain => ({ ...c, from: c.to, to: c.from, points: [...c.points].reverse() });
+  // Bänder (Hotfix 0.10.3) und Rohre mit Ein- bzw. Ausgang an einem Ende: vom Ausgang zum Eingang
   const out = chains.map((c) => {
-    if (c.kind !== 'pipe') return c;
     const a = dirOf(c.from);
     const b = dirOf(c.to);
     return a === 'in' || b === 'out' ? flip(c) : c;
@@ -774,48 +1248,134 @@ function orientPipes(gd: GameDataIndex, save: Map<string, SaveBuilding>, chains:
   return out;
 }
 
-/**
- * Gegenstand und Menge einer Leitung zwischen Fabriken: aus dem liefernden
- * Ausgang (Maschine, Gewinnung), sonst aus dem empfangenden Eingang (Rezept mit
- * genau einem passenden Eingang), sonst aus der Herstellung davor (über
- * Splitter, Zusammenführungen, Lager, Pumpen; eindeutiger Gegenstand).
- */
-function deliveredItem(p: Project, gd: GameDataIndex, fromId: string, fromPort: string, toId: string, kind: 'belt' | 'pipe'): { itemId: string; perMin: number } | null {
-  const fluid = (item: string) => (gd.item(item)?.form ?? 'solid') !== 'solid';
-  const fits = (item: string) => fluid(item) === (kind === 'pipe');
-  const outputsOf = (id: string) => {
-    const b = p.buildings[id]!;
-    const def = gd.building(b.type);
-    if (!def) return new Map<string, { itemId: string; perMin: number }>();
-    return outputPortAssignment(
-      gd,
-      def,
-      machineRates(gd, b).outputs.map((x) => ({ itemId: x.item, perMin: x.perMin })),
-    );
-  };
-  const direct = outputsOf(fromId).get(fromPort);
-  if (direct) return direct;
-  const to = p.buildings[toId]!;
-  const ins = machineRates(gd, to).inputs.filter((x) => fits(x.item));
-  if (ins.length === 1) return { itemId: ins[0]!.item, perMin: ins[0]!.perMin };
-  // Rückwärts durch die Logistik der liefernden Fabrik
-  const found = new Map<string, number>();
-  const seen = new Set<string>([fromId]);
-  let frontier = [fromId];
-  for (let depth = 0; depth < 8 && frontier.length; depth++) {
-    const next: string[] = [];
-    for (const l of Object.values(p.links)) {
-      if (!frontier.includes(l.to.buildingId) || seen.has(l.from.buildingId)) continue;
-      seen.add(l.from.buildingId);
-      const out = outputsOf(l.from.buildingId).get(l.from.portId);
-      if (out && fits(out.itemId)) found.set(out.itemId, (found.get(out.itemId) ?? 0) + out.perMin);
-      else if (!out) next.push(l.from.buildingId);
-    }
-    frontier = next;
+/** Ketten je Gebäude (Spielstand-IDs): ankommend bzw. abgehend. */
+interface ChainGraph {
+  into: Map<string, Chain[]>;
+  out: Map<string, Chain[]>;
+}
+
+function chainGraph(chains: Chain[]): ChainGraph {
+  const into = new Map<string, Chain[]>();
+  const out = new Map<string, Chain[]>();
+  for (const c of chains) {
+    into.set(c.to.id, [...(into.get(c.to.id) ?? []), c]);
+    out.set(c.from.id, [...(out.get(c.from.id) ?? []), c]);
   }
-  if (found.size !== 1) return null;
-  const [itemId, perMin] = [...found][0]!;
-  return { itemId, perMin };
+  return { into, out };
+}
+
+/**
+ * Gegenstände und Mengen einer Leitung zwischen Fabriken (Hotfix 0.10.3: über
+ * den ganzen Spielstand, also auch über andere Fabriken, Splitter, Lager und
+ * Pumpen hinweg):
+ * - rückwärts die Ausgänge der Maschinen bzw. Gewinnung, die hierher liefern;
+ * - vorwärts die Eingänge der Maschinen dahinter, ohne Gegenstände, die sie
+ *   schon über ihre anderen Eingänge bekommen.
+ * Es gilt die Schnittmenge, dazu der Bedarf, wenn eine Station mit
+ * unbekannter Ladung liefert, bzw. die Lieferung, wenn auch Lager, Senken
+ * oder Stationen abnehmen; ist sie leer, die bekannte Seite. Menge: die
+ * kleinere der beiden Seiten.
+ * Rohre haben im Spiel keine Richtung und werden in beide Richtungen
+ * durchsucht. Bahnhöfe und Lkw-Stationen beenden die Suche (Ladung unbekannt).
+ */
+function deliveredItems(p: Project, gd: GameDataIndex, idOf: Map<string, string>, graph: ChainGraph, c: Chain): { itemId: string; perMin: number }[] {
+  const fluid = (item: string) => (gd.item(item)?.form ?? 'solid') !== 'solid';
+  const fits = (item: string) => fluid(item) === (c.kind === 'pipe');
+  const building = (saveId: string) => {
+    const id = idOf.get(saveId);
+    const b = id ? p.buildings[id] : undefined;
+    const def = b ? gd.building(b.type) : undefined;
+    return b && def ? { id: id!, b, def } : null;
+  };
+  const isMachine = (def: GdBuilding) => def.category === 'production' || def.category === 'power' || def.category === 'extraction';
+  const stops = (def: GdBuilding) => isStationPart(def.id) || transferInterface(def) !== null;
+  const outputsCache = new Map<string, Map<string, { itemId: string; perMin: number }>>();
+  const outputsOf = (id: string) => {
+    let m = outputsCache.get(id);
+    if (!m) {
+      const b = p.buildings[id]!;
+      m = outputPortAssignment(
+        gd,
+        gd.building(b.type)!,
+        machineRates(gd, b).outputs.map((x) => ({ itemId: x.item, perMin: x.perMin })),
+      );
+      outputsCache.set(id, m);
+    }
+    return m;
+  };
+  /** Nachbarn über Ketten derselben Art: Bänder in Flussrichtung, Rohre in beide Richtungen. */
+  const next = (saveId: string, dir: 'back' | 'fwd'): SaveRef[] => {
+    const res: SaveRef[] = [];
+    for (const q of graph.into.get(saveId) ?? []) if (q.kind === c.kind && (dir === 'back' || q.kind === 'pipe')) res.push(q.from);
+    for (const q of graph.out.get(saveId) ?? []) if (q.kind === c.kind && (dir === 'fwd' || q.kind === 'pipe')) res.push(q.to);
+    return res;
+  };
+  /** Rückwärts: liefernde Maschinenausgänge ab einem Anschluss. */
+  const back = (start: SaveRef[], skip: string | null = null) => {
+    const found = new Map<string, number>();
+    let unknown = false;
+    const seen = new Set<string>(skip ? [skip] : []);
+    const queue = [...start];
+    while (queue.length && seen.size < 500) {
+      const r = queue.shift()!;
+      const x = building(r.id);
+      if (!x) continue;
+      if (isMachine(x.def)) {
+        const port = portOfComp(x.def, r.comp);
+        const o = port ? outputsOf(x.id).get(port) : undefined;
+        if (o && fits(o.itemId)) found.set(o.itemId, (found.get(o.itemId) ?? 0) + o.perMin);
+        continue;
+      }
+      if (seen.has(r.id)) continue;
+      if (stops(x.def)) {
+        unknown = true;
+        continue;
+      }
+      seen.add(r.id);
+      queue.push(...next(r.id, 'back'));
+    }
+    return { found, unknown };
+  };
+  /** Vorwärts: Bedarf der Maschinen dahinter (`null`, wenn auch Lager-Enden, Senken oder Stationen abnehmen). */
+  const fwd = (start: SaveRef) => {
+    const demand = new Map<string, number>();
+    let open = false;
+    const seen = new Set<string>([c.from.id]);
+    const queue = [start];
+    while (queue.length && seen.size < 500) {
+      const r = queue.shift()!;
+      const x = building(r.id);
+      if (!x) continue;
+      if (isMachine(x.def)) {
+        // Was nur über die anderen Eingänge ankommt, fließt nicht über diese Leitung
+        const others = new Set<string>();
+        const own = new Set<string>();
+        for (const q of graph.into.get(r.id) ?? []) if (q.kind === c.kind && q.to.comp === r.comp) for (const it of back([q.from], r.id).found.keys()) own.add(it);
+        for (const q of graph.into.get(r.id) ?? []) if (q.kind === c.kind && q.to.comp !== r.comp) for (const it of back([q.from], r.id).found.keys()) others.add(it);
+        if (c.kind === 'pipe') for (const q of graph.out.get(r.id) ?? []) if (q.kind === 'pipe' && q.from.comp !== r.comp) for (const it of back([q.to], r.id).found.keys()) others.add(it);
+        for (const inp of machineRates(gd, x.b).inputs) if (fits(inp.item) && (!others.has(inp.item) || own.has(inp.item))) demand.set(inp.item, (demand.get(inp.item) ?? 0) + inp.perMin);
+        continue;
+      }
+      if (seen.has(r.id)) continue;
+      seen.add(r.id);
+      const onward = next(r.id, 'fwd');
+      if (stops(x.def) || x.def.category === 'other' || (!onward.length && x.def.category === 'storage')) open = true;
+      if (!stops(x.def)) queue.push(...onward);
+    }
+    return { demand, open };
+  };
+  const { found: supply, unknown } = back([c.from]);
+  const { demand, open } = fwd(c.to);
+  // Schnittmenge; dazu, was eine Station mit unbekannter Ladung liefern kann bzw. was Lager, Senken oder Stationen abnehmen
+  const items = new Set([...supply.keys()].filter((i) => demand.has(i)));
+  if (unknown) for (const i of demand.keys()) items.add(i);
+  if (open || !demand.size) for (const i of supply.keys()) items.add(i);
+  if (!items.size) for (const i of (supply.size ? supply : demand).keys()) items.add(i);
+  return [...items].map((itemId) => {
+    const s = supply.get(itemId);
+    const d = demand.get(itemId);
+    return { itemId, perMin: s !== undefined && d !== undefined ? Math.min(s, d) : (s ?? d ?? 0) };
+  });
 }
 
 /**
@@ -835,7 +1395,7 @@ function importFoundations(
   levels: { z: number; floorId: string }[],
   list: { type: string; x: number; y: number; z: number; yawDeg: number }[],
 ): number {
-  const heightOf = (type: string) => gd.building(type)?.foundation?.heightM ?? Number(/8x(\d)/.exec(type)?.[1] ?? 1);
+  const heightOf = (type: string) => foundationHeight(gd, type);
   const cells = new Map<string, Map<string, { type: string; top: number }>>();
   for (const fd of list) {
     const top = fd.z + heightOf(fd.type) / 2;

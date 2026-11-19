@@ -6,12 +6,12 @@ import { buildExampleProject, createGameDataIndex, type GameData, type MapData }
 import { buildScene, hitTest } from './scene';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dir = join(here, '../../../../../data/gamedata/1.2.4.0');
+const dir = join(here, '../../../../../data/gamedata/1.2.5.1');
 const gd = createGameDataIndex(JSON.parse(readFileSync(join(dir, 'gamedata.json'), 'utf8')) as GameData, JSON.parse(readFileSync(join(dir, 'map.json'), 'utf8')) as MapData);
 
 describe('Hotfix 0.8: Auswahl im Grundriss', () => {
   it('blasse Leitungsstücke auf anderen Stockwerken lassen sich nicht anklicken', () => {
-    const p = buildExampleProject(gd, 'large', { datasetId: 'sf-1.2.4.0', gameVersion: '1.2.4.0' });
+    const p = buildExampleProject(gd, 'large', { datasetId: 'sf-1.2.5.1', gameVersion: '1.2.5.1' });
     const factory = Object.values(p.factories).find((f) => f.floorIds.length > 1)!;
     const opts = (floorId: string) => ({ ports: false, links: true, floorId, measurements: false, areas: false });
     let checked = 0;

@@ -32,7 +32,7 @@ export function ProjectList({ onClose }: { onClose?: () => void }) {
     <div className="project-list">
       <header>
         <h1>
-          Satis Planner <span className="dim small-text app-version">{versionLabel()}</span> <UpdateBadge />
+          Satisfactory Planner <span className="dim small-text app-version">{versionLabel()}</span> <UpdateBadge />
         </h1>
         <p className="dim">
           {server

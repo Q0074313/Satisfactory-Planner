@@ -61,7 +61,11 @@ function floorRuns(points: Vec3[], floors: (string | null)[]): { floorId: string
   points.forEach((q, i) => {
     const f = floors[i] ?? null;
     if (!cur || cur.floorId !== f) {
-      cur = { floorId: f, points: [q] };
+      // Wechsel ohne Lift (schräger Abschnitt): je Hälfte auf beiden Stockwerken zeichnen, sonst entsteht eine Lücke (Hotfix 0.10.3)
+      const prev = cur?.points.at(-1);
+      const mid = prev ? { x: (prev.x + q.x) / 2, y: (prev.y + q.y) / 2, z: (prev.z + q.z) / 2 } : null;
+      if (cur && mid) cur.points.push(mid);
+      cur = { floorId: f, points: mid ? [mid, q] : [q] };
       runs.push(cur);
     } else cur.points.push(q);
   });
@@ -292,9 +296,14 @@ export function renderFactory(ctx: CanvasRenderingContext2D, vp: Viewport, r: Re
   if (layers.ports && vp.scale > 2) {
     for (const sb of scene.buildings) {
       if (!sb.onActiveFloor || r.hidden?.has(sb.building.id)) continue;
+      const isOn = (id: string) => scene.connectedPorts.has(portKey(sb.building.id, id));
       for (const port of sb.ports) {
         if ((port.kind === 'belt' && !layers.belts) || (port.kind === 'pipe' && !layers.pipes)) continue;
-        drawPort(ctx, vp, port.world, port.kind, port.direction, scene.connectedPorts.has(portKey(sb.building.id, port.id)), false, port.role);
+        // Übereinanderliegende Anschlüsse (z. B. Lager, Bahnsteige): ist nur einer verbunden, halb gefüllt (oben bzw. unten)
+        const twin = sb.ports.find((q) => q !== port && q.kind === port.kind && Math.hypot(q.world.x - port.world.x, q.world.y - port.world.y) < 0.3);
+        const on = isOn(port.id);
+        const fill = twin && on !== isOn(twin.id) ? ((on ? port : twin).world.z > (on ? twin : port).world.z ? 'upper' : 'lower') : on;
+        drawPort(ctx, vp, port.world, port.kind, port.direction, fill, false, port.role);
       }
     }
   }
@@ -348,8 +357,13 @@ export function drawBuilding(
   const b = def ? placedBounds(def, pl) : null;
   if (!pl || !def || !b) return;
   if (pl.vertical) {
-    // Senkrechte Pumpe: Förderrichtung als Pfeil nach oben bzw. unten
+    // Senkrechte Pumpe: Ring in Rohrfarbe (auch herausgezoomt sichtbar), Förderrichtung als Pfeil nach oben bzw. unten
     const c = vp.toScreen({ x: pl.x, y: pl.y });
+    ctx.strokeStyle = COLORS.pipe;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, Math.max(7, ((b.maxX - b.minX) / 2) * vp.scale + 2), 0, Math.PI * 2);
+    ctx.stroke();
     drawLabel(ctx, pl.vertical === 'up' ? '▲' : '▼', c.x, c.y, { size: Math.max(9, Math.min(vp.scale * 1.1, 18)), color: COLORS.frontMark });
     return;
   }
@@ -404,18 +418,34 @@ export function drawPort(
   p: { x: number; y: number },
   kind: 'belt' | 'pipe',
   direction: 'in' | 'out' | 'any',
-  connected: boolean,
+  /** Verbunden; `upper`/`lower`: von zwei übereinanderliegenden Anschlüssen nur der obere bzw. untere. */
+  connected: boolean | 'upper' | 'lower',
   highlight = false,
   role?: 'fuel',
 ): void {
   const s = vp.toScreen(p);
   const r = Math.max(3, Math.min(vp.scale * 0.6, 9));
   const color = role === 'fuel' ? COLORS.fuelPort : direction === 'in' ? COLORS.portIn : direction === 'out' ? COLORS.portOut : COLORS.pipe;
-  ctx.beginPath();
-  if (kind === 'belt') ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-  else ctx.rect(s.x - r, s.y - r, r * 2, r * 2);
-  ctx.fillStyle = connected ? color : COLORS.bg;
+  const shape = () => {
+    ctx.beginPath();
+    if (kind === 'belt') ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+    else ctx.rect(s.x - r, s.y - r, r * 2, r * 2);
+  };
+  shape();
+  ctx.fillStyle = connected === true ? color : COLORS.bg;
   ctx.fill();
+  if (connected === 'upper' || connected === 'lower') {
+    // Obere bzw. untere Hälfte gefüllt
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(s.x - r - 1, connected === 'upper' ? s.y - r - 1 : s.y, r * 2 + 2, r + 1);
+    ctx.clip();
+    shape();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.restore();
+    shape();
+  }
   ctx.strokeStyle = highlight ? COLORS.selection : color;
   ctx.lineWidth = highlight ? 3 : 1.5;
   ctx.stroke();

@@ -1,4 +1,4 @@
-# Satis Planner auf dem Heimserver. Öffentlich erreichbar über Tailscale Funnel:
+# Satisfactory Planner auf dem Heimserver. Öffentlich erreichbar über Tailscale Funnel:
 #   tailscale funnel --bg 8080
 # Der Port ist nur auf 127.0.0.1 freigegeben – erreichbar für tailscaled auf
 # demselben Rechner, nicht direkt aus dem Heimnetz oder Internet.

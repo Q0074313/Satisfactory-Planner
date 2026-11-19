@@ -1,9 +1,9 @@
 {
   "$comment": "Anschlüsse der Gebäude aus den Spielpaketen (Komponentenvorlagen der Blueprints). Einheiten wie im Spiel: cm, Grad. Erzeugt mit packages/gamedata-tools/ports.",
   "meta": {
-    "gameVersion": "1.2.4.1",
-    "changelist": 513885,
-    "branch": "++FactoryGame+rel-main-anniversary-2026",
+    "gameVersion": "1.2.5.1",
+    "changelist": 520140,
+    "branch": "++FactoryGame+rel-main-1.2.6",
     "engine": "GAME_UE5_6"
   },
   "classes": {

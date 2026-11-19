@@ -6,9 +6,9 @@ import { buildExampleProject, createGameDataIndex, type GameData, type MapData }
 import { buildItems, hoverInfo } from './scene3d';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dir = join(here, '../../../../../data/gamedata/1.2.4.0');
+const dir = join(here, '../../../../../data/gamedata/1.2.5.1');
 const gd = createGameDataIndex(JSON.parse(readFileSync(join(dir, 'gamedata.json'), 'utf8')) as GameData, JSON.parse(readFileSync(join(dir, 'map.json'), 'utf8')) as MapData);
-const BASE = { datasetId: 'sf-1.2.4.0', gameVersion: '1.2.4.0' };
+const BASE = { datasetId: 'sf-1.2.5.1', gameVersion: '1.2.5.1' };
 
 describe('Hotfix 0.8.1: 3D-Ansicht', () => {
   const p = buildExampleProject(gd, 'medium', BASE);

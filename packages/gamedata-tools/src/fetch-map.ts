@@ -6,7 +6,7 @@
  * Übernommen werden nur Lage, Rohstoff und Reinheit (Fakten über die
  * Spielwelt), keine Bilder oder Texte.
  *
- * Aufruf: npm run gamedata:map -- [--version 1.2.4.0]
+ * Aufruf: npm run gamedata:map -- [--version 1.2.5.1]
  */
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
@@ -60,8 +60,8 @@ const shortId = (pathName: string) => pathName.replace(/^.*PersistentLevel\./, '
 const m = (cm: number) => Math.round(cm) / 100;
 
 async function main() {
-  const gameVersion = arg('version') ?? '1.2.4.0';
-  const headers = { 'User-Agent': 'SatisPlanner-gamedata-tools/0.1 (Planungswerkzeug)' };
+  const gameVersion = arg('version') ?? '1.2.5.1';
+  const headers = { 'User-Agent': 'SatisfactoryPlanner-gamedata-tools/0.1 (Planungswerkzeug)' };
   const version = (await (await fetch(`${STATIC}/lastVersion-Stable`, { headers })).text()).trim();
   const url = `${STATIC}/mapData/en-Stable.json?v=${version}`;
   const res = await fetch(url, { headers });

@@ -500,7 +500,7 @@ function PlanEditor() {
         ctx.stroke();
       }
       const parts = buildingFootprint(def, pl, L.project.floors[L.floorId]);
-      const fake = { id: '_ghost', factoryId: L.factoryId, type: tl.type, label: '', recipeId: tl.recipeId ?? null, clock: 1, somersloops: 0, placement: pl, groupInstance: null, extraction: null, transfer: null, stationPart: null, notes: '' };
+      const fake = { id: '_ghost', factoryId: L.factoryId, type: tl.type, label: '', recipeId: tl.recipeId ?? null, clock: 1, somersloops: 0, placement: pl, groupInstance: null, extraction: null, transfer: null, stationPart: null, sortRules: null, notes: '' };
       drawBuilding(ctx, vp, L.gd, { building: fake, parts }, { ghost: true, labels: true });
       drawGhostPorts(ctx, vp, fake);
       const rect = geo.rectOf(parts.flatMap((x) => x.polygon));
@@ -531,7 +531,7 @@ function PlanEditor() {
       if (!def) continue;
       const r = geo.rotate({ x: m.x, y: m.y }, tl.rotationDeg);
       const pl: Placement = { floorId: L.floorId, x: c.x + r.x, y: c.y + r.y, zOffsetM: m.zOffsetM, rotationDeg: m.rotationDeg + tl.rotationDeg };
-      const fake = { id: '_g', factoryId: L.factoryId, type: m.type, label: '', recipeId: m.recipeId, clock: m.clock, somersloops: 0, placement: pl, groupInstance: null, extraction: null, transfer: null, stationPart: null, notes: '' };
+      const fake = { id: '_g', factoryId: L.factoryId, type: m.type, label: '', recipeId: m.recipeId, clock: m.clock, somersloops: 0, placement: pl, groupInstance: null, extraction: null, transfer: null, stationPart: null, sortRules: null, notes: '' };
       drawBuilding(ctx, vp, L.gd, { building: fake, parts: buildingFootprint(def, pl, L.project.floors[L.floorId]) }, { ghost: true });
       drawGhostPorts(ctx, vp, fake);
     }

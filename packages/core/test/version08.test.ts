@@ -14,7 +14,7 @@ import * as prodOps from '../src/project/ops/production.ts';
 import { firstFactory, gameData, newProject } from './helpers.ts';
 
 const gd = gameData();
-const BASE = { datasetId: 'sf-1.2.4.0', gameVersion: '1.2.4.0' };
+const BASE = { datasetId: 'sf-1.2.5.1', gameVersion: '1.2.5.1' };
 const port = (type: string, id: string) => portDefs(gd.building(type)!).find((p) => p.id === id)!;
 
 describe('Anschlusslagen aus den Spielpaketen', () => {

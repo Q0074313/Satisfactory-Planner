@@ -1,4 +1,4 @@
-# Satis Planner – Hinweise für Claude Code
+# Satisfactory Planner – Hinweise für Claude Code
 
 Planungswerkzeug für Satisfactory 1.2 (Produktion, Fabrikgrundriss, Schienennetz, Transport) in einem Projektmodell. Sprache des Nutzers, der Oberfläche und der Doku: **Deutsch**.
 

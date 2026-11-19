@@ -30,7 +30,7 @@ body:
     id: version
     attributes:
       label: Version
-      description: Steht oben neben „Satis Planner“, z. B. v0.10.0. / Shown next to “Satis Planner”.
+      description: Steht oben neben „Satisfactory Planner“, z. B. v0.10.0. / Shown next to “Satisfactory Planner”.
       placeholder: v0.10.0
     validations:
       required: true

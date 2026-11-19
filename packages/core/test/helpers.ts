@@ -9,10 +9,10 @@ import type { Project } from '../src/model/schema.ts';
 const here = dirname(fileURLToPath(import.meta.url));
 let cached: GameDataIndex | undefined;
 
-/** Echter Spieldatensatz 1.2.4.0 aus dem Repository. */
+/** Echter Spieldatensatz 1.2.5.1 aus dem Repository. */
 export function gameData(): GameDataIndex {
   if (!cached) {
-    const dir = join(here, '../../../data/gamedata/1.2.4.0');
+    const dir = join(here, '../../../data/gamedata/1.2.5.1');
     const raw = readFileSync(join(dir, 'gamedata.json'), 'utf8');
     const map = JSON.parse(readFileSync(join(dir, 'map.json'), 'utf8')) as MapData;
     cached = createGameDataIndex(JSON.parse(raw) as GameData, map);
@@ -21,7 +21,7 @@ export function gameData(): GameDataIndex {
 }
 
 export function newProject(): Project {
-  return createProject({ name: 'Test', datasetId: 'sf-1.2.4.0', gameVersion: '1.2.4.0' });
+  return createProject({ name: 'Test', datasetId: 'sf-1.2.5.1', gameVersion: '1.2.5.1' });
 }
 
 export function firstFactory(p: Project) {

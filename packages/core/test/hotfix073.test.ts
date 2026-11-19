@@ -16,7 +16,7 @@ import { createValidator } from '../src/validation/engine.ts';
 import { firstFactory, gameData, newProject } from './helpers.ts';
 
 const gd = gameData();
-const BASE = { datasetId: 'sf-1.2.4.0', gameVersion: '1.2.4.0' };
+const BASE = { datasetId: 'sf-1.2.5.1', gameVersion: '1.2.5.1' };
 
 function planFor(itemId: string, ratePerMin: number) {
   const p = newProject();
