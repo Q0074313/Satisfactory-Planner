@@ -1,6 +1,7 @@
 {
   "name": "@satis/gamedata-tools",
   "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
   "description": "Extrahiert Spieldaten aus den offiziellen Satisfactory-Docs (CommunityResources) in das normalisierte Planer-Format.",

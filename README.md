@@ -177,6 +177,12 @@ Details und Abnahmekriterien: [docs/ENTWICKLUNGSPLAN.md](docs/ENTWICKLUNGSPLAN.m
 - [Entwicklung, Build, Betrieb](docs/BETRIEB.md) (Details zu Konfiguration und Sicherheit)
 - [CLAUDE.md](CLAUDE.md): Kurzüberblick und Konventionen für die Weiterentwicklung
 
+## Lizenz
+
+Der Quellcode steht unter der **GNU Affero General Public License v3.0 oder neuer** ([LICENSE](LICENSE)). Wer eine veränderte Fassung weitergibt oder öffentlich als Webdienst betreibt, muss deren Quellcode unter derselben Lizenz bereitstellen.
+
+Ausgenommen sind die Spieldaten unter `data/gamedata/`: Spielinhalte (Namen, Werte, Anschlusslagen) gehören Coffee Stain Studios, einzelne Fakten stammen aus dem Satisfactory Wiki (CC BY-NC-SA 3.0) und die Lage der Rohstoffvorkommen von satisfactory-calculator.com. Einzelheiten: [docs/SPIELDATEN.md](docs/SPIELDATEN.md). Satisfactory Planner ist ein Fanprojekt ohne Verbindung zu Coffee Stain Studios.
+
 ## Tastenkürzel
 
 Alle Kürzel lassen sich unter ⚙ → Tastenkürzel ändern. Standardbelegung:

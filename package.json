@@ -2,6 +2,7 @@
   "name": "satis-planner",
   "private": true,
   "version": "0.10.4",
+  "license": "AGPL-3.0-or-later",
   "description": "Planungswerkzeug für Satisfactory: Produktion, Fabrikgrundriss und Schienennetze in einem Projektmodell.",
   "repository": {
     "type": "git",

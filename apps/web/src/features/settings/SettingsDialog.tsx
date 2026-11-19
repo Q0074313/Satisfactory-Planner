@@ -202,6 +202,17 @@ export function AboutNote() {
       <p>
         {t('Spielinhalte (Namen, Werte, Kartenbild) stammen aus Satisfactory; alle Rechte und Marken liegen bei Coffee Stain Studios. Lage der Rohstoffvorkommen und Kartenkacheln: satisfactory-calculator.com, die Kacheln lädt der Browser direkt von dort.')}
       </p>
+      <p data-testid="license-note">
+        {t('Quellcode unter der GNU AGPL-3.0; ausgenommen sind die Spieldaten.')}
+        {APP_REPO && (
+          <>
+            {' '}
+            <a href={`https://github.com/${APP_REPO}`} target="_blank" rel="noopener noreferrer">
+              {t('Quellcode auf GitHub')}
+            </a>
+          </>
+        )}
+      </p>
     </div>
   );
 }
